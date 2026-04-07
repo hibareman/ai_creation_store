@@ -13,9 +13,15 @@ class Store(models.Model):
     slug = models.SlugField(unique=True, blank=True)
     description = models.TextField(blank=True, default='')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
-    tenant_id = models.IntegerField(null=True, blank=True)
+    tenant_id = models.IntegerField(null=True, blank=True, db_index=True)  # Added db_index for performance
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['tenant_id']),
+            models.Index(fields=['tenant_id', 'slug']),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -28,6 +34,7 @@ class Store(models.Model):
                 self.slug = f"{base_slug}-{counter}"
                 counter += 1
 
+        # Ensure tenant_id is never None (critical for multi-tenant)
         if not self.tenant_id:
             if self.owner_id:
                 owner_tenant_id = getattr(self.owner, 'tenant_id', None)
@@ -36,6 +43,7 @@ class Store(models.Model):
             
             super().save(*args, **kwargs)
             
+            # If tenant_id is still None, set it to the store's own id
             if not self.tenant_id:
                 self.tenant_id = self.id
                 super().save(update_fields=['tenant_id'])

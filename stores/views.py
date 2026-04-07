@@ -28,23 +28,61 @@ class StoreListCreateView(generics.ListCreateAPIView):
 # Update store
 class UpdateStoreView(generics.UpdateAPIView):
     serializer_class = StoreSerializer
-    permission_classes = [IsAuthenticated, TenantAuthenticated]
+    permission_classes = [TenantAuthenticated]
     lookup_field = 'id'
 
     def get_queryset(self):
-        if self.request.user.role == 'Super Admin':
-            return Store.objects.all()
-        return Store.objects.filter(tenant_id=self.request.tenant_id)
+        # Return all stores for permission checking
+        return Store.objects.all()
+    
+    def get_object(self):
+        """Override get_object to add proper permission checks before returning 404"""
+        try:
+            store = super().get_object()
+        except Exception:
+            # Store not found
+            raise
+        
+        # Check tenant_id match FIRST
+        if store.tenant_id != self.request.tenant_id:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You do not have access to this store")
+        
+        # Check ownership
+        if store.owner_id != self.request.user.id:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You do not own this store")
+        
+        return store
 
 # Delete store
 class DestroyStoreView(generics.DestroyAPIView):
-    permission_classes = [IsAuthenticated, TenantAuthenticated]
+    permission_classes = [TenantAuthenticated]
     lookup_field = 'id'
 
     def get_queryset(self):
-        if self.request.user.role == 'Super Admin':
-            return Store.objects.all()
-        return Store.objects.filter(tenant_id=self.request.tenant_id)
+        # Return all stores for permission checking
+        return Store.objects.all()
+    
+    def get_object(self):
+        """Override get_object to add proper permission checks before returning 404"""
+        try:
+            store = super().get_object()
+        except Exception:
+            # Store not found
+            raise
+        
+        # Check tenant_id match FIRST
+        if store.tenant_id != self.request.tenant_id:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You do not have access to this store")
+        
+        # Check ownership
+        if store.owner_id != self.request.user.id:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You do not own this store")
+        
+        return store
 
 
 # StoreSettings Views
@@ -55,7 +93,7 @@ class RetrieveUpdateStoreSettingsView(generics.RetrieveUpdateAPIView):
     PATCH /api/stores/{store_id}/settings/
     """
     serializer_class = StoreSettingsSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [TenantAuthenticated]
     
     def get_object(self):
         store_id = self.kwargs['store_id']
@@ -65,10 +103,15 @@ class RetrieveUpdateStoreSettingsView(generics.RetrieveUpdateAPIView):
             from rest_framework.exceptions import NotFound
             raise NotFound("Store not found")
         
-        # Check ownership - user must own the store or be Super Admin
-        if self.request.user.role != 'Super Admin' and store.owner_id != self.request.user.id:
+        # Check tenant isolation first (critical for multi-tenant) - MUST be checked FIRST
+        if store.tenant_id != self.request.tenant_id:
             from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You don't have permission to access this store's settings")
+            raise PermissionDenied("You do not have access to this store")
+        
+        # Then check ownership - user must own the store
+        if store.owner_id != self.request.user.id:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You do not own this store")
         
         return store.settings
 
@@ -81,7 +124,7 @@ class ListCreateStoreDomainView(generics.ListCreateAPIView):
     POST /api/stores/{store_id}/domains/
     """
     serializer_class = StoreDomainSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [TenantAuthenticated]
     
     def get_queryset(self):
         store_id = self.kwargs['store_id']
@@ -90,8 +133,12 @@ class ListCreateStoreDomainView(generics.ListCreateAPIView):
         except Store.DoesNotExist:
             return StoreDomain.objects.none()
         
+        # Check tenant isolation first (critical for multi-tenant)
+        if store.tenant_id != self.request.tenant_id:
+            return StoreDomain.objects.none()
+        
         # Check ownership
-        if self.request.user.role != 'Super Admin' and store.owner_id != self.request.user.id:
+        if store.owner_id != self.request.user.id:
             return StoreDomain.objects.none()
         
         return StoreDomain.objects.filter(store_id=store_id)
@@ -100,10 +147,15 @@ class ListCreateStoreDomainView(generics.ListCreateAPIView):
         store_id = self.kwargs['store_id']
         store = Store.objects.get(id=store_id)
         
-        # Check ownership
-        if self.request.user.role != 'Super Admin' and store.owner_id != self.request.user.id:
+        # Check tenant isolation first
+        if store.tenant_id != self.request.tenant_id:
             from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You don't have permission to add domains to this store")
+            raise PermissionDenied("You do not have access to this store")
+        
+        # Check ownership
+        if store.owner_id != self.request.user.id:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You do not own this store")
         
         domain = serializer.validated_data['domain']
         is_primary = serializer.validated_data.get('is_primary', False)
@@ -120,7 +172,7 @@ class RetrieveUpdateDestroyStoreDomainView(generics.RetrieveUpdateDestroyAPIView
     DELETE /api/stores/{store_id}/domains/{domain_id}/
     """
     serializer_class = StoreDomainSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [TenantAuthenticated]
     lookup_field = 'id'
     lookup_url_kwarg = 'domain_id'
     
@@ -131,8 +183,12 @@ class RetrieveUpdateDestroyStoreDomainView(generics.RetrieveUpdateDestroyAPIView
         except Store.DoesNotExist:
             return StoreDomain.objects.none()
         
+        # Check tenant isolation first (critical for multi-tenant)
+        if store.tenant_id != self.request.tenant_id:
+            return StoreDomain.objects.none()
+        
         # Check ownership
-        if self.request.user.role != 'Super Admin' and store.owner_id != self.request.user.id:
+        if store.owner_id != self.request.user.id:
             return StoreDomain.objects.none()
         
         return StoreDomain.objects.filter(store_id=store_id)

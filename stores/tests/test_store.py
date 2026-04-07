@@ -13,14 +13,26 @@ class StoreTests(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        # Users
+        # Users - with tenant_id
         self.user_a = User.objects.create_user(username="usera", email="a@test.com", password="pass123")
+        self.user_a.is_active = True
+        self.user_a.tenant_id = 1
+        self.user_a.save()
+        
         self.user_b = User.objects.create_user(username="userb", email="b@test.com", password="pass123")
-        # Authenticate
-        self.client.force_authenticate(user=self.user_a)
+        self.user_b.is_active = True
+        self.user_b.tenant_id = 2
+        self.user_b.save()
+        
         # Stores
-        self.store_a = Store.objects.create(owner=self.user_a, name="Store A")
-        self.store_b = Store.objects.create(owner=self.user_b, name="Store B")
+        self.store_a = Store.objects.create(owner=self.user_a, name="Store A", tenant_id=1)
+        self.store_b = Store.objects.create(owner=self.user_b, name="Store B", tenant_id=2)
+        
+        # Authenticate user_a using JWT so middleware can extract tenant_id
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(self.user_a)
+        self.token_a = str(refresh.access_token)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.token_a}')
 
     def test_create_store_user_a(self):
         response = self.client.post("/api/stores/", {"name": "New Store"})
@@ -39,6 +51,12 @@ class StoreTests(TestCase):
 
     def test_user_b_cannot_access_store_a(self):
         self.client.force_authenticate(user=self.user_b)
+        # Re-set token for user_b
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(self.user_b)
+        token_b = str(refresh.access_token)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token_b}')
+        
         response = self.client.patch(f"/api/stores/{self.store_a.id}/", {"name": "Hacked"})
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -56,16 +74,23 @@ class GetUserStoresTests(TestCase):
     """Test get_user_stores selector with multi-tenant isolation"""
 
     def setUp(self):
-        # Create users
+        # Create users with tenant_id
         self.user_a = User.objects.create_user(username="usera", email="a@test.com", password="pass123")
+        self.user_a.is_active = True
+        self.user_a.tenant_id = 1
+        self.user_a.save()
+        
         self.user_b = User.objects.create_user(username="userb", email="b@test.com", password="pass123")
+        self.user_b.is_active = True
+        self.user_b.tenant_id = 2
+        self.user_b.save()
         
         # Create stores for user_a
-        self.store_a1 = Store.objects.create(owner=self.user_a, name="Store A1")
-        self.store_a2 = Store.objects.create(owner=self.user_a, name="Store A2")
+        self.store_a1 = Store.objects.create(owner=self.user_a, name="Store A1", tenant_id=1)
+        self.store_a2 = Store.objects.create(owner=self.user_a, name="Store A2", tenant_id=1)
         
         # Create stores for user_b
-        self.store_b1 = Store.objects.create(owner=self.user_b, name="Store B1")
+        self.store_b1 = Store.objects.create(owner=self.user_b, name="Store B1", tenant_id=2)
 
     def test_get_user_stores_returns_only_user_stores(self):
         """Test that get_user_stores returns only stores owned by the user"""
@@ -616,11 +641,15 @@ class StoreSettingsAPITests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create_user(username="user", email="test@test.com", password="pass123")
-        self.store = create_store(owner=self.user, name="Test Store")
-        self.client.force_authenticate(user=self.user)
-        # Set tenant_id on request (normally done by middleware)
         self.user.tenant_id = self.user.id
         self.user.save()
+        self.store = create_store(owner=self.user, name="Test Store")
+        
+        # Use JWT token for authentication
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(self.user)
+        self.token = str(refresh.access_token)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.token}')
 
     def test_get_store_settings(self):
         """Test GET /api/stores/{id}/settings/"""
@@ -671,11 +700,15 @@ class StoreDomainAPITests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create_user(username="user", email="test@test.com", password="pass123")
-        self.store = create_store(owner=self.user, name="Test Store")
-        self.client.force_authenticate(user=self.user)
-        # Set tenant_id on request (normally done by middleware)
         self.user.tenant_id = self.user.id
         self.user.save()
+        self.store = create_store(owner=self.user, name="Test Store")
+        
+        # Use JWT token for authentication
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(self.user)
+        self.token = str(refresh.access_token)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.token}')
 
     def test_list_store_domains(self):
         """Test GET /api/stores/{id}/domains/"""
