@@ -34,7 +34,7 @@ class JWTTenantMiddleware(MiddlewareMixin):
 
             jwt_auth = JWTAuthentication()
 
-            user, _ = jwt_auth.get_user(validated_token), validated_token
+            user = jwt_auth.get_user(validated_token)
 
             if not user.is_active:
                 return JsonResponse({'detail': 'User inactive or deleted.'}, status=403)
@@ -43,7 +43,8 @@ class JWTTenantMiddleware(MiddlewareMixin):
 
             request.tenant_id = getattr(user, 'tenant_id', None)
 
-            if request.tenant_id is None:
+            # السماح لـ Super Admin بدون tenant_id
+            if request.tenant_id is None and getattr(user, 'role', None) != 'Super Admin':
                 return JsonResponse({'detail': 'tenant_id missing in token/user.'}, status=403)
 
         except (InvalidToken, TokenError):
