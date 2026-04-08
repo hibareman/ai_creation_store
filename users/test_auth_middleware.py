@@ -29,7 +29,7 @@ class AuthActivationTests(TestCase):
         # One email sent with activation link containing token
         self.assertEqual(len(mail.outbox), 1)
         body = mail.outbox[0].body
-        self.assertIn('/users/activate/?token=', body)
+        self.assertIn('/api/auth/activate/?token=', body)
 
     def test_login_blocked_before_activation(self):
         # create inactive user

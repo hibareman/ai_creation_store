@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+import uuid
 
 
 class User(AbstractUser):
@@ -18,6 +19,9 @@ class User(AbstractUser):
     )
 
     tenant_id = models.IntegerField(null=True, blank=True)
+    
+    # حقل توكن التفعيل - UUID بسيط وفريد
+    activation_token = models.UUIDField(default=uuid.uuid4, unique=True, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

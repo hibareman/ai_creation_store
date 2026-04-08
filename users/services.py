@@ -1,20 +1,17 @@
 import logging
 from django.db import DatabaseError, IntegrityError
-from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
 from django.core.mail import send_mail
 from django.conf import settings
 from .models import User
 from rest_framework_simplejwt.tokens import RefreshToken
+import uuid
 
 logger = logging.getLogger(__name__)
 
 
 def register_user(username, email, password, role='Store Owner', tenant_id=None):
     """
-    Register a new user with the given credentials. User is created inactive and
-    requires email activation.
-
-    Returns the created User instance.
+    Register a new user with activation token.
     """
     try:
         user = User(
@@ -22,6 +19,7 @@ def register_user(username, email, password, role='Store Owner', tenant_id=None)
             email=email,
             role=role,
             is_active=False,
+            activation_token=uuid.uuid4(),
         )
 
         user.set_password(password)
@@ -34,29 +32,21 @@ def register_user(username, email, password, role='Store Owner', tenant_id=None)
             user.tenant_id = tenant_id
             user.save(update_fields=['tenant_id'])
 
-        logger.info(f"User '{username}' registered successfully with role '{role}' and tenant_id {user.tenant_id}")
+        logger.info(f"User '{username}' registered successfully")
         return user
 
     except IntegrityError as e:
-        logger.warning(f"Registration failed for username '{username}': Username or email already exists - {str(e)}")
-        raise
-    except DatabaseError as e:
-        logger.error(f"Database error during registration for username '{username}': {str(e)}")
+        logger.warning(f"Registration failed: {str(e)}")
         raise
     except Exception as e:
-        logger.error(f"Unexpected error during registration for username '{username}': {str(e)}")
+        logger.error(f"Unexpected error: {str(e)}")
         raise
 
 
 def login_user(user):
-    """
-    Generate JWT tokens for the given user.
-    """
+    """Generate JWT tokens for the given user."""
     try:
         refresh = RefreshToken.for_user(user)
-
-        logger.info(f"User '{user.username}' (id: {user.id}, tenant_id: {getattr(user, 'tenant_id', None)}) logged in successfully")
-
         return {
             'access': str(refresh.access_token),
             'refresh': str(refresh),
@@ -64,53 +54,54 @@ def login_user(user):
             'role': user.role,
             'tenant_id': getattr(user, 'tenant_id', None),
         }
-
     except Exception as e:
-        logger.error(f"Failed to generate tokens for user '{user.username}' (id: {user.id}): {str(e)}")
+        logger.error(f"Failed to generate tokens: {str(e)}")
         raise
 
 
-def generate_activation_token(user):
-    """Return a timestamp-signed token for the given user id."""
-    signer = TimestampSigner()
-    return signer.sign(str(user.id))
-
-
-def activate_user(token, max_age_seconds=7 * 24 * 3600):
+def activate_user_by_token(activation_token):
     """
-    Validate activation token and activate the user. Returns the user instance.
-    Raises BadSignature or SignatureExpired on invalid tokens.
+    Activate user using UUID token.
     """
-    signer = TimestampSigner()
     try:
-        unsigned = signer.unsign(token, max_age=max_age_seconds)
-        user_id = int(unsigned)
-        user = User.objects.get(pk=user_id)
-
+        user = User.objects.get(activation_token=activation_token, is_active=False)
         user.is_active = True
-        if not getattr(user, 'tenant_id', None):
-            user.tenant_id = user.id
-        user.save(update_fields=['is_active', 'tenant_id'])
-
-        logger.info(f"Activated user id={user.id}")
+        user.activation_token = None  # مسح التوكن بعد التفعيل
+        user.save(update_fields=['is_active', 'activation_token'])
+        
+        logger.info(f"User {user.email} activated successfully")
         return user
-
-    except SignatureExpired:
-        logger.warning("Activation token expired")
-        raise
-    except BadSignature:
-        logger.warning("Invalid activation token")
-        raise
+    except User.DoesNotExist:
+        logger.warning(f"Invalid activation token: {activation_token}")
+        raise Exception("Invalid activation token")
 
 
-def send_activation_email(user, activation_url):
-    """Send activation email with the given activation_url. Uses configured EMAIL_BACKEND."""
+def send_activation_email(user):
+    """Send activation email with simple link."""
     subject = "Activate your account"
-    message = f"Hi {user.username},\n\nPlease activate your account by visiting the following link:\n{activation_url}\n\nThis link expires in 7 days.\n"
-    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@example.com')
+    activation_link = f"http://localhost:8000/api/auth/activate/{user.activation_token}/"
+    
+    message = f"""
+Hi {user.username},
+
+Click the link below to activate your account:
+
+{activation_link}
+
+This link can only be used once.
+
+-- 
+Support Team"""
+    
     try:
-        send_mail(subject, message, from_email, [user.email], fail_silently=False)
-        logger.info(f"Sent activation email to {user.email}")
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=False,
+        )
+        logger.info(f"Activation email sent to {user.email}")
     except Exception as e:
-        logger.error(f"Failed to send activation email to {user.email}: {e}")
+        logger.error(f"Failed to send email: {str(e)}")
         raise

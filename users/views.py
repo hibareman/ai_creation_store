@@ -3,13 +3,11 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .serializers import RegisterSerializer, LoginSerializer
-from django.core.signing import BadSignature, SignatureExpired
 from .services import (
     register_user,
     login_user,
-    generate_activation_token,
     send_activation_email,
-    activate_user,
+    activate_user_by_token,
 )
 
 
@@ -19,7 +17,6 @@ class RegisterView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -33,13 +30,10 @@ class RegisterView(generics.GenericAPIView):
             tenant_id=request.data.get("tenant_id")
         )
 
-        # Generate activation token and send activation email (console backend)
-        token = generate_activation_token(user)
-        activation_path = f"/users/activate/?token={token}"
-        activation_url = request.build_absolute_uri(activation_path)
-        send_activation_email(user, activation_url)
+        send_activation_email(user)
 
-        return Response({"detail": "Activation email sent."}, status=status.HTTP_201_CREATED)
+        return Response({"detail": "Activation email sent. Please check your inbox."}, 
+                       status=status.HTTP_201_CREATED)
 
 
 class LoginView(generics.GenericAPIView):
@@ -48,40 +42,38 @@ class LoginView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         user = serializer.validated_data["user"]
 
         if not user.is_active:
-            return Response({"detail": "Email not verified."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"detail": "Email not verified. Please activate your account."}, 
+                          status=status.HTTP_403_FORBIDDEN)
 
         token_data = login_user(user)
-
         return Response(token_data)
-
 
 
 class ActivateView(generics.GenericAPIView):
-    """Activate user account via token and return JWT tokens."""
-
+    """Activate user account using UUID token."""
+    
     permission_classes = [AllowAny]
 
-    def get(self, request):
-        token = request.GET.get('token')
-        if not token:
-            return Response({'detail': 'Missing token.'}, status=status.HTTP_400_BAD_REQUEST)
-
+    def get(self, request, token):
+        """
+        GET /api/auth/activate/<uuid:token>/
+        """
         try:
-            user = activate_user(token)
-        except SignatureExpired:
-            return Response({'detail': 'Activation token expired.'}, status=status.HTTP_400_BAD_REQUEST)
-        except BadSignature:
-            return Response({'detail': 'Invalid activation token.'}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception:
-            return Response({'detail': 'Activation failed.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # login and return tokens
-        token_data = login_user(user)
-        return Response(token_data)
+            user = activate_user_by_token(token)
+            token_data = login_user(user)
+            return Response({
+                "detail": "Account activated successfully!",
+                "access": token_data['access'],
+                "refresh": token_data['refresh'],
+                "user_id": user.id,
+                "role": user.role,
+                "tenant_id": user.tenant_id,
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
