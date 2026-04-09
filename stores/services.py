@@ -1,10 +1,11 @@
 import logging
 from django.db import DatabaseError
+from django.utils.text import slugify
 from .models import Store, StoreSettings, StoreDomain
 
 logger = logging.getLogger(__name__)
 
-def create_store(owner, name, description="", status="active"):
+def create_store(owner, name, description="", status="active", slug=None):
     """
     Create a new store for the given owner.
     The store inherits the owner's tenant_id.
@@ -15,6 +16,7 @@ def create_store(owner, name, description="", status="active"):
         name: Store name
         description: Store description
         status: Store status (default: 'active')
+        slug: Optional custom slug for the store
     
     Returns:
         Store instance if created successfully, None if failed
@@ -28,7 +30,8 @@ def create_store(owner, name, description="", status="active"):
             name=name,
             description=description,
             status=status,
-            tenant_id=getattr(owner, 'tenant_id', None)
+            tenant_id=getattr(owner, 'tenant_id', None),
+            slug=slug
         )
         store.save()
         
@@ -48,6 +51,37 @@ def create_store(owner, name, description="", status="active"):
     except Exception as e:
         logger.error(f"Unexpected error while creating store '{name}' for user '{owner.username}': {str(e)}")
         raise
+
+
+def is_slug_available(slug, store_id=None):
+    """Return True if the slug is available for use."""
+    query = Store.objects.filter(slug=slug)
+    if store_id:
+        query = query.exclude(id=store_id)
+    return not query.exists()
+
+
+def suggest_slugs(name, limit=5, store_id=None):
+    """Suggest available slugs based on a store name."""
+    base_slug = slugify(name)
+    suggestions = []
+    counter = 0
+
+    while len(suggestions) < limit:
+        candidate = base_slug if counter == 0 else f"{base_slug}-{counter}"
+        query = Store.objects.filter(slug=candidate)
+        if store_id:
+            query = query.exclude(id=store_id)
+
+        if not query.exists():
+            suggestions.append(candidate)
+
+        counter += 1
+        if counter > limit * 10:
+            break
+
+    return suggestions
+
 
 def update_store(store, **kwargs):
     """
@@ -73,7 +107,7 @@ def update_store(store, **kwargs):
                 new_value = kwargs[field]
                 if old_value != new_value:
                     setattr(store, field, new_value)
-                    updated_fields.append(f"{field}: '{old_value}' → '{new_value}'")
+                    updated_fields.append(f"{field}: '{old_value}' -> '{new_value}'")
         
         if updated_fields:
             store.save()
@@ -117,7 +151,7 @@ def update_store_settings(store, **kwargs):
                 new_value = kwargs[field]
                 if old_value != new_value:
                     setattr(settings, field, new_value)
-                    updated_fields.append(f"{field}: '{old_value}' → '{new_value}'")
+                    updated_fields.append(f"{field}: '{old_value}' -> '{new_value}'")
         
         if updated_fields:
             settings.save()

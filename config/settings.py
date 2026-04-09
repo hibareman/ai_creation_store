@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'users',
     'stores',
     'categories',
+    'products',
 ]
 
 
@@ -42,6 +43,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Custom middleware for error handling and request context
+    'utils.middleware.RequestContextMiddleware',
+    'utils.middleware.ExceptionHandlerMiddleware',
 ]
 
 
@@ -87,6 +91,73 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
+# drf-spectacular Configuration
+SPECTACULAR_SETTINGS = {
+    "TITLE": "AI Store Backend API",
+    "DESCRIPTION": """
+    Multi-Tenant E-commerce Backend API with AI-Powered Features
+    
+    **Authentication:**
+    - JWT Bearer Token (SimplJWT)
+    - Email/Password login
+    - Email activation required
+    
+    **Features:**
+    - Multi-tenant isolation (tenant_id per user)
+    - Store management (CRUD, domains, settings)
+    - Product catalog with categories
+    - Inventory management
+    - Image gallery
+    
+    **API Endpoints:**
+    - `/api/auth/` - User authentication
+    - `/api/stores/` - Store management
+    - `/api/` - Products and Categories
+    - `/api/docs/` - Swagger UI (this page)
+    - `/api/redoc/` - ReDoc documentation
+    - `/api/schema/` - OpenAPI schema (JSON)
+    """,
+    "VERSION": "1.0.0",
+    "CONTACT": {
+        "name": "Support Team",
+        "email": "support@example.com",
+    },
+    "LICENSE": {
+        "name": "MIT",
+    },
+    "SERVERS": [
+        {
+            "url": "http://localhost:8000",
+            "description": "Development Server",
+        },
+        {
+            "url": "https://api.example.com",
+            "description": "Production Server",
+        },
+    ],
+    "SCHEMA_PATH_PREFIX": "/api/",
+    "AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "SECURITY_SCHEMES": {
+        "Bearer": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "JWT Bearer token for API authentication",
+        }
+    },
+    "SECURITY": [
+        {
+            "Bearer": []
+        }
+    ],
+    "PRELOAD_ENUM_CHOICES": True,
+    "ENUM_GENERATE_CHOICES": True,
+    "TAGS_SORT_ALPHABETICALLY": False,
+    "X_IGNORE_AUTODISCOVERY": False,
+}
+
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
@@ -120,7 +191,16 @@ USE_TZ = True
 
 
 STATIC_URL = 'static/'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Email backend for development (console)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = 'noreply@example.com'
+
+# Logging configuration
+LOGGING_CONFIG = 'logging.config.dictConfig'
+
+from utils.logging_config import LOGGING_CONFIG as CUSTOM_LOGGING  # noqa
+
+LOGGING = CUSTOM_LOGGING

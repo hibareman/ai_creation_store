@@ -2,7 +2,8 @@ from django.urls import path
 from .views import (
     StoreListCreateView, UpdateStoreView, DestroyStoreView,
     RetrieveUpdateStoreSettingsView,
-    ListCreateStoreDomainView, RetrieveUpdateDestroyStoreDomainView
+    ListCreateStoreDomainView, RetrieveUpdateDestroyStoreDomainView,
+    CheckSlugAvailabilityView, SuggestSlugView,
 )
 
 urlpatterns = [
@@ -14,6 +15,10 @@ urlpatterns = [
     # StoreSettings endpoints
     path('<int:store_id>/settings/', RetrieveUpdateStoreSettingsView.as_view(), name='storesettings-detail'),
     
+    # Slug helper endpoints
+    path('slug/check/', CheckSlugAvailabilityView.as_view(), name='check-slug'),
+    path('slug/suggest/', SuggestSlugView.as_view(), name='suggest-slug'),
+
     # StoreDomain endpoints
     path('<int:store_id>/domains/', ListCreateStoreDomainView.as_view(), name='storedomain-list-create'),
     path('<int:store_id>/domains/<int:domain_id>/', RetrieveUpdateDestroyStoreDomainView.as_view(), name='storedomain-detail'),

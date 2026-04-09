@@ -1,3 +1,4 @@
+import logging
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied
@@ -9,6 +10,8 @@ from users.permissions import TenantAuthenticated
 from .models import Category
 from .serializers import CategorySerializer, CategoryCreateUpdateSerializer
 from . import selectors, services
+
+logger = logging.getLogger(__name__)
 
 
 class CategoryListCreateView(generics.ListCreateAPIView):
@@ -37,16 +40,20 @@ class CategoryListCreateView(generics.ListCreateAPIView):
         try:
             store = get_object_or_404(Store, id=store_id)
         except Exception:
+            logger.warning(f"Store not found. User: {self.request.user.id}, store_id: {store_id}, tenant_id: {self.request.tenant_id}")
             raise PermissionDenied("Store not found or access denied")
         
         # Multi-tenant check: FIRST validate tenant_id
         if store.tenant_id != self.request.tenant_id:
+            logger.warning(f"Multi-tenant violation: User {self.request.user.id} (tenant_id: {self.request.tenant_id}) attempted to access store {store_id} (tenant_id: {store.tenant_id})")
             raise PermissionDenied("You do not have access to this store")
         
         # Then check ownership
         if store.owner_id != self.request.user.id:
+            logger.warning(f"Ownership violation: User {self.request.user.id} attempted to access store {store_id} owned by {store.owner_id}")
             raise PermissionDenied("You do not own this store")
         
+        logger.debug(f"User {self.request.user.id} accessing store {store_id}")
         return store
     
     def get_queryset(self):
@@ -95,11 +102,13 @@ class CategoryListCreateView(generics.ListCreateAPIView):
                 user=request.user
             )
             
+            logger.info(f"Category created: id={category.id}, store_id={store.id}, user_id={request.user.id}")
             return Response(
                 CategorySerializer(category).data,
                 status=status.HTTP_201_CREATED
             )
         except ValidationError as e:
+            logger.warning(f"Category creation validation error: {str(e)}, user_id={request.user.id}, store_id={store.id}")
             return Response(
                 {"error": str(e.message) if hasattr(e, 'message') else str(e)},
                 status=status.HTTP_400_BAD_REQUEST

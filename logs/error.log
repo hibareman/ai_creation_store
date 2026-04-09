@@ -1,0 +1,21 @@
+ERROR 2026-04-08 18:41:42 stores.services add_domain:206 - Error adding domain 'myshop.com' to store 'Test Store' (id: 26): duplicate key value violates unique constraint "stores_storedomain_domain_key"
+DETAIL:  Key (domain)=(myshop.com) already exists.
+
+ERROR 2026-04-08 18:46:35 stores.services add_domain:206 - Error adding domain 'myshop.com' to store 'Test Store' (id: 80): duplicate key value violates unique constraint "stores_storedomain_domain_key"
+DETAIL:  Key (domain)=(myshop.com) already exists.
+
+ERROR 2026-04-08 18:51:53 stores.services add_domain:206 - Error adding domain 'myshop.com' to store 'Test Store' (id: 26): duplicate key value violates unique constraint "stores_storedomain_domain_key"
+DETAIL:  Key (domain)=(myshop.com) already exists.
+
+ERROR 2026-04-08 18:58:04 stores.services add_domain:206 - Error adding domain 'myshop.com' to store 'Test Store' (id: 80): duplicate key value violates unique constraint "stores_storedomain_domain_key"
+DETAIL:  Key (domain)=(myshop.com) already exists.
+
+ERROR 2026-04-08 19:03:23 stores.services add_domain:206 - Error adding domain 'myshop.com' to store 'Test Store' (id: 80): duplicate key value violates unique constraint "stores_storedomain_domain_key"
+DETAIL:  Key (domain)=(myshop.com) already exists.
+
+ERROR 2026-04-08 19:42:47 stores.services add_domain:206 - Error adding domain 'myshop.com' to store 'Test Store' (id: 80): duplicate key value violates unique constraint "stores_storedomain_domain_key"
+DETAIL:  Key (domain)=(myshop.com) already exists.
+
+ERROR 2026-04-08 19:48:05 stores.services add_domain:206 - Error adding domain 'myshop.com' to store 'Test Store' (id: 80): duplicate key value violates unique constraint "stores_storedomain_domain_key"
+DETAIL:  Key (domain)=(myshop.com) already exists.
+

@@ -23,8 +23,19 @@ class JWTTenantMiddleware(MiddlewareMixin):
         auth_header = request.META.get('HTTP_AUTHORIZATION', None)
 
         if not auth_header:
-            request.user = None
             request.tenant_id = None
+
+            existing_user = getattr(request, 'user', None)
+            if existing_user and getattr(existing_user, 'is_authenticated', False):
+                request.tenant_id = getattr(existing_user, 'tenant_id', None)
+                return
+
+            tenant_id_header = request.META.get('HTTP_X_TENANT_ID')
+            if tenant_id_header:
+                try:
+                    request.tenant_id = int(tenant_id_header)
+                except (TypeError, ValueError):
+                    return JsonResponse({'detail': 'Invalid tenant header.'}, status=400)
             return
 
         try:

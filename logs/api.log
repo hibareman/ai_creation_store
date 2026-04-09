@@ -1,0 +1,1057 @@
+INFO 2026-04-08 17:20:02 products.services create_product:83 - Product created: id=1, sku=T1-PROD-000, store_id=1, tenant_id=1
+INFO 2026-04-08 17:20:02 products.services create_product:83 - Product created: id=2, sku=T1-PROD-001, store_id=1, tenant_id=1
+INFO 2026-04-08 17:20:02 products.services create_product:83 - Product created: id=3, sku=T1-PROD-002, store_id=1, tenant_id=1
+INFO 2026-04-08 17:20:02 products.services create_product:83 - Product created: id=4, sku=T2-PROD-000, store_id=2, tenant_id=2
+INFO 2026-04-08 17:20:02 products.services create_product:83 - Product created: id=5, sku=T2-PROD-001, store_id=2, tenant_id=2
+INFO 2026-04-08 17:20:02 products.services create_product:83 - Product created: id=6, sku=T2-PROD-002, store_id=2, tenant_id=2
+INFO 2026-04-08 17:20:02 products.services create_product:83 - Product created: id=7, sku=T1-PROD-000, store_id=3, tenant_id=1
+INFO 2026-04-08 17:20:02 products.services create_product:83 - Product created: id=8, sku=T1-PROD-001, store_id=3, tenant_id=1
+INFO 2026-04-08 17:20:02 products.services create_product:83 - Product created: id=9, sku=T1-PROD-002, store_id=3, tenant_id=1
+INFO 2026-04-08 17:20:02 products.services create_product:83 - Product created: id=10, sku=T2-PROD-000, store_id=4, tenant_id=2
+INFO 2026-04-08 17:20:02 products.services create_product:83 - Product created: id=11, sku=T2-PROD-001, store_id=4, tenant_id=2
+INFO 2026-04-08 17:20:02 products.services create_product:83 - Product created: id=12, sku=T2-PROD-002, store_id=4, tenant_id=2
+INFO 2026-04-08 17:20:03 products.services create_product:83 - Product created: id=13, sku=T1-PROD-000, store_id=5, tenant_id=1
+INFO 2026-04-08 17:20:03 products.services create_product:83 - Product created: id=14, sku=T1-PROD-001, store_id=5, tenant_id=1
+INFO 2026-04-08 17:20:03 products.services create_product:83 - Product created: id=15, sku=T1-PROD-002, store_id=5, tenant_id=1
+INFO 2026-04-08 17:20:03 products.services create_product:83 - Product created: id=16, sku=T2-PROD-000, store_id=6, tenant_id=2
+INFO 2026-04-08 17:20:03 products.services create_product:83 - Product created: id=17, sku=T2-PROD-001, store_id=6, tenant_id=2
+INFO 2026-04-08 17:20:03 products.services create_product:83 - Product created: id=18, sku=T2-PROD-002, store_id=6, tenant_id=2
+INFO 2026-04-08 17:20:04 products.services create_product:83 - Product created: id=19, sku=T1-PROD-000, store_id=7, tenant_id=1
+INFO 2026-04-08 17:20:04 products.services create_product:83 - Product created: id=20, sku=T1-PROD-001, store_id=7, tenant_id=1
+INFO 2026-04-08 17:20:04 products.services create_product:83 - Product created: id=21, sku=T1-PROD-002, store_id=7, tenant_id=1
+INFO 2026-04-08 17:20:04 products.services create_product:83 - Product created: id=22, sku=T2-PROD-000, store_id=8, tenant_id=2
+INFO 2026-04-08 17:20:04 products.services create_product:83 - Product created: id=23, sku=T2-PROD-001, store_id=8, tenant_id=2
+INFO 2026-04-08 17:20:04 products.services create_product:83 - Product created: id=24, sku=T2-PROD-002, store_id=8, tenant_id=2
+INFO 2026-04-08 17:20:05 products.services create_product:83 - Product created: id=25, sku=T1-PROD-000, store_id=9, tenant_id=1
+INFO 2026-04-08 17:20:05 products.services create_product:83 - Product created: id=26, sku=T1-PROD-001, store_id=9, tenant_id=1
+INFO 2026-04-08 17:20:05 products.services create_product:83 - Product created: id=27, sku=T1-PROD-002, store_id=9, tenant_id=1
+INFO 2026-04-08 17:20:05 products.services create_product:83 - Product created: id=28, sku=T2-PROD-000, store_id=10, tenant_id=2
+INFO 2026-04-08 17:20:05 products.services create_product:83 - Product created: id=29, sku=T2-PROD-001, store_id=10, tenant_id=2
+INFO 2026-04-08 17:20:05 products.services create_product:83 - Product created: id=30, sku=T2-PROD-002, store_id=10, tenant_id=2
+INFO 2026-04-08 17:20:06 products.services create_product:83 - Product created: id=31, sku=T1-PROD-000, store_id=11, tenant_id=1
+INFO 2026-04-08 17:20:06 products.services create_product:83 - Product created: id=32, sku=T1-PROD-001, store_id=11, tenant_id=1
+INFO 2026-04-08 17:20:06 products.services create_product:83 - Product created: id=33, sku=T1-PROD-002, store_id=11, tenant_id=1
+INFO 2026-04-08 17:20:06 products.services create_product:83 - Product created: id=34, sku=T2-PROD-000, store_id=12, tenant_id=2
+INFO 2026-04-08 17:20:06 products.services create_product:83 - Product created: id=35, sku=T2-PROD-001, store_id=12, tenant_id=2
+INFO 2026-04-08 17:20:06 products.services create_product:83 - Product created: id=36, sku=T2-PROD-002, store_id=12, tenant_id=2
+INFO 2026-04-08 17:20:08 products.services create_product:83 - Product created: id=37, sku=PROD-A-001, store_id=13, tenant_id=1
+INFO 2026-04-08 17:20:08 products.services create_product:83 - Product created: id=38, sku=PROD-B-001, store_id=14, tenant_id=2
+INFO 2026-04-08 17:20:08 products.services add_product_image:283 - Product image added: product_id=37, image_id=1, store_id=13, tenant_id=1
+INFO 2026-04-08 17:20:09 products.services create_product:83 - Product created: id=39, sku=PROD-A-001, store_id=15, tenant_id=1
+INFO 2026-04-08 17:20:09 products.services create_product:83 - Product created: id=40, sku=PROD-B-001, store_id=16, tenant_id=2
+INFO 2026-04-08 17:20:09 products.services add_product_image:283 - Product image added: product_id=39, image_id=2, store_id=15, tenant_id=1
+INFO 2026-04-08 17:20:10 products.services create_product:83 - Product created: id=41, sku=PROD-A-001, store_id=17, tenant_id=1
+INFO 2026-04-08 17:20:10 products.services create_product:83 - Product created: id=42, sku=PROD-B-001, store_id=18, tenant_id=2
+INFO 2026-04-08 17:20:10 products.services create_product:83 - Product created: id=43, sku=LAPTOP-002, store_id=17, tenant_id=1
+INFO 2026-04-08 17:20:12 products.services create_product:83 - Product created: id=44, sku=PROD-A-001, store_id=19, tenant_id=1
+INFO 2026-04-08 17:20:12 products.services create_product:83 - Product created: id=45, sku=PROD-B-001, store_id=20, tenant_id=2
+INFO 2026-04-08 17:20:13 products.services create_product:83 - Product created: id=46, sku=PROD-A-001, store_id=21, tenant_id=1
+INFO 2026-04-08 17:20:13 products.services create_product:83 - Product created: id=47, sku=PROD-B-001, store_id=22, tenant_id=2
+INFO 2026-04-08 17:20:14 products.services create_product:83 - Product created: id=48, sku=PROD-A-001, store_id=23, tenant_id=1
+INFO 2026-04-08 17:20:14 products.services create_product:83 - Product created: id=49, sku=PROD-B-001, store_id=24, tenant_id=2
+INFO 2026-04-08 17:20:16 products.services create_product:83 - Product created: id=50, sku=PROD-A-001, store_id=25, tenant_id=1
+INFO 2026-04-08 17:20:16 products.services create_product:83 - Product created: id=51, sku=PROD-B-001, store_id=26, tenant_id=2
+INFO 2026-04-08 17:20:17 products.services create_product:83 - Product created: id=52, sku=PROD-A-001, store_id=27, tenant_id=1
+INFO 2026-04-08 17:20:17 products.services create_product:83 - Product created: id=53, sku=PROD-B-001, store_id=28, tenant_id=2
+INFO 2026-04-08 17:20:18 products.services create_product:83 - Product created: id=54, sku=PROD-A-001, store_id=29, tenant_id=1
+INFO 2026-04-08 17:20:18 products.services create_product:83 - Product created: id=55, sku=PROD-B-001, store_id=30, tenant_id=2
+INFO 2026-04-08 17:20:19 products.services create_product:83 - Product created: id=56, sku=PROD-A-001, store_id=31, tenant_id=1
+INFO 2026-04-08 17:20:19 products.services create_product:83 - Product created: id=57, sku=PROD-B-001, store_id=32, tenant_id=2
+INFO 2026-04-08 17:20:19 products.services delete_product:187 - Product deleted: id=56, sku=PROD-A-001, store_id=31, tenant_id=1
+INFO 2026-04-08 17:20:20 products.services create_product:83 - Product created: id=58, sku=PROD-A-001, store_id=33, tenant_id=1
+INFO 2026-04-08 17:20:20 products.services create_product:83 - Product created: id=59, sku=PROD-B-001, store_id=34, tenant_id=2
+INFO 2026-04-08 17:20:20 products.services add_product_image:283 - Product image added: product_id=58, image_id=3, store_id=33, tenant_id=1
+INFO 2026-04-08 17:20:20 products.services delete_product_image:325 - Product image deleted: image_id=3, product_id=58, store_id=33, tenant_id=1
+INFO 2026-04-08 17:20:20 products.services create_product:83 - Product created: id=60, sku=PROD-A-001, store_id=35, tenant_id=1
+INFO 2026-04-08 17:20:20 products.services create_product:83 - Product created: id=61, sku=PROD-B-001, store_id=36, tenant_id=2
+INFO 2026-04-08 17:20:21 products.services create_product:83 - Product created: id=62, sku=PROD-A-001, store_id=37, tenant_id=1
+INFO 2026-04-08 17:20:21 products.services create_product:83 - Product created: id=63, sku=PROD-B-001, store_id=38, tenant_id=2
+INFO 2026-04-08 17:20:21 products.services add_product_image:283 - Product image added: product_id=62, image_id=4, store_id=37, tenant_id=1
+INFO 2026-04-08 17:20:23 products.services create_product:83 - Product created: id=64, sku=PROD-A-001, store_id=39, tenant_id=1
+INFO 2026-04-08 17:20:23 products.services create_product:83 - Product created: id=65, sku=PROD-B-001, store_id=40, tenant_id=2
+INFO 2026-04-08 17:20:23 products.services create_product:83 - Product created: id=66, sku=PROD-A-001, store_id=41, tenant_id=1
+INFO 2026-04-08 17:20:23 products.services create_product:83 - Product created: id=67, sku=PROD-B-001, store_id=42, tenant_id=2
+INFO 2026-04-08 17:20:24 products.services create_product:83 - Product created: id=68, sku=PROD-A-001, store_id=43, tenant_id=1
+INFO 2026-04-08 17:20:24 products.services create_product:83 - Product created: id=69, sku=PROD-B-001, store_id=44, tenant_id=2
+INFO 2026-04-08 17:20:24 products.services update_inventory:232 - Inventory updated: product_id=68, old_quantity=0, new_quantity=75, store_id=43, tenant_id=1
+INFO 2026-04-08 17:20:25 products.services create_product:83 - Product created: id=70, sku=PROD-A-001, store_id=45, tenant_id=1
+INFO 2026-04-08 17:20:25 products.services create_product:83 - Product created: id=71, sku=PROD-B-001, store_id=46, tenant_id=2
+INFO 2026-04-08 17:20:25 products.services update_product:154 - Product updated: id=70, sku=PROD-A-001, store_id=45, tenant_id=1
+INFO 2026-04-08 17:20:26 products.services create_product:83 - Product created: id=72, sku=LAPTOP-A-001, store_id=47, tenant_id=1
+INFO 2026-04-08 17:20:26 products.services create_product:83 - Product created: id=73, sku=LAPTOP-B-001, store_id=48, tenant_id=2
+INFO 2026-04-08 17:20:26 products.services add_product_image:283 - Product image added: product_id=72, image_id=5, store_id=47, tenant_id=1
+INFO 2026-04-08 17:20:27 products.services create_product:83 - Product created: id=74, sku=LAPTOP-A-001, store_id=49, tenant_id=1
+INFO 2026-04-08 17:20:27 products.services create_product:83 - Product created: id=75, sku=LAPTOP-B-001, store_id=50, tenant_id=2
+INFO 2026-04-08 17:20:27 products.services add_product_image:283 - Product image added: product_id=74, image_id=6, store_id=49, tenant_id=1
+INFO 2026-04-08 17:20:28 products.services create_product:83 - Product created: id=76, sku=LAPTOP-A-001, store_id=51, tenant_id=1
+INFO 2026-04-08 17:20:28 products.services create_product:83 - Product created: id=77, sku=LAPTOP-B-001, store_id=52, tenant_id=2
+WARNING 2026-04-08 17:20:28 products.services add_product_image:266 - Unauthorized image upload attempt: product_id=76, attempted_tenant_id=2, actual_tenant_id=1
+INFO 2026-04-08 17:20:28 products.services create_product:83 - Product created: id=78, sku=LAPTOP-A-001, store_id=53, tenant_id=1
+INFO 2026-04-08 17:20:29 products.services create_product:83 - Product created: id=79, sku=LAPTOP-B-001, store_id=54, tenant_id=2
+INFO 2026-04-08 17:20:29 products.services add_product_image:283 - Product image added: product_id=78, image_id=7, store_id=53, tenant_id=1
+INFO 2026-04-08 17:20:29 products.services delete_product_image:325 - Product image deleted: image_id=7, product_id=78, store_id=53, tenant_id=1
+INFO 2026-04-08 17:20:29 products.services create_product:83 - Product created: id=80, sku=LAPTOP-A-001, store_id=55, tenant_id=1
+INFO 2026-04-08 17:20:30 products.services create_product:83 - Product created: id=81, sku=LAPTOP-B-001, store_id=56, tenant_id=2
+INFO 2026-04-08 17:20:30 products.services add_product_image:283 - Product image added: product_id=80, image_id=8, store_id=55, tenant_id=1
+WARNING 2026-04-08 17:20:30 products.services delete_product_image:312 - Unauthorized image deletion attempt: image_id=8, product_id=80, attempted_tenant_id=2, actual_tenant_id=1
+INFO 2026-04-08 17:20:30 products.services create_product:83 - Product created: id=82, sku=LAPTOP-001, store_id=57, tenant_id=1
+INFO 2026-04-08 17:20:31 products.services create_product:83 - Product created: id=83, sku=LAPTOP-001, store_id=58, tenant_id=1
+INFO 2026-04-08 17:20:31 products.services update_inventory:232 - Inventory updated: product_id=83, old_quantity=0, new_quantity=50, store_id=58, tenant_id=1
+INFO 2026-04-08 17:20:31 products.services create_product:83 - Product created: id=84, sku=LAPTOP-001, store_id=59, tenant_id=1
+INFO 2026-04-08 17:20:32 products.services create_product:83 - Product created: id=85, sku=LAPTOP-001, store_id=60, tenant_id=1
+WARNING 2026-04-08 17:20:32 products.services update_inventory:217 - Unauthorized inventory update attempt: product_id=85, attempted_tenant_id=2, actual_tenant_id=1
+INFO 2026-04-08 17:20:35 products.services create_product:83 - Product created: id=94, sku=PROD-A-001, store_id=68, tenant_id=1
+INFO 2026-04-08 17:20:36 products.services create_product:83 - Product created: id=95, sku=PROD-B-001, store_id=69, tenant_id=2
+INFO 2026-04-08 17:20:36 products.services create_product:83 - Product created: id=96, sku=PROD-A-001, store_id=70, tenant_id=1
+INFO 2026-04-08 17:20:36 products.services create_product:83 - Product created: id=97, sku=PROD-B-001, store_id=71, tenant_id=2
+INFO 2026-04-08 17:20:37 products.services create_product:83 - Product created: id=98, sku=PROD-A-001, store_id=72, tenant_id=1
+INFO 2026-04-08 17:20:37 products.services create_product:83 - Product created: id=99, sku=PROD-B-001, store_id=73, tenant_id=2
+INFO 2026-04-08 17:20:38 products.services create_product:83 - Product created: id=100, sku=PROD-A-001, store_id=74, tenant_id=1
+INFO 2026-04-08 17:20:38 products.services create_product:83 - Product created: id=101, sku=PROD-B-001, store_id=75, tenant_id=2
+INFO 2026-04-08 17:20:39 products.services create_product:83 - Product created: id=102, sku=PROD-A-001, store_id=76, tenant_id=1
+INFO 2026-04-08 17:20:39 products.services create_product:83 - Product created: id=103, sku=PROD-B-001, store_id=77, tenant_id=2
+INFO 2026-04-08 17:20:41 products.services create_product:83 - Product created: id=104, sku=LAPTOP-001, store_id=78, tenant_id=1
+INFO 2026-04-08 17:20:42 products.services create_product:83 - Product created: id=105, sku=LAPTOP-001, store_id=80, tenant_id=1
+INFO 2026-04-08 17:20:44 products.services create_product:83 - Product created: id=106, sku=LAPTOP-001, store_id=84, tenant_id=1
+INFO 2026-04-08 17:20:44 products.services delete_product:187 - Product deleted: id=106, sku=LAPTOP-001, store_id=84, tenant_id=1
+INFO 2026-04-08 17:20:45 products.services create_product:83 - Product created: id=107, sku=LAPTOP-001, store_id=86, tenant_id=1
+WARNING 2026-04-08 17:20:45 products.services delete_product:176 - Unauthorized product deletion attempt: product_id=107, attempted_tenant_id=2, actual_tenant_id=1
+INFO 2026-04-08 17:20:46 products.services create_product:83 - Product created: id=108, sku=LAPTOP-001, store_id=88, tenant_id=1
+INFO 2026-04-08 17:20:47 products.services create_product:83 - Product created: id=109, sku=LAPTOP-001, store_id=90, tenant_id=1
+INFO 2026-04-08 17:20:47 products.services update_product:154 - Product updated: id=109, sku=LAPTOP-001, store_id=90, tenant_id=1
+INFO 2026-04-08 17:20:48 products.services create_product:83 - Product created: id=110, sku=LAPTOP-001, store_id=92, tenant_id=1
+WARNING 2026-04-08 17:20:48 products.services update_product:112 - Unauthorized product update attempt: product_id=110, attempted_tenant_id=2, actual_tenant_id=1
+WARNING 2026-04-08 17:21:01 stores.views get_object:98 - Store not found for deletion. User: 17, tenant_id: 1
+WARNING 2026-04-08 17:21:05 stores.views get_object:65 - Store not found. User: 23, tenant_id: 1
+WARNING 2026-04-08 17:21:11 stores.views get_object:65 - Store not found. User: 36, tenant_id: 2
+INFO 2026-04-08 17:30:19 products.services create_product:83 - Product created: id=1, sku=T1-PROD-000, store_id=1, tenant_id=1
+INFO 2026-04-08 17:30:19 products.services create_product:83 - Product created: id=2, sku=T1-PROD-001, store_id=1, tenant_id=1
+INFO 2026-04-08 17:30:19 products.services create_product:83 - Product created: id=3, sku=T1-PROD-002, store_id=1, tenant_id=1
+INFO 2026-04-08 17:30:19 products.services create_product:83 - Product created: id=4, sku=T2-PROD-000, store_id=2, tenant_id=2
+INFO 2026-04-08 17:30:19 products.services create_product:83 - Product created: id=5, sku=T2-PROD-001, store_id=2, tenant_id=2
+INFO 2026-04-08 17:30:19 products.services create_product:83 - Product created: id=6, sku=T2-PROD-002, store_id=2, tenant_id=2
+INFO 2026-04-08 17:30:22 products.services create_product:83 - Product created: id=7, sku=T1-PROD-000, store_id=3, tenant_id=1
+INFO 2026-04-08 17:30:22 products.services create_product:83 - Product created: id=8, sku=T1-PROD-001, store_id=3, tenant_id=1
+INFO 2026-04-08 17:30:22 products.services create_product:83 - Product created: id=9, sku=T1-PROD-002, store_id=3, tenant_id=1
+INFO 2026-04-08 17:30:22 products.services create_product:83 - Product created: id=10, sku=T2-PROD-000, store_id=4, tenant_id=2
+INFO 2026-04-08 17:30:22 products.services create_product:83 - Product created: id=11, sku=T2-PROD-001, store_id=4, tenant_id=2
+INFO 2026-04-08 17:30:22 products.services create_product:83 - Product created: id=12, sku=T2-PROD-002, store_id=4, tenant_id=2
+INFO 2026-04-08 17:30:25 products.services create_product:83 - Product created: id=13, sku=T1-PROD-000, store_id=5, tenant_id=1
+INFO 2026-04-08 17:30:25 products.services create_product:83 - Product created: id=14, sku=T1-PROD-001, store_id=5, tenant_id=1
+INFO 2026-04-08 17:30:25 products.services create_product:83 - Product created: id=15, sku=T1-PROD-002, store_id=5, tenant_id=1
+INFO 2026-04-08 17:30:25 products.services create_product:83 - Product created: id=16, sku=T2-PROD-000, store_id=6, tenant_id=2
+INFO 2026-04-08 17:30:25 products.services create_product:83 - Product created: id=17, sku=T2-PROD-001, store_id=6, tenant_id=2
+INFO 2026-04-08 17:30:25 products.services create_product:83 - Product created: id=18, sku=T2-PROD-002, store_id=6, tenant_id=2
+INFO 2026-04-08 17:30:28 products.services create_product:83 - Product created: id=19, sku=T1-PROD-000, store_id=7, tenant_id=1
+INFO 2026-04-08 17:30:28 products.services create_product:83 - Product created: id=20, sku=T1-PROD-001, store_id=7, tenant_id=1
+INFO 2026-04-08 17:30:28 products.services create_product:83 - Product created: id=21, sku=T1-PROD-002, store_id=7, tenant_id=1
+INFO 2026-04-08 17:30:28 products.services create_product:83 - Product created: id=22, sku=T2-PROD-000, store_id=8, tenant_id=2
+INFO 2026-04-08 17:30:28 products.services create_product:83 - Product created: id=23, sku=T2-PROD-001, store_id=8, tenant_id=2
+INFO 2026-04-08 17:30:28 products.services create_product:83 - Product created: id=24, sku=T2-PROD-002, store_id=8, tenant_id=2
+INFO 2026-04-08 17:30:31 products.services create_product:83 - Product created: id=25, sku=T1-PROD-000, store_id=9, tenant_id=1
+INFO 2026-04-08 17:30:31 products.services create_product:83 - Product created: id=26, sku=T1-PROD-001, store_id=9, tenant_id=1
+INFO 2026-04-08 17:30:31 products.services create_product:83 - Product created: id=27, sku=T1-PROD-002, store_id=9, tenant_id=1
+INFO 2026-04-08 17:30:31 products.services create_product:83 - Product created: id=28, sku=T2-PROD-000, store_id=10, tenant_id=2
+INFO 2026-04-08 17:30:31 products.services create_product:83 - Product created: id=29, sku=T2-PROD-001, store_id=10, tenant_id=2
+INFO 2026-04-08 17:30:31 products.services create_product:83 - Product created: id=30, sku=T2-PROD-002, store_id=10, tenant_id=2
+INFO 2026-04-08 17:30:34 products.services create_product:83 - Product created: id=31, sku=T1-PROD-000, store_id=11, tenant_id=1
+INFO 2026-04-08 17:30:34 products.services create_product:83 - Product created: id=32, sku=T1-PROD-001, store_id=11, tenant_id=1
+INFO 2026-04-08 17:30:34 products.services create_product:83 - Product created: id=33, sku=T1-PROD-002, store_id=11, tenant_id=1
+INFO 2026-04-08 17:30:34 products.services create_product:83 - Product created: id=34, sku=T2-PROD-000, store_id=12, tenant_id=2
+INFO 2026-04-08 17:30:34 products.services create_product:83 - Product created: id=35, sku=T2-PROD-001, store_id=12, tenant_id=2
+INFO 2026-04-08 17:30:34 products.services create_product:83 - Product created: id=36, sku=T2-PROD-002, store_id=12, tenant_id=2
+INFO 2026-04-08 17:30:37 products.services create_product:83 - Product created: id=37, sku=PROD-A-001, store_id=13, tenant_id=1
+INFO 2026-04-08 17:30:37 products.services create_product:83 - Product created: id=38, sku=PROD-B-001, store_id=14, tenant_id=2
+INFO 2026-04-08 17:30:38 products.services add_product_image:283 - Product image added: product_id=37, image_id=1, store_id=13, tenant_id=1
+INFO 2026-04-08 17:30:41 products.services create_product:83 - Product created: id=39, sku=PROD-A-001, store_id=15, tenant_id=1
+INFO 2026-04-08 17:30:41 products.services create_product:83 - Product created: id=40, sku=PROD-B-001, store_id=16, tenant_id=2
+INFO 2026-04-08 17:30:41 products.services add_product_image:283 - Product image added: product_id=39, image_id=2, store_id=15, tenant_id=1
+INFO 2026-04-08 17:30:44 products.services create_product:83 - Product created: id=41, sku=PROD-A-001, store_id=17, tenant_id=1
+INFO 2026-04-08 17:30:44 products.services create_product:83 - Product created: id=42, sku=PROD-B-001, store_id=18, tenant_id=2
+INFO 2026-04-08 17:30:44 products.services create_product:83 - Product created: id=43, sku=LAPTOP-002, store_id=17, tenant_id=1
+INFO 2026-04-08 17:30:46 products.services create_product:83 - Product created: id=44, sku=PROD-A-001, store_id=19, tenant_id=1
+INFO 2026-04-08 17:30:46 products.services create_product:83 - Product created: id=45, sku=PROD-B-001, store_id=20, tenant_id=2
+INFO 2026-04-08 17:30:49 products.services create_product:83 - Product created: id=46, sku=PROD-A-001, store_id=21, tenant_id=1
+INFO 2026-04-08 17:30:49 products.services create_product:83 - Product created: id=47, sku=PROD-B-001, store_id=22, tenant_id=2
+INFO 2026-04-08 17:30:52 products.services create_product:83 - Product created: id=48, sku=PROD-A-001, store_id=23, tenant_id=1
+INFO 2026-04-08 17:30:52 products.services create_product:83 - Product created: id=49, sku=PROD-B-001, store_id=24, tenant_id=2
+INFO 2026-04-08 17:30:56 products.services create_product:83 - Product created: id=50, sku=PROD-A-001, store_id=25, tenant_id=1
+INFO 2026-04-08 17:30:56 products.services create_product:83 - Product created: id=51, sku=PROD-B-001, store_id=26, tenant_id=2
+INFO 2026-04-08 17:30:59 products.services create_product:83 - Product created: id=52, sku=PROD-A-001, store_id=27, tenant_id=1
+INFO 2026-04-08 17:30:59 products.services create_product:83 - Product created: id=53, sku=PROD-B-001, store_id=28, tenant_id=2
+INFO 2026-04-08 17:31:02 products.services create_product:83 - Product created: id=54, sku=PROD-A-001, store_id=29, tenant_id=1
+INFO 2026-04-08 17:31:02 products.services create_product:83 - Product created: id=55, sku=PROD-B-001, store_id=30, tenant_id=2
+INFO 2026-04-08 17:31:04 products.services create_product:83 - Product created: id=56, sku=PROD-A-001, store_id=31, tenant_id=1
+INFO 2026-04-08 17:31:04 products.services create_product:83 - Product created: id=57, sku=PROD-B-001, store_id=32, tenant_id=2
+INFO 2026-04-08 17:31:04 products.services delete_product:187 - Product deleted: id=56, sku=PROD-A-001, store_id=31, tenant_id=1
+INFO 2026-04-08 17:31:07 products.services create_product:83 - Product created: id=58, sku=PROD-A-001, store_id=33, tenant_id=1
+INFO 2026-04-08 17:31:07 products.services create_product:83 - Product created: id=59, sku=PROD-B-001, store_id=34, tenant_id=2
+INFO 2026-04-08 17:31:07 products.services add_product_image:283 - Product image added: product_id=58, image_id=3, store_id=33, tenant_id=1
+INFO 2026-04-08 17:31:07 products.services delete_product_image:325 - Product image deleted: image_id=3, product_id=58, store_id=33, tenant_id=1
+INFO 2026-04-08 17:31:10 products.services create_product:83 - Product created: id=60, sku=PROD-A-001, store_id=35, tenant_id=1
+INFO 2026-04-08 17:31:10 products.services create_product:83 - Product created: id=61, sku=PROD-B-001, store_id=36, tenant_id=2
+INFO 2026-04-08 17:31:13 products.services create_product:83 - Product created: id=62, sku=PROD-A-001, store_id=37, tenant_id=1
+INFO 2026-04-08 17:31:13 products.services create_product:83 - Product created: id=63, sku=PROD-B-001, store_id=38, tenant_id=2
+INFO 2026-04-08 17:31:13 products.services add_product_image:283 - Product image added: product_id=62, image_id=4, store_id=37, tenant_id=1
+INFO 2026-04-08 17:31:16 products.services create_product:83 - Product created: id=64, sku=PROD-A-001, store_id=39, tenant_id=1
+INFO 2026-04-08 17:31:16 products.services create_product:83 - Product created: id=65, sku=PROD-B-001, store_id=40, tenant_id=2
+INFO 2026-04-08 17:31:19 products.services create_product:83 - Product created: id=66, sku=PROD-A-001, store_id=41, tenant_id=1
+INFO 2026-04-08 17:31:19 products.services create_product:83 - Product created: id=67, sku=PROD-B-001, store_id=42, tenant_id=2
+INFO 2026-04-08 17:31:22 products.services create_product:83 - Product created: id=68, sku=PROD-A-001, store_id=43, tenant_id=1
+INFO 2026-04-08 17:31:22 products.services create_product:83 - Product created: id=69, sku=PROD-B-001, store_id=44, tenant_id=2
+INFO 2026-04-08 17:31:22 products.services update_inventory:232 - Inventory updated: product_id=68, old_quantity=0, new_quantity=75, store_id=43, tenant_id=1
+INFO 2026-04-08 17:31:24 products.services create_product:83 - Product created: id=70, sku=PROD-A-001, store_id=45, tenant_id=1
+INFO 2026-04-08 17:31:24 products.services create_product:83 - Product created: id=71, sku=PROD-B-001, store_id=46, tenant_id=2
+INFO 2026-04-08 17:31:24 products.services update_product:154 - Product updated: id=70, sku=PROD-A-001, store_id=45, tenant_id=1
+INFO 2026-04-08 17:31:26 products.services create_product:83 - Product created: id=72, sku=LAPTOP-A-001, store_id=47, tenant_id=1
+INFO 2026-04-08 17:31:27 products.services create_product:83 - Product created: id=73, sku=LAPTOP-B-001, store_id=48, tenant_id=2
+INFO 2026-04-08 17:31:27 products.services add_product_image:283 - Product image added: product_id=72, image_id=5, store_id=47, tenant_id=1
+INFO 2026-04-08 17:31:28 products.services create_product:83 - Product created: id=74, sku=LAPTOP-A-001, store_id=49, tenant_id=1
+INFO 2026-04-08 17:31:30 products.services create_product:83 - Product created: id=75, sku=LAPTOP-B-001, store_id=50, tenant_id=2
+INFO 2026-04-08 17:31:30 products.services add_product_image:283 - Product image added: product_id=74, image_id=6, store_id=49, tenant_id=1
+INFO 2026-04-08 17:31:31 products.services create_product:83 - Product created: id=76, sku=LAPTOP-A-001, store_id=51, tenant_id=1
+INFO 2026-04-08 17:31:33 products.services create_product:83 - Product created: id=77, sku=LAPTOP-B-001, store_id=52, tenant_id=2
+WARNING 2026-04-08 17:31:33 products.services add_product_image:266 - Unauthorized image upload attempt: product_id=76, attempted_tenant_id=2, actual_tenant_id=1
+INFO 2026-04-08 17:31:34 products.services create_product:83 - Product created: id=78, sku=LAPTOP-A-001, store_id=53, tenant_id=1
+INFO 2026-04-08 17:31:35 products.services create_product:83 - Product created: id=79, sku=LAPTOP-B-001, store_id=54, tenant_id=2
+INFO 2026-04-08 17:31:35 products.services add_product_image:283 - Product image added: product_id=78, image_id=7, store_id=53, tenant_id=1
+INFO 2026-04-08 17:31:35 products.services delete_product_image:325 - Product image deleted: image_id=7, product_id=78, store_id=53, tenant_id=1
+INFO 2026-04-08 17:31:36 products.services create_product:83 - Product created: id=80, sku=LAPTOP-A-001, store_id=55, tenant_id=1
+INFO 2026-04-08 17:31:38 products.services create_product:83 - Product created: id=81, sku=LAPTOP-B-001, store_id=56, tenant_id=2
+INFO 2026-04-08 17:31:38 products.services add_product_image:283 - Product image added: product_id=80, image_id=8, store_id=55, tenant_id=1
+WARNING 2026-04-08 17:31:38 products.services delete_product_image:312 - Unauthorized image deletion attempt: image_id=8, product_id=80, attempted_tenant_id=2, actual_tenant_id=1
+INFO 2026-04-08 17:31:40 products.services create_product:83 - Product created: id=82, sku=LAPTOP-001, store_id=57, tenant_id=1
+INFO 2026-04-08 17:31:41 products.services create_product:83 - Product created: id=83, sku=LAPTOP-001, store_id=58, tenant_id=1
+INFO 2026-04-08 17:31:41 products.services update_inventory:232 - Inventory updated: product_id=83, old_quantity=0, new_quantity=50, store_id=58, tenant_id=1
+INFO 2026-04-08 17:31:42 products.services create_product:83 - Product created: id=84, sku=LAPTOP-001, store_id=59, tenant_id=1
+INFO 2026-04-08 17:31:44 products.services create_product:83 - Product created: id=85, sku=LAPTOP-001, store_id=60, tenant_id=1
+WARNING 2026-04-08 17:31:44 products.services update_inventory:217 - Unauthorized inventory update attempt: product_id=85, attempted_tenant_id=2, actual_tenant_id=1
+INFO 2026-04-08 17:31:55 products.services create_product:83 - Product created: id=94, sku=PROD-A-001, store_id=68, tenant_id=1
+INFO 2026-04-08 17:31:56 products.services create_product:83 - Product created: id=95, sku=PROD-B-001, store_id=69, tenant_id=2
+INFO 2026-04-08 17:31:57 products.services create_product:83 - Product created: id=96, sku=PROD-A-001, store_id=70, tenant_id=1
+INFO 2026-04-08 17:31:59 products.services create_product:83 - Product created: id=97, sku=PROD-B-001, store_id=71, tenant_id=2
+INFO 2026-04-08 17:32:00 products.services create_product:83 - Product created: id=98, sku=PROD-A-001, store_id=72, tenant_id=1
+INFO 2026-04-08 17:32:01 products.services create_product:83 - Product created: id=99, sku=PROD-B-001, store_id=73, tenant_id=2
+INFO 2026-04-08 17:32:03 products.services create_product:83 - Product created: id=100, sku=PROD-A-001, store_id=74, tenant_id=1
+INFO 2026-04-08 17:32:04 products.services create_product:83 - Product created: id=101, sku=PROD-B-001, store_id=75, tenant_id=2
+INFO 2026-04-08 17:32:05 products.services create_product:83 - Product created: id=102, sku=PROD-A-001, store_id=76, tenant_id=1
+INFO 2026-04-08 17:32:07 products.services create_product:83 - Product created: id=103, sku=PROD-B-001, store_id=77, tenant_id=2
+INFO 2026-04-08 17:32:10 products.services create_product:83 - Product created: id=104, sku=LAPTOP-001, store_id=78, tenant_id=1
+INFO 2026-04-08 18:41:20 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 1, tenant_id: 1)
+INFO 2026-04-08 18:41:22 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 3, tenant_id: 2)
+INFO 2026-04-08 18:41:23 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 5, tenant_id: 3)
+INFO 2026-04-08 18:41:25 stores.services create_store:45 - Store 'Store A' created successfully by user 'usera' (user_id: 7, tenant_id: 4)
+INFO 2026-04-08 18:41:25 stores.services create_store:45 - Store 'Store B' created successfully by user 'userb' (user_id: 8, tenant_id: 5)
+INFO 2026-04-08 18:41:32 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 15, tenant_id: 15)
+INFO 2026-04-08 18:41:32 stores.services add_domain:202 - Domain 'newshop.com' added to store 'Test Store' (id: 15), is_primary=False
+INFO 2026-04-08 18:41:32 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 16, tenant_id: 16)
+INFO 2026-04-08 18:41:32 stores.services add_domain:202 - Domain 'duplicate.com' added to store 'Test Store' (id: 16), is_primary=False
+INFO 2026-04-08 18:41:33 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 17, tenant_id: 17)
+INFO 2026-04-08 18:41:33 stores.services add_domain:202 - Domain 'primary.com' added to store 'Test Store' (id: 17), is_primary=True
+INFO 2026-04-08 18:41:34 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 18, tenant_id: 18)
+INFO 2026-04-08 18:41:34 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 18), is_primary=False
+INFO 2026-04-08 18:41:34 stores.services delete_domain:272 - Domain 'shop.com' deleted from store 'Test Store' (id: 18)
+INFO 2026-04-08 18:41:35 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 19, tenant_id: 19)
+INFO 2026-04-08 18:41:36 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 20, tenant_id: 20)
+INFO 2026-04-08 18:41:36 stores.services add_domain:202 - Domain 'store2.com' added to store 'Store 2' (id: 20), is_primary=False
+INFO 2026-04-08 18:41:37 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 21, tenant_id: 21)
+INFO 2026-04-08 18:41:37 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 21), is_primary=False
+INFO 2026-04-08 18:41:38 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 22, tenant_id: 22)
+INFO 2026-04-08 18:41:38 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 22), is_primary=True
+INFO 2026-04-08 18:41:38 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 22), is_primary=False
+INFO 2026-04-08 18:41:39 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 23, tenant_id: 23)
+INFO 2026-04-08 18:41:39 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 23), is_primary=False
+INFO 2026-04-08 18:41:39 stores.services update_domain:238 - Domain 'shop.com' updated in store 'Test Store' (id: 23), is_primary=True
+INFO 2026-04-08 18:41:40 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 24, tenant_id: 24)
+INFO 2026-04-08 18:41:40 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 24), is_primary=True
+INFO 2026-04-08 18:41:41 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 25, tenant_id: 25)
+INFO 2026-04-08 18:41:41 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 25), is_primary=False
+INFO 2026-04-08 18:41:42 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 26, tenant_id: 26)
+INFO 2026-04-08 18:41:42 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 26), is_primary=False
+ERROR 2026-04-08 18:41:42 stores.services add_domain:206 - Error adding domain 'myshop.com' to store 'Test Store' (id: 26): duplicate key value violates unique constraint "stores_storedomain_domain_key"
+DETAIL:  Key (domain)=(myshop.com) already exists.
+
+INFO 2026-04-08 18:41:43 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 27, tenant_id: 27)
+INFO 2026-04-08 18:41:43 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 27), is_primary=True
+INFO 2026-04-08 18:41:43 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 27), is_primary=True
+INFO 2026-04-08 18:41:44 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 28, tenant_id: 28)
+INFO 2026-04-08 18:41:44 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 28), is_primary=False
+INFO 2026-04-08 18:41:44 stores.services delete_domain:272 - Domain 'myshop.com' deleted from store 'Test Store' (id: 28)
+INFO 2026-04-08 18:41:45 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 29, tenant_id: 29)
+WARNING 2026-04-08 18:41:45 stores.services delete_domain:276 - Domain 'nonexistent.com' not found for store 'Test Store' (id: 29)
+INFO 2026-04-08 18:41:46 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 30, tenant_id: 30)
+INFO 2026-04-08 18:41:47 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 31, tenant_id: 31)
+INFO 2026-04-08 18:41:47 stores.services add_domain:202 - Domain 'store1.com' added to store 'Test Store' (id: 30), is_primary=False
+INFO 2026-04-08 18:41:47 stores.services add_domain:202 - Domain 'store2.com' added to store 'Store 2' (id: 31), is_primary=False
+INFO 2026-04-08 18:41:48 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 32, tenant_id: 32)
+INFO 2026-04-08 18:41:48 stores.services add_domain:202 - Domain 'zebra.com' added to store 'Test Store' (id: 32), is_primary=False
+INFO 2026-04-08 18:41:48 stores.services add_domain:202 - Domain 'alpha.com' added to store 'Test Store' (id: 32), is_primary=True
+INFO 2026-04-08 18:41:48 stores.services add_domain:202 - Domain 'beta.com' added to store 'Test Store' (id: 32), is_primary=False
+INFO 2026-04-08 18:41:49 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 33, tenant_id: 33)
+INFO 2026-04-08 18:41:49 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 33), is_primary=True
+INFO 2026-04-08 18:41:49 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 33), is_primary=False
+INFO 2026-04-08 18:41:49 stores.services update_domain:238 - Domain 'shop.com' updated in store 'Test Store' (id: 33), is_primary=True
+INFO 2026-04-08 18:41:50 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 34, tenant_id: 34)
+WARNING 2026-04-08 18:41:50 stores.services update_domain:242 - Domain 'nonexistent.com' not found for store 'Test Store' (id: 34)
+INFO 2026-04-08 18:41:53 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 37, tenant_id: 999)
+INFO 2026-04-08 18:41:54 stores.services create_store:45 - Store '' created successfully by user 'user' (user_id: 38, tenant_id: 38)
+INFO 2026-04-08 18:41:56 stores.services create_store:45 - Store 'Original' created successfully by user 'user' (user_id: 40, tenant_id: 40)
+INFO 2026-04-08 18:41:58 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 42, tenant_id: 42)
+INFO 2026-04-08 18:41:59 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 43, tenant_id: 43)
+INFO 2026-04-08 18:42:00 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 44, tenant_id: 44)
+INFO 2026-04-08 18:42:01 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 45, tenant_id: 45)
+INFO 2026-04-08 18:42:02 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 46, tenant_id: 46)
+INFO 2026-04-08 18:42:04 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 47, tenant_id: 47)
+INFO 2026-04-08 18:42:05 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 48, tenant_id: 48)
+INFO 2026-04-08 18:42:06 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 49, tenant_id: 49)
+INFO 2026-04-08 18:42:07 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 50, tenant_id: 50)
+INFO 2026-04-08 18:42:08 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 51, tenant_id: 51)
+INFO 2026-04-08 18:42:09 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 52, tenant_id: 52)
+INFO 2026-04-08 18:42:10 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 53, tenant_id: 53)
+INFO 2026-04-08 18:42:10 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 54, tenant_id: 54)
+INFO 2026-04-08 18:42:11 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 55, tenant_id: 55)
+INFO 2026-04-08 18:42:12 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 56, tenant_id: 56)
+INFO 2026-04-08 18:42:13 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 57, tenant_id: 57)
+INFO 2026-04-08 18:42:14 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 58, tenant_id: 58)
+INFO 2026-04-08 18:42:17 stores.services create_store:45 - Store 'Custom Slug Store' created successfully by user 'user' (user_id: 61, tenant_id: 1)
+INFO 2026-04-08 18:42:17 stores.views perform_create:46 - Store created: id=60, owner=61, tenant_id=1
+INFO 2026-04-08 18:42:18 stores.services create_store:45 - Store 'Another Store' created successfully by user 'user' (user_id: 62, tenant_id: 1)
+INFO 2026-04-08 18:42:18 stores.views perform_create:46 - Store created: id=62, owner=62, tenant_id=1
+INFO 2026-04-08 18:42:20 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 64, tenant_id: 64)
+INFO 2026-04-08 18:42:20 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 64, tenant_id: 65)
+INFO 2026-04-08 18:42:21 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 65, tenant_id: 66)
+INFO 2026-04-08 18:42:21 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 65, tenant_id: 67)
+INFO 2026-04-08 18:42:21 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 65, tenant_id: 68)
+INFO 2026-04-08 18:42:21 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 65, tenant_id: 69)
+INFO 2026-04-08 18:42:22 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 66, tenant_id: 70)
+INFO 2026-04-08 18:42:23 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 67, tenant_id: 71)
+INFO 2026-04-08 18:42:23 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 67, tenant_id: 72)
+INFO 2026-04-08 18:42:23 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 67, tenant_id: 73)
+INFO 2026-04-08 18:42:24 stores.services create_store:45 - Store 'My   Store   Name' created successfully by user 'user' (user_id: 68, tenant_id: 74)
+INFO 2026-04-08 18:42:24 stores.services create_store:45 - Store 'My   Store   Name' created successfully by user 'user' (user_id: 68, tenant_id: 75)
+INFO 2026-04-08 18:42:25 stores.services create_store:45 - Store 'Store @ #2024!' created successfully by user 'user' (user_id: 69, tenant_id: 76)
+INFO 2026-04-08 18:42:25 stores.services create_store:45 - Store 'Store @ #2024!' created successfully by user 'user' (user_id: 69, tenant_id: 77)
+INFO 2026-04-08 18:42:26 stores.services create_store:45 - Store 'New Store' created successfully by user 'usera' (user_id: 70, tenant_id: 1)
+INFO 2026-04-08 18:42:26 stores.views perform_create:46 - Store created: id=80, owner=70, tenant_id=1
+WARNING 2026-04-08 18:42:32 stores.views get_object:65 - Store not found. User: 76, tenant_id: 1
+WARNING 2026-04-08 18:42:34 stores.views get_object:65 - Store not found. User: 79, tenant_id: 2
+INFO 2026-04-08 18:43:20 categories.services create_category:49 - Category created: 37. Store: 33, Tenant: 1, User: 31
+WARNING 2026-04-08 18:43:20 categories.services create_category:35 - Duplicate category name: Electronics. Store: 33
+WARNING 2026-04-08 18:43:20 categories.services create_category:29 - Category creation attempted with empty name. Store: 34
+INFO 2026-04-08 18:43:22 categories.services create_category:49 - Category created: 38. Store: 35, Tenant: 1, User: 33
+INFO 2026-04-08 18:43:22 categories.services create_category:49 - Category created: 39. Store: 36, Tenant: 1, User: 34
+INFO 2026-04-08 18:43:22 categories.services delete_category:150 - Category deleted: 39. Store: 36, Tenant: 1, User: 34
+INFO 2026-04-08 18:43:23 categories.services create_category:49 - Category created: 40. Store: 37, Tenant: 1, User: 35
+WARNING 2026-04-08 18:43:23 categories.services update_category:80 - Category update attempted with empty name. Category: 40
+INFO 2026-04-08 18:43:24 categories.services create_category:49 - Category created: 41. Store: 38, Tenant: 1, User: 36
+INFO 2026-04-08 18:43:24 categories.services update_category:108 - Category updated: 41. Store: 38, Tenant: 1, User: 36
+INFO 2026-04-08 18:43:28 categories.services create_category:49 - Category created: 46. Store: 41, Tenant: 1, User: 39
+INFO 2026-04-08 18:43:28 categories.views post:105 - Category created: id=46, store_id=41, user_id=39
+WARNING 2026-04-08 18:43:31 categories.views get_store:48 - Multi-tenant violation: User 41 (tenant_id: 1) attempted to access store 44 (tenant_id: 2)
+WARNING 2026-04-08 18:43:31 categories.views get_store:48 - Multi-tenant violation: User 41 (tenant_id: 1) attempted to access store 44 (tenant_id: 2)
+INFO 2026-04-08 18:43:34 categories.services delete_category:150 - Category deleted: 51. Store: 47, Tenant: 1, User: 45
+INFO 2026-04-08 18:43:40 categories.services update_category:108 - Category updated: 57. Store: 53, Tenant: 1, User: 51
+WARNING 2026-04-08 18:44:45 stores.views get_object:98 - Store not found for deletion. User: 17, tenant_id: 1
+WARNING 2026-04-08 18:44:51 stores.views get_object:65 - Store not found. User: 23, tenant_id: 1
+WARNING 2026-04-08 18:45:03 stores.views get_object:65 - Store not found. User: 36, tenant_id: 2
+INFO 2026-04-08 18:45:49 categories.services create_category:49 - Category created: 37. Store: 33, Tenant: 1, User: 31
+WARNING 2026-04-08 18:45:49 categories.services create_category:35 - Duplicate category name: Electronics. Store: 33
+WARNING 2026-04-08 18:45:50 categories.services create_category:29 - Category creation attempted with empty name. Store: 34
+INFO 2026-04-08 18:45:51 categories.services create_category:49 - Category created: 38. Store: 35, Tenant: 1, User: 33
+INFO 2026-04-08 18:45:52 categories.services create_category:49 - Category created: 39. Store: 36, Tenant: 1, User: 34
+INFO 2026-04-08 18:45:52 categories.services delete_category:150 - Category deleted: 39. Store: 36, Tenant: 1, User: 34
+INFO 2026-04-08 18:45:53 categories.services create_category:49 - Category created: 40. Store: 37, Tenant: 1, User: 35
+WARNING 2026-04-08 18:45:53 categories.services update_category:80 - Category update attempted with empty name. Category: 40
+INFO 2026-04-08 18:45:54 categories.services create_category:49 - Category created: 41. Store: 38, Tenant: 1, User: 36
+INFO 2026-04-08 18:45:54 categories.services update_category:108 - Category updated: 41. Store: 38, Tenant: 1, User: 36
+INFO 2026-04-08 18:45:58 categories.services create_category:49 - Category created: 46. Store: 41, Tenant: 1, User: 39
+INFO 2026-04-08 18:45:58 categories.views post:105 - Category created: id=46, store_id=41, user_id=39
+WARNING 2026-04-08 18:46:00 categories.views get_store:48 - Multi-tenant violation: User 41 (tenant_id: 1) attempted to access store 44 (tenant_id: 2)
+WARNING 2026-04-08 18:46:00 categories.views get_store:48 - Multi-tenant violation: User 41 (tenant_id: 1) attempted to access store 44 (tenant_id: 2)
+INFO 2026-04-08 18:46:04 categories.services delete_category:150 - Category deleted: 51. Store: 47, Tenant: 1, User: 45
+INFO 2026-04-08 18:46:09 categories.services update_category:108 - Category updated: 57. Store: 53, Tenant: 1, User: 51
+INFO 2026-04-08 18:46:11 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 53, tenant_id: 55)
+INFO 2026-04-08 18:46:13 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 55, tenant_id: 56)
+INFO 2026-04-08 18:46:15 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 57, tenant_id: 57)
+INFO 2026-04-08 18:46:17 stores.services create_store:45 - Store 'Store A' created successfully by user 'usera' (user_id: 59, tenant_id: 58)
+INFO 2026-04-08 18:46:17 stores.services create_store:45 - Store 'Store B' created successfully by user 'userb' (user_id: 60, tenant_id: 59)
+INFO 2026-04-08 18:46:24 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 67, tenant_id: 67)
+INFO 2026-04-08 18:46:24 stores.services add_domain:202 - Domain 'newshop.com' added to store 'Test Store' (id: 69), is_primary=False
+INFO 2026-04-08 18:46:24 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 68, tenant_id: 68)
+INFO 2026-04-08 18:46:24 stores.services add_domain:202 - Domain 'duplicate.com' added to store 'Test Store' (id: 70), is_primary=False
+INFO 2026-04-08 18:46:25 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 69, tenant_id: 69)
+INFO 2026-04-08 18:46:25 stores.services add_domain:202 - Domain 'primary.com' added to store 'Test Store' (id: 71), is_primary=True
+INFO 2026-04-08 18:46:26 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 70, tenant_id: 70)
+INFO 2026-04-08 18:46:26 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 72), is_primary=False
+INFO 2026-04-08 18:46:26 stores.services delete_domain:272 - Domain 'shop.com' deleted from store 'Test Store' (id: 72)
+INFO 2026-04-08 18:46:27 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 71, tenant_id: 71)
+INFO 2026-04-08 18:46:28 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 72, tenant_id: 72)
+INFO 2026-04-08 18:46:28 stores.services add_domain:202 - Domain 'store2.com' added to store 'Store 2' (id: 74), is_primary=False
+INFO 2026-04-08 18:46:30 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 73, tenant_id: 73)
+INFO 2026-04-08 18:46:30 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 75), is_primary=False
+INFO 2026-04-08 18:46:31 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 74, tenant_id: 74)
+INFO 2026-04-08 18:46:31 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 76), is_primary=True
+INFO 2026-04-08 18:46:31 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 76), is_primary=False
+INFO 2026-04-08 18:46:32 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 75, tenant_id: 75)
+INFO 2026-04-08 18:46:32 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 77), is_primary=False
+INFO 2026-04-08 18:46:32 stores.services update_domain:238 - Domain 'shop.com' updated in store 'Test Store' (id: 77), is_primary=True
+INFO 2026-04-08 18:46:33 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 76, tenant_id: 78)
+INFO 2026-04-08 18:46:33 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 78), is_primary=True
+INFO 2026-04-08 18:46:34 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 77, tenant_id: 79)
+INFO 2026-04-08 18:46:34 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 79), is_primary=False
+INFO 2026-04-08 18:46:35 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 78, tenant_id: 80)
+INFO 2026-04-08 18:46:35 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 80), is_primary=False
+ERROR 2026-04-08 18:46:35 stores.services add_domain:206 - Error adding domain 'myshop.com' to store 'Test Store' (id: 80): duplicate key value violates unique constraint "stores_storedomain_domain_key"
+DETAIL:  Key (domain)=(myshop.com) already exists.
+
+INFO 2026-04-08 18:46:36 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 79, tenant_id: 81)
+INFO 2026-04-08 18:46:36 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 81), is_primary=True
+INFO 2026-04-08 18:46:36 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 81), is_primary=True
+INFO 2026-04-08 18:46:37 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 80, tenant_id: 82)
+INFO 2026-04-08 18:46:37 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 82), is_primary=False
+INFO 2026-04-08 18:46:37 stores.services delete_domain:272 - Domain 'myshop.com' deleted from store 'Test Store' (id: 82)
+INFO 2026-04-08 18:46:38 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 81, tenant_id: 83)
+WARNING 2026-04-08 18:46:38 stores.services delete_domain:276 - Domain 'nonexistent.com' not found for store 'Test Store' (id: 83)
+INFO 2026-04-08 18:46:39 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 82, tenant_id: 84)
+INFO 2026-04-08 18:46:40 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 83, tenant_id: 85)
+INFO 2026-04-08 18:46:40 stores.services add_domain:202 - Domain 'store1.com' added to store 'Test Store' (id: 84), is_primary=False
+INFO 2026-04-08 18:46:40 stores.services add_domain:202 - Domain 'store2.com' added to store 'Store 2' (id: 85), is_primary=False
+INFO 2026-04-08 18:46:41 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 84, tenant_id: 86)
+INFO 2026-04-08 18:46:41 stores.services add_domain:202 - Domain 'zebra.com' added to store 'Test Store' (id: 86), is_primary=False
+INFO 2026-04-08 18:46:41 stores.services add_domain:202 - Domain 'alpha.com' added to store 'Test Store' (id: 86), is_primary=True
+INFO 2026-04-08 18:46:41 stores.services add_domain:202 - Domain 'beta.com' added to store 'Test Store' (id: 86), is_primary=False
+INFO 2026-04-08 18:46:42 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 85, tenant_id: 87)
+INFO 2026-04-08 18:46:42 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 87), is_primary=True
+INFO 2026-04-08 18:46:42 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 87), is_primary=False
+INFO 2026-04-08 18:46:42 stores.services update_domain:238 - Domain 'shop.com' updated in store 'Test Store' (id: 87), is_primary=True
+INFO 2026-04-08 18:46:43 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 86, tenant_id: 88)
+WARNING 2026-04-08 18:46:43 stores.services update_domain:242 - Domain 'nonexistent.com' not found for store 'Test Store' (id: 88)
+INFO 2026-04-08 18:46:45 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 89, tenant_id: 999)
+INFO 2026-04-08 18:46:46 stores.services create_store:45 - Store '' created successfully by user 'user' (user_id: 90, tenant_id: 92)
+INFO 2026-04-08 18:46:48 stores.services create_store:45 - Store 'Original' created successfully by user 'user' (user_id: 92, tenant_id: 94)
+INFO 2026-04-08 18:46:50 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 94, tenant_id: 96)
+INFO 2026-04-08 18:46:51 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 95, tenant_id: 97)
+INFO 2026-04-08 18:46:52 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 96, tenant_id: 98)
+INFO 2026-04-08 18:46:52 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 97, tenant_id: 99)
+INFO 2026-04-08 18:46:53 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 98, tenant_id: 100)
+INFO 2026-04-08 18:46:54 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 99, tenant_id: 101)
+INFO 2026-04-08 18:46:55 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 100, tenant_id: 102)
+INFO 2026-04-08 18:46:56 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 101, tenant_id: 103)
+INFO 2026-04-08 18:46:57 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 102, tenant_id: 104)
+INFO 2026-04-08 18:46:58 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 103, tenant_id: 103)
+INFO 2026-04-08 18:46:59 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 104, tenant_id: 104)
+INFO 2026-04-08 18:46:59 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 105, tenant_id: 107)
+INFO 2026-04-08 18:47:00 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 106, tenant_id: 106)
+INFO 2026-04-08 18:47:01 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 107, tenant_id: 107)
+INFO 2026-04-08 18:47:02 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 108, tenant_id: 110)
+INFO 2026-04-08 18:47:03 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 109, tenant_id: 111)
+INFO 2026-04-08 18:47:04 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 110, tenant_id: 112)
+INFO 2026-04-08 18:47:06 stores.services create_store:45 - Store 'Custom Slug Store' created successfully by user 'user' (user_id: 113, tenant_id: 1)
+INFO 2026-04-08 18:47:06 stores.views perform_create:46 - Store created: id=114, owner=113, tenant_id=1
+INFO 2026-04-08 18:47:07 stores.services create_store:45 - Store 'Another Store' created successfully by user 'user' (user_id: 114, tenant_id: 1)
+INFO 2026-04-08 18:47:07 stores.views perform_create:46 - Store created: id=116, owner=114, tenant_id=1
+INFO 2026-04-08 18:47:09 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 116, tenant_id: 118)
+INFO 2026-04-08 18:47:09 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 116, tenant_id: 119)
+INFO 2026-04-08 18:47:10 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 120)
+INFO 2026-04-08 18:47:10 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 121)
+INFO 2026-04-08 18:47:10 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 122)
+INFO 2026-04-08 18:47:10 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 123)
+INFO 2026-04-08 18:47:11 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 118, tenant_id: 124)
+INFO 2026-04-08 18:47:12 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 119, tenant_id: 125)
+INFO 2026-04-08 18:47:12 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 119, tenant_id: 126)
+INFO 2026-04-08 18:47:12 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 119, tenant_id: 127)
+INFO 2026-04-08 18:47:13 stores.services create_store:45 - Store 'My   Store   Name' created successfully by user 'user' (user_id: 120, tenant_id: 128)
+INFO 2026-04-08 18:47:13 stores.services create_store:45 - Store 'My   Store   Name' created successfully by user 'user' (user_id: 120, tenant_id: 129)
+INFO 2026-04-08 18:47:13 stores.services create_store:45 - Store 'Store @ #2024!' created successfully by user 'user' (user_id: 121, tenant_id: 130)
+INFO 2026-04-08 18:47:13 stores.services create_store:45 - Store 'Store @ #2024!' created successfully by user 'user' (user_id: 121, tenant_id: 131)
+INFO 2026-04-08 18:47:15 stores.services create_store:45 - Store 'New Store' created successfully by user 'usera' (user_id: 122, tenant_id: 1)
+INFO 2026-04-08 18:47:15 stores.views perform_create:46 - Store created: id=134, owner=122, tenant_id=1
+WARNING 2026-04-08 18:47:20 stores.views get_object:65 - Store not found. User: 128, tenant_id: 1
+WARNING 2026-04-08 18:47:22 stores.views get_object:65 - Store not found. User: 131, tenant_id: 2
+WARNING 2026-04-08 18:47:39 stores.views get_object:98 - Store not found for deletion. User: 148, tenant_id: 1
+WARNING 2026-04-08 18:47:45 stores.views get_object:65 - Store not found. User: 154, tenant_id: 1
+WARNING 2026-04-08 18:47:55 stores.views get_object:65 - Store not found. User: 167, tenant_id: 2
+INFO 2026-04-08 18:51:30 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 1, tenant_id: 1)
+INFO 2026-04-08 18:51:32 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 3, tenant_id: 2)
+INFO 2026-04-08 18:51:34 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 5, tenant_id: 3)
+INFO 2026-04-08 18:51:36 stores.services create_store:45 - Store 'Store A' created successfully by user 'usera' (user_id: 7, tenant_id: 4)
+INFO 2026-04-08 18:51:36 stores.services create_store:45 - Store 'Store B' created successfully by user 'userb' (user_id: 8, tenant_id: 5)
+INFO 2026-04-08 18:51:42 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 15, tenant_id: 15)
+INFO 2026-04-08 18:51:42 stores.services add_domain:202 - Domain 'newshop.com' added to store 'Test Store' (id: 15), is_primary=False
+INFO 2026-04-08 18:51:43 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 16, tenant_id: 16)
+INFO 2026-04-08 18:51:43 stores.services add_domain:202 - Domain 'duplicate.com' added to store 'Test Store' (id: 16), is_primary=False
+INFO 2026-04-08 18:51:44 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 17, tenant_id: 17)
+INFO 2026-04-08 18:51:44 stores.services add_domain:202 - Domain 'primary.com' added to store 'Test Store' (id: 17), is_primary=True
+INFO 2026-04-08 18:51:45 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 18, tenant_id: 18)
+INFO 2026-04-08 18:51:45 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 18), is_primary=False
+INFO 2026-04-08 18:51:45 stores.services delete_domain:272 - Domain 'shop.com' deleted from store 'Test Store' (id: 18)
+INFO 2026-04-08 18:51:46 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 19, tenant_id: 19)
+INFO 2026-04-08 18:51:47 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 20, tenant_id: 20)
+INFO 2026-04-08 18:51:47 stores.services add_domain:202 - Domain 'store2.com' added to store 'Store 2' (id: 20), is_primary=False
+INFO 2026-04-08 18:51:48 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 21, tenant_id: 21)
+INFO 2026-04-08 18:51:48 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 21), is_primary=False
+INFO 2026-04-08 18:51:49 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 22, tenant_id: 22)
+INFO 2026-04-08 18:51:49 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 22), is_primary=True
+INFO 2026-04-08 18:51:49 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 22), is_primary=False
+INFO 2026-04-08 18:51:50 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 23, tenant_id: 23)
+INFO 2026-04-08 18:51:50 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 23), is_primary=False
+INFO 2026-04-08 18:51:50 stores.services update_domain:238 - Domain 'shop.com' updated in store 'Test Store' (id: 23), is_primary=True
+INFO 2026-04-08 18:51:51 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 24, tenant_id: 24)
+INFO 2026-04-08 18:51:51 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 24), is_primary=True
+INFO 2026-04-08 18:51:52 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 25, tenant_id: 25)
+INFO 2026-04-08 18:51:52 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 25), is_primary=False
+INFO 2026-04-08 18:51:53 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 26, tenant_id: 26)
+INFO 2026-04-08 18:51:53 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 26), is_primary=False
+ERROR 2026-04-08 18:51:53 stores.services add_domain:206 - Error adding domain 'myshop.com' to store 'Test Store' (id: 26): duplicate key value violates unique constraint "stores_storedomain_domain_key"
+DETAIL:  Key (domain)=(myshop.com) already exists.
+
+INFO 2026-04-08 18:51:54 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 27, tenant_id: 27)
+INFO 2026-04-08 18:51:54 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 27), is_primary=True
+INFO 2026-04-08 18:51:54 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 27), is_primary=True
+INFO 2026-04-08 18:51:55 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 28, tenant_id: 28)
+INFO 2026-04-08 18:51:55 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 28), is_primary=False
+INFO 2026-04-08 18:51:55 stores.services delete_domain:272 - Domain 'myshop.com' deleted from store 'Test Store' (id: 28)
+INFO 2026-04-08 18:51:55 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 29, tenant_id: 29)
+WARNING 2026-04-08 18:51:55 stores.services delete_domain:276 - Domain 'nonexistent.com' not found for store 'Test Store' (id: 29)
+INFO 2026-04-08 18:51:56 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 30, tenant_id: 30)
+INFO 2026-04-08 18:51:58 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 31, tenant_id: 31)
+INFO 2026-04-08 18:51:58 stores.services add_domain:202 - Domain 'store1.com' added to store 'Test Store' (id: 30), is_primary=False
+INFO 2026-04-08 18:51:58 stores.services add_domain:202 - Domain 'store2.com' added to store 'Store 2' (id: 31), is_primary=False
+INFO 2026-04-08 18:51:59 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 32, tenant_id: 32)
+INFO 2026-04-08 18:51:59 stores.services add_domain:202 - Domain 'zebra.com' added to store 'Test Store' (id: 32), is_primary=False
+INFO 2026-04-08 18:51:59 stores.services add_domain:202 - Domain 'alpha.com' added to store 'Test Store' (id: 32), is_primary=True
+INFO 2026-04-08 18:51:59 stores.services add_domain:202 - Domain 'beta.com' added to store 'Test Store' (id: 32), is_primary=False
+INFO 2026-04-08 18:52:00 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 33, tenant_id: 33)
+INFO 2026-04-08 18:52:00 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 33), is_primary=True
+INFO 2026-04-08 18:52:00 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 33), is_primary=False
+INFO 2026-04-08 18:52:00 stores.services update_domain:238 - Domain 'shop.com' updated in store 'Test Store' (id: 33), is_primary=True
+INFO 2026-04-08 18:52:00 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 34, tenant_id: 34)
+WARNING 2026-04-08 18:52:00 stores.services update_domain:242 - Domain 'nonexistent.com' not found for store 'Test Store' (id: 34)
+INFO 2026-04-08 18:52:03 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 37, tenant_id: 999)
+INFO 2026-04-08 18:52:04 stores.services create_store:45 - Store '' created successfully by user 'user' (user_id: 38, tenant_id: 38)
+INFO 2026-04-08 18:52:06 stores.services create_store:45 - Store 'Original' created successfully by user 'user' (user_id: 40, tenant_id: 40)
+INFO 2026-04-08 18:52:06 stores.services update_store:114 - Store 'Updated' (id: 40, tenant_id: 40) updated: name: 'Original' -> 'Updated', description: 'Original Desc' -> 'Updated Desc', status: 'active' -> 'inactive'
+INFO 2026-04-08 18:52:08 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 42, tenant_id: 42)
+INFO 2026-04-08 18:52:09 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 43, tenant_id: 43)
+INFO 2026-04-08 18:52:10 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 44, tenant_id: 44)
+INFO 2026-04-08 18:52:11 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 45, tenant_id: 45)
+INFO 2026-04-08 18:52:12 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 46, tenant_id: 46)
+INFO 2026-04-08 18:52:13 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 47, tenant_id: 47)
+INFO 2026-04-08 18:52:14 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 48, tenant_id: 48)
+INFO 2026-04-08 18:52:14 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 49, tenant_id: 49)
+INFO 2026-04-08 18:52:15 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 50, tenant_id: 50)
+INFO 2026-04-08 18:52:16 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 51, tenant_id: 51)
+INFO 2026-04-08 18:52:17 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 52, tenant_id: 52)
+INFO 2026-04-08 18:52:18 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 53, tenant_id: 53)
+INFO 2026-04-08 18:52:19 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 54, tenant_id: 54)
+INFO 2026-04-08 18:52:20 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 55, tenant_id: 55)
+INFO 2026-04-08 18:52:21 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 56, tenant_id: 56)
+INFO 2026-04-08 18:52:21 stores.services update_store_settings:158 - StoreSettings for store 'Test Store' (id: 56) updated: currency: 'USD' -> 'GBP', language: 'en' -> 'fr', timezone: 'UTC' -> 'Europe/Paris'
+INFO 2026-04-08 18:52:23 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 57, tenant_id: 57)
+INFO 2026-04-08 18:52:23 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 58, tenant_id: 58)
+INFO 2026-04-08 18:52:23 stores.services update_store_settings:158 - StoreSettings for store 'Test Store' (id: 58) updated: currency: 'USD' -> 'EUR'
+INFO 2026-04-08 18:52:26 stores.services create_store:45 - Store 'Custom Slug Store' created successfully by user 'user' (user_id: 61, tenant_id: 1)
+INFO 2026-04-08 18:52:26 stores.views perform_create:46 - Store created: id=60, owner=61, tenant_id=1
+INFO 2026-04-08 18:52:27 stores.services create_store:45 - Store 'Another Store' created successfully by user 'user' (user_id: 62, tenant_id: 1)
+INFO 2026-04-08 18:52:27 stores.views perform_create:46 - Store created: id=62, owner=62, tenant_id=1
+INFO 2026-04-08 18:52:29 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 64, tenant_id: 64)
+INFO 2026-04-08 18:52:29 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 64, tenant_id: 65)
+INFO 2026-04-08 18:52:30 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 65, tenant_id: 66)
+INFO 2026-04-08 18:52:30 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 65, tenant_id: 67)
+INFO 2026-04-08 18:52:30 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 65, tenant_id: 68)
+INFO 2026-04-08 18:52:30 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 65, tenant_id: 69)
+INFO 2026-04-08 18:52:31 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 66, tenant_id: 70)
+INFO 2026-04-08 18:52:31 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 67, tenant_id: 71)
+INFO 2026-04-08 18:52:31 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 67, tenant_id: 72)
+INFO 2026-04-08 18:52:31 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 67, tenant_id: 73)
+INFO 2026-04-08 18:52:32 stores.services create_store:45 - Store 'My   Store   Name' created successfully by user 'user' (user_id: 68, tenant_id: 74)
+INFO 2026-04-08 18:52:32 stores.services create_store:45 - Store 'My   Store   Name' created successfully by user 'user' (user_id: 68, tenant_id: 75)
+INFO 2026-04-08 18:52:33 stores.services create_store:45 - Store 'Store @ #2024!' created successfully by user 'user' (user_id: 69, tenant_id: 76)
+INFO 2026-04-08 18:52:33 stores.services create_store:45 - Store 'Store @ #2024!' created successfully by user 'user' (user_id: 69, tenant_id: 77)
+INFO 2026-04-08 18:52:35 stores.services create_store:45 - Store 'New Store' created successfully by user 'usera' (user_id: 70, tenant_id: 1)
+INFO 2026-04-08 18:52:35 stores.views perform_create:46 - Store created: id=80, owner=70, tenant_id=1
+WARNING 2026-04-08 18:52:41 stores.views get_object:65 - Store not found. User: 76, tenant_id: 1
+WARNING 2026-04-08 18:52:42 stores.views get_object:65 - Store not found. User: 79, tenant_id: 2
+INFO 2026-04-08 18:56:52 categories.services create_category:49 - Category created: 1. Store: 1, Tenant: 1, User: 1
+INFO 2026-04-08 18:56:52 categories.views post:105 - Category created: id=1, store_id=1, user_id=1
+INFO 2026-04-08 18:56:54 categories.services delete_category:150 - Category deleted: 2. Store: 3, Tenant: 1, User: 3
+INFO 2026-04-08 18:56:56 categories.services update_category:108 - Category updated: 6. Store: 6, Tenant: 1, User: 6
+WARNING 2026-04-08 18:57:07 categories.views get_store:48 - Multi-tenant violation: User 16 (tenant_id: 1) attempted to access store 18 (tenant_id: 2)
+WARNING 2026-04-08 18:57:10 categories.views get_store:48 - Multi-tenant violation: User 20 (tenant_id: 1) attempted to access store 22 (tenant_id: 2)
+INFO 2026-04-08 18:57:19 categories.services create_category:49 - Category created: 38. Store: 33, Tenant: 1, User: 31
+WARNING 2026-04-08 18:57:19 categories.services create_category:35 - Duplicate category name: Electronics. Store: 33
+WARNING 2026-04-08 18:57:20 categories.services create_category:29 - Category creation attempted with empty name. Store: 34
+INFO 2026-04-08 18:57:21 categories.services create_category:49 - Category created: 39. Store: 35, Tenant: 1, User: 33
+INFO 2026-04-08 18:57:22 categories.services create_category:49 - Category created: 40. Store: 36, Tenant: 1, User: 34
+INFO 2026-04-08 18:57:22 categories.services delete_category:150 - Category deleted: 40. Store: 36, Tenant: 1, User: 34
+INFO 2026-04-08 18:57:22 categories.services create_category:49 - Category created: 41. Store: 37, Tenant: 1, User: 35
+WARNING 2026-04-08 18:57:22 categories.services update_category:80 - Category update attempted with empty name. Category: 41
+INFO 2026-04-08 18:57:23 categories.services create_category:49 - Category created: 42. Store: 38, Tenant: 1, User: 36
+INFO 2026-04-08 18:57:23 categories.services update_category:108 - Category updated: 42. Store: 38, Tenant: 1, User: 36
+INFO 2026-04-08 18:57:40 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 53, tenant_id: 55)
+INFO 2026-04-08 18:57:42 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 55, tenant_id: 56)
+INFO 2026-04-08 18:57:44 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 57, tenant_id: 57)
+INFO 2026-04-08 18:57:45 stores.services create_store:45 - Store 'Store A' created successfully by user 'usera' (user_id: 59, tenant_id: 58)
+INFO 2026-04-08 18:57:45 stores.services create_store:45 - Store 'Store B' created successfully by user 'userb' (user_id: 60, tenant_id: 59)
+INFO 2026-04-08 18:57:52 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 67, tenant_id: 67)
+INFO 2026-04-08 18:57:53 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 68, tenant_id: 68)
+INFO 2026-04-08 18:57:53 stores.services add_domain:202 - Domain 'duplicate.com' added to store 'Test Store' (id: 70), is_primary=False
+INFO 2026-04-08 18:57:54 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 69, tenant_id: 69)
+INFO 2026-04-08 18:57:55 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 70, tenant_id: 70)
+INFO 2026-04-08 18:57:55 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 72), is_primary=False
+INFO 2026-04-08 18:57:56 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 71, tenant_id: 71)
+INFO 2026-04-08 18:57:57 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 72, tenant_id: 72)
+INFO 2026-04-08 18:57:57 stores.services add_domain:202 - Domain 'store2.com' added to store 'Store 2' (id: 74), is_primary=False
+INFO 2026-04-08 18:57:58 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 73, tenant_id: 73)
+INFO 2026-04-08 18:57:58 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 75), is_primary=False
+INFO 2026-04-08 18:57:59 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 74, tenant_id: 74)
+INFO 2026-04-08 18:57:59 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 76), is_primary=True
+INFO 2026-04-08 18:57:59 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 76), is_primary=False
+INFO 2026-04-08 18:58:00 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 75, tenant_id: 75)
+INFO 2026-04-08 18:58:00 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 77), is_primary=False
+INFO 2026-04-08 18:58:02 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 76, tenant_id: 78)
+INFO 2026-04-08 18:58:02 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 78), is_primary=True
+INFO 2026-04-08 18:58:02 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 77, tenant_id: 79)
+INFO 2026-04-08 18:58:02 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 79), is_primary=False
+INFO 2026-04-08 18:58:04 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 78, tenant_id: 80)
+INFO 2026-04-08 18:58:04 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 80), is_primary=False
+ERROR 2026-04-08 18:58:04 stores.services add_domain:206 - Error adding domain 'myshop.com' to store 'Test Store' (id: 80): duplicate key value violates unique constraint "stores_storedomain_domain_key"
+DETAIL:  Key (domain)=(myshop.com) already exists.
+
+INFO 2026-04-08 18:58:05 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 79, tenant_id: 81)
+INFO 2026-04-08 18:58:05 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 81), is_primary=True
+INFO 2026-04-08 18:58:05 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 81), is_primary=True
+INFO 2026-04-08 18:58:06 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 80, tenant_id: 82)
+INFO 2026-04-08 18:58:06 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 82), is_primary=False
+INFO 2026-04-08 18:58:06 stores.services delete_domain:272 - Domain 'myshop.com' deleted from store 'Test Store' (id: 82)
+INFO 2026-04-08 18:58:07 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 81, tenant_id: 83)
+WARNING 2026-04-08 18:58:07 stores.services delete_domain:276 - Domain 'nonexistent.com' not found for store 'Test Store' (id: 83)
+INFO 2026-04-08 18:58:08 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 82, tenant_id: 84)
+INFO 2026-04-08 18:58:09 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 83, tenant_id: 85)
+INFO 2026-04-08 18:58:09 stores.services add_domain:202 - Domain 'store1.com' added to store 'Test Store' (id: 84), is_primary=False
+INFO 2026-04-08 18:58:09 stores.services add_domain:202 - Domain 'store2.com' added to store 'Store 2' (id: 85), is_primary=False
+INFO 2026-04-08 18:58:09 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 84, tenant_id: 86)
+INFO 2026-04-08 18:58:09 stores.services add_domain:202 - Domain 'zebra.com' added to store 'Test Store' (id: 86), is_primary=False
+INFO 2026-04-08 18:58:09 stores.services add_domain:202 - Domain 'alpha.com' added to store 'Test Store' (id: 86), is_primary=True
+INFO 2026-04-08 18:58:09 stores.services add_domain:202 - Domain 'beta.com' added to store 'Test Store' (id: 86), is_primary=False
+INFO 2026-04-08 18:58:10 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 85, tenant_id: 87)
+INFO 2026-04-08 18:58:10 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 87), is_primary=True
+INFO 2026-04-08 18:58:10 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 87), is_primary=False
+INFO 2026-04-08 18:58:10 stores.services update_domain:238 - Domain 'shop.com' updated in store 'Test Store' (id: 87), is_primary=True
+INFO 2026-04-08 18:58:11 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 86, tenant_id: 88)
+WARNING 2026-04-08 18:58:11 stores.services update_domain:242 - Domain 'nonexistent.com' not found for store 'Test Store' (id: 88)
+INFO 2026-04-08 18:58:14 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 89, tenant_id: 999)
+INFO 2026-04-08 18:58:15 stores.services create_store:45 - Store '' created successfully by user 'user' (user_id: 90, tenant_id: 92)
+INFO 2026-04-08 18:58:17 stores.services create_store:45 - Store 'Original' created successfully by user 'user' (user_id: 92, tenant_id: 94)
+INFO 2026-04-08 18:58:17 stores.services update_store:114 - Store 'Updated' (id: 94, tenant_id: 94) updated: name: 'Original' -> 'Updated', description: 'Original Desc' -> 'Updated Desc', status: 'active' -> 'inactive'
+INFO 2026-04-08 18:58:19 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 94, tenant_id: 96)
+INFO 2026-04-08 18:58:20 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 95, tenant_id: 97)
+INFO 2026-04-08 18:58:21 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 96, tenant_id: 98)
+INFO 2026-04-08 18:58:21 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 97, tenant_id: 99)
+INFO 2026-04-08 18:58:22 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 98, tenant_id: 100)
+INFO 2026-04-08 18:58:23 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 99, tenant_id: 101)
+INFO 2026-04-08 18:58:24 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 100, tenant_id: 102)
+INFO 2026-04-08 18:58:25 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 101, tenant_id: 103)
+INFO 2026-04-08 18:58:26 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 102, tenant_id: 104)
+INFO 2026-04-08 18:58:27 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 103, tenant_id: 103)
+INFO 2026-04-08 18:58:28 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 104, tenant_id: 104)
+INFO 2026-04-08 18:58:29 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 105, tenant_id: 107)
+INFO 2026-04-08 18:58:30 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 106, tenant_id: 106)
+INFO 2026-04-08 18:58:31 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 107, tenant_id: 107)
+INFO 2026-04-08 18:58:31 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 108, tenant_id: 110)
+INFO 2026-04-08 18:58:31 stores.services update_store_settings:158 - StoreSettings for store 'Test Store' (id: 110) updated: currency: 'USD' -> 'GBP', language: 'en' -> 'fr', timezone: 'UTC' -> 'Europe/Paris'
+INFO 2026-04-08 18:58:32 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 109, tenant_id: 111)
+INFO 2026-04-08 18:58:33 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 110, tenant_id: 112)
+INFO 2026-04-08 18:58:33 stores.services update_store_settings:158 - StoreSettings for store 'Test Store' (id: 112) updated: currency: 'USD' -> 'EUR'
+INFO 2026-04-08 18:58:39 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 116, tenant_id: 116)
+INFO 2026-04-08 18:58:39 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 116, tenant_id: 117)
+INFO 2026-04-08 18:58:40 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 118)
+INFO 2026-04-08 18:58:40 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 119)
+INFO 2026-04-08 18:58:40 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 120)
+INFO 2026-04-08 18:58:40 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 121)
+INFO 2026-04-08 18:58:41 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 118, tenant_id: 122)
+INFO 2026-04-08 18:58:42 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 119, tenant_id: 123)
+INFO 2026-04-08 18:58:42 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 119, tenant_id: 124)
+INFO 2026-04-08 18:58:42 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 119, tenant_id: 125)
+INFO 2026-04-08 18:58:43 stores.services create_store:45 - Store 'My   Store   Name' created successfully by user 'user' (user_id: 120, tenant_id: 126)
+INFO 2026-04-08 18:58:43 stores.services create_store:45 - Store 'My   Store   Name' created successfully by user 'user' (user_id: 120, tenant_id: 127)
+INFO 2026-04-08 18:58:43 stores.services create_store:45 - Store 'Store @ #2024!' created successfully by user 'user' (user_id: 121, tenant_id: 128)
+INFO 2026-04-08 18:58:43 stores.services create_store:45 - Store 'Store @ #2024!' created successfully by user 'user' (user_id: 121, tenant_id: 129)
+INFO 2026-04-08 19:02:15 categories.services create_category:49 - Category created: 1. Store: 1, Tenant: 1, User: 1
+INFO 2026-04-08 19:02:15 categories.views post:105 - Category created: id=1, store_id=1, user_id=1
+INFO 2026-04-08 19:02:17 categories.services delete_category:150 - Category deleted: 2. Store: 3, Tenant: 1, User: 3
+INFO 2026-04-08 19:02:19 categories.services update_category:108 - Category updated: 6. Store: 6, Tenant: 1, User: 6
+WARNING 2026-04-08 19:02:29 categories.views get_store:48 - Multi-tenant violation: User 16 (tenant_id: 1) attempted to access store 18 (tenant_id: 2)
+WARNING 2026-04-08 19:02:32 categories.views get_store:48 - Multi-tenant violation: User 20 (tenant_id: 1) attempted to access store 22 (tenant_id: 2)
+INFO 2026-04-08 19:02:41 categories.services create_category:49 - Category created: 38. Store: 33, Tenant: 1, User: 31
+WARNING 2026-04-08 19:02:41 categories.services create_category:35 - Duplicate category name: Electronics. Store: 33
+WARNING 2026-04-08 19:02:42 categories.services create_category:29 - Category creation attempted with empty name. Store: 34
+INFO 2026-04-08 19:02:43 categories.services create_category:49 - Category created: 39. Store: 35, Tenant: 1, User: 33
+INFO 2026-04-08 19:02:44 categories.services create_category:49 - Category created: 40. Store: 36, Tenant: 1, User: 34
+INFO 2026-04-08 19:02:44 categories.services delete_category:150 - Category deleted: 40. Store: 36, Tenant: 1, User: 34
+INFO 2026-04-08 19:02:44 categories.services create_category:49 - Category created: 41. Store: 37, Tenant: 1, User: 35
+WARNING 2026-04-08 19:02:44 categories.services update_category:80 - Category update attempted with empty name. Category: 41
+INFO 2026-04-08 19:02:45 categories.services create_category:49 - Category created: 42. Store: 38, Tenant: 1, User: 36
+INFO 2026-04-08 19:02:45 categories.services update_category:108 - Category updated: 42. Store: 38, Tenant: 1, User: 36
+INFO 2026-04-08 19:02:49 categories.services create_category:49 - Category created: 47. Store: 41, Tenant: 1, User: 39
+INFO 2026-04-08 19:02:49 categories.views post:105 - Category created: id=47, store_id=41, user_id=39
+WARNING 2026-04-08 19:02:51 categories.views get_store:48 - Multi-tenant violation: User 41 (tenant_id: 1) attempted to access store 44 (tenant_id: 2)
+WARNING 2026-04-08 19:02:51 categories.views get_store:48 - Multi-tenant violation: User 41 (tenant_id: 1) attempted to access store 44 (tenant_id: 2)
+INFO 2026-04-08 19:02:54 categories.services delete_category:150 - Category deleted: 52. Store: 47, Tenant: 1, User: 45
+INFO 2026-04-08 19:02:59 categories.services update_category:108 - Category updated: 58. Store: 53, Tenant: 1, User: 51
+INFO 2026-04-08 19:03:01 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 53, tenant_id: 55)
+INFO 2026-04-08 19:03:03 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 55, tenant_id: 56)
+INFO 2026-04-08 19:03:06 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 57, tenant_id: 57)
+INFO 2026-04-08 19:03:07 stores.services create_store:45 - Store 'Store A' created successfully by user 'usera' (user_id: 59, tenant_id: 58)
+INFO 2026-04-08 19:03:07 stores.services create_store:45 - Store 'Store B' created successfully by user 'userb' (user_id: 60, tenant_id: 59)
+INFO 2026-04-08 19:03:13 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 67, tenant_id: 67)
+INFO 2026-04-08 19:03:13 stores.services add_domain:202 - Domain 'newshop.com' added to store 'Test Store' (id: 69), is_primary=False
+INFO 2026-04-08 19:03:14 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 68, tenant_id: 68)
+INFO 2026-04-08 19:03:14 stores.services add_domain:202 - Domain 'duplicate.com' added to store 'Test Store' (id: 70), is_primary=False
+INFO 2026-04-08 19:03:15 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 69, tenant_id: 69)
+INFO 2026-04-08 19:03:15 stores.services add_domain:202 - Domain 'primary.com' added to store 'Test Store' (id: 71), is_primary=True
+INFO 2026-04-08 19:03:16 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 70, tenant_id: 70)
+INFO 2026-04-08 19:03:16 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 72), is_primary=False
+INFO 2026-04-08 19:03:16 stores.services delete_domain:272 - Domain 'shop.com' deleted from store 'Test Store' (id: 72)
+INFO 2026-04-08 19:03:17 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 71, tenant_id: 71)
+INFO 2026-04-08 19:03:18 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 72, tenant_id: 72)
+INFO 2026-04-08 19:03:18 stores.services add_domain:202 - Domain 'store2.com' added to store 'Store 2' (id: 74), is_primary=False
+INFO 2026-04-08 19:03:19 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 73, tenant_id: 73)
+INFO 2026-04-08 19:03:19 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 75), is_primary=False
+INFO 2026-04-08 19:03:20 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 74, tenant_id: 74)
+INFO 2026-04-08 19:03:20 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 76), is_primary=True
+INFO 2026-04-08 19:03:20 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 76), is_primary=False
+INFO 2026-04-08 19:03:21 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 75, tenant_id: 75)
+INFO 2026-04-08 19:03:21 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 77), is_primary=False
+INFO 2026-04-08 19:03:21 stores.services update_domain:238 - Domain 'shop.com' updated in store 'Test Store' (id: 77), is_primary=True
+INFO 2026-04-08 19:03:22 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 76, tenant_id: 78)
+INFO 2026-04-08 19:03:22 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 78), is_primary=True
+INFO 2026-04-08 19:03:23 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 77, tenant_id: 79)
+INFO 2026-04-08 19:03:23 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 79), is_primary=False
+INFO 2026-04-08 19:03:23 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 78, tenant_id: 80)
+INFO 2026-04-08 19:03:23 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 80), is_primary=False
+ERROR 2026-04-08 19:03:23 stores.services add_domain:206 - Error adding domain 'myshop.com' to store 'Test Store' (id: 80): duplicate key value violates unique constraint "stores_storedomain_domain_key"
+DETAIL:  Key (domain)=(myshop.com) already exists.
+
+INFO 2026-04-08 19:03:24 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 79, tenant_id: 81)
+INFO 2026-04-08 19:03:24 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 81), is_primary=True
+INFO 2026-04-08 19:03:24 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 81), is_primary=True
+INFO 2026-04-08 19:03:25 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 80, tenant_id: 82)
+INFO 2026-04-08 19:03:25 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 82), is_primary=False
+INFO 2026-04-08 19:03:25 stores.services delete_domain:272 - Domain 'myshop.com' deleted from store 'Test Store' (id: 82)
+INFO 2026-04-08 19:03:26 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 81, tenant_id: 83)
+WARNING 2026-04-08 19:03:26 stores.services delete_domain:276 - Domain 'nonexistent.com' not found for store 'Test Store' (id: 83)
+INFO 2026-04-08 19:03:27 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 82, tenant_id: 84)
+INFO 2026-04-08 19:03:28 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 83, tenant_id: 85)
+INFO 2026-04-08 19:03:28 stores.services add_domain:202 - Domain 'store1.com' added to store 'Test Store' (id: 84), is_primary=False
+INFO 2026-04-08 19:03:28 stores.services add_domain:202 - Domain 'store2.com' added to store 'Store 2' (id: 85), is_primary=False
+INFO 2026-04-08 19:03:28 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 84, tenant_id: 86)
+INFO 2026-04-08 19:03:28 stores.services add_domain:202 - Domain 'zebra.com' added to store 'Test Store' (id: 86), is_primary=False
+INFO 2026-04-08 19:03:28 stores.services add_domain:202 - Domain 'alpha.com' added to store 'Test Store' (id: 86), is_primary=True
+INFO 2026-04-08 19:03:28 stores.services add_domain:202 - Domain 'beta.com' added to store 'Test Store' (id: 86), is_primary=False
+INFO 2026-04-08 19:03:29 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 85, tenant_id: 87)
+INFO 2026-04-08 19:03:29 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 87), is_primary=True
+INFO 2026-04-08 19:03:29 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 87), is_primary=False
+INFO 2026-04-08 19:03:29 stores.services update_domain:238 - Domain 'shop.com' updated in store 'Test Store' (id: 87), is_primary=True
+INFO 2026-04-08 19:03:30 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 86, tenant_id: 88)
+WARNING 2026-04-08 19:03:30 stores.services update_domain:242 - Domain 'nonexistent.com' not found for store 'Test Store' (id: 88)
+INFO 2026-04-08 19:03:33 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 89, tenant_id: 999)
+INFO 2026-04-08 19:03:34 stores.services create_store:45 - Store '' created successfully by user 'user' (user_id: 90, tenant_id: 92)
+INFO 2026-04-08 19:03:36 stores.services create_store:45 - Store 'Original' created successfully by user 'user' (user_id: 92, tenant_id: 94)
+INFO 2026-04-08 19:03:36 stores.services update_store:114 - Store 'Updated' (id: 94, tenant_id: 94) updated: name: 'Original' -> 'Updated', description: 'Original Desc' -> 'Updated Desc', status: 'active' -> 'inactive'
+INFO 2026-04-08 19:03:37 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 94, tenant_id: 96)
+INFO 2026-04-08 19:03:38 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 95, tenant_id: 97)
+INFO 2026-04-08 19:03:39 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 96, tenant_id: 98)
+INFO 2026-04-08 19:03:40 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 97, tenant_id: 99)
+INFO 2026-04-08 19:03:41 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 98, tenant_id: 100)
+INFO 2026-04-08 19:03:41 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 99, tenant_id: 101)
+INFO 2026-04-08 19:03:42 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 100, tenant_id: 102)
+INFO 2026-04-08 19:03:43 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 101, tenant_id: 103)
+INFO 2026-04-08 19:03:45 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 102, tenant_id: 104)
+INFO 2026-04-08 19:03:46 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 103, tenant_id: 103)
+INFO 2026-04-08 19:03:46 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 104, tenant_id: 104)
+INFO 2026-04-08 19:03:47 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 105, tenant_id: 107)
+INFO 2026-04-08 19:03:48 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 106, tenant_id: 106)
+INFO 2026-04-08 19:03:49 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 107, tenant_id: 107)
+INFO 2026-04-08 19:03:50 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 108, tenant_id: 110)
+INFO 2026-04-08 19:03:50 stores.services update_store_settings:158 - StoreSettings for store 'Test Store' (id: 110) updated: currency: 'USD' -> 'GBP', language: 'en' -> 'fr', timezone: 'UTC' -> 'Europe/Paris'
+INFO 2026-04-08 19:03:51 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 109, tenant_id: 111)
+INFO 2026-04-08 19:03:52 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 110, tenant_id: 112)
+INFO 2026-04-08 19:03:52 stores.services update_store_settings:158 - StoreSettings for store 'Test Store' (id: 112) updated: currency: 'USD' -> 'EUR'
+INFO 2026-04-08 19:03:55 stores.services create_store:45 - Store 'Custom Slug Store' created successfully by user 'user' (user_id: 113, tenant_id: 1)
+INFO 2026-04-08 19:03:55 stores.views perform_create:46 - Store created: id=114, owner=113, tenant_id=1
+INFO 2026-04-08 19:03:56 stores.services create_store:45 - Store 'Another Store' created successfully by user 'user' (user_id: 114, tenant_id: 1)
+INFO 2026-04-08 19:03:56 stores.views perform_create:46 - Store created: id=116, owner=114, tenant_id=1
+INFO 2026-04-08 19:03:58 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 116, tenant_id: 118)
+INFO 2026-04-08 19:03:58 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 116, tenant_id: 119)
+INFO 2026-04-08 19:03:59 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 120)
+INFO 2026-04-08 19:03:59 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 121)
+INFO 2026-04-08 19:03:59 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 122)
+INFO 2026-04-08 19:03:59 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 123)
+INFO 2026-04-08 19:03:59 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 118, tenant_id: 124)
+INFO 2026-04-08 19:04:00 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 119, tenant_id: 125)
+INFO 2026-04-08 19:04:00 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 119, tenant_id: 126)
+INFO 2026-04-08 19:04:00 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 119, tenant_id: 127)
+INFO 2026-04-08 19:04:01 stores.services create_store:45 - Store 'My   Store   Name' created successfully by user 'user' (user_id: 120, tenant_id: 128)
+INFO 2026-04-08 19:04:01 stores.services create_store:45 - Store 'My   Store   Name' created successfully by user 'user' (user_id: 120, tenant_id: 129)
+INFO 2026-04-08 19:04:02 stores.services create_store:45 - Store 'Store @ #2024!' created successfully by user 'user' (user_id: 121, tenant_id: 130)
+INFO 2026-04-08 19:04:02 stores.services create_store:45 - Store 'Store @ #2024!' created successfully by user 'user' (user_id: 121, tenant_id: 131)
+INFO 2026-04-08 19:04:04 stores.services create_store:45 - Store 'New Store' created successfully by user 'usera' (user_id: 122, tenant_id: 1)
+INFO 2026-04-08 19:04:04 stores.views perform_create:46 - Store created: id=134, owner=122, tenant_id=1
+WARNING 2026-04-08 19:04:09 stores.views get_object:65 - Store not found. User: 128, tenant_id: 1
+WARNING 2026-04-08 19:04:10 stores.views get_object:65 - Store not found. User: 131, tenant_id: 2
+WARNING 2026-04-08 19:04:27 stores.views get_object:98 - Store not found for deletion. User: 148, tenant_id: 1
+WARNING 2026-04-08 19:04:32 stores.views get_object:65 - Store not found. User: 154, tenant_id: 1
+WARNING 2026-04-08 19:04:42 stores.views get_object:65 - Store not found. User: 167, tenant_id: 2
+INFO 2026-04-08 19:41:37 categories.services create_category:49 - Category created: 1. Store: 1, Tenant: 1, User: 1
+INFO 2026-04-08 19:41:37 categories.views post:105 - Category created: id=1, store_id=1, user_id=1
+INFO 2026-04-08 19:41:39 categories.services delete_category:150 - Category deleted: 2. Store: 3, Tenant: 1, User: 3
+INFO 2026-04-08 19:41:41 categories.services update_category:108 - Category updated: 6. Store: 6, Tenant: 1, User: 6
+WARNING 2026-04-08 19:41:51 categories.views get_store:48 - Multi-tenant violation: User 16 (tenant_id: 1) attempted to access store 18 (tenant_id: 2)
+WARNING 2026-04-08 19:41:54 categories.views get_store:48 - Multi-tenant violation: User 20 (tenant_id: 1) attempted to access store 22 (tenant_id: 2)
+INFO 2026-04-08 19:42:03 categories.services create_category:49 - Category created: 38. Store: 33, Tenant: 1, User: 31
+WARNING 2026-04-08 19:42:03 categories.services create_category:35 - Duplicate category name: Electronics. Store: 33
+WARNING 2026-04-08 19:42:04 categories.services create_category:29 - Category creation attempted with empty name. Store: 34
+INFO 2026-04-08 19:42:05 categories.services create_category:49 - Category created: 39. Store: 35, Tenant: 1, User: 33
+INFO 2026-04-08 19:42:06 categories.services create_category:49 - Category created: 40. Store: 36, Tenant: 1, User: 34
+INFO 2026-04-08 19:42:06 categories.services delete_category:150 - Category deleted: 40. Store: 36, Tenant: 1, User: 34
+INFO 2026-04-08 19:42:07 categories.services create_category:49 - Category created: 41. Store: 37, Tenant: 1, User: 35
+WARNING 2026-04-08 19:42:07 categories.services update_category:80 - Category update attempted with empty name. Category: 41
+INFO 2026-04-08 19:42:08 categories.services create_category:49 - Category created: 42. Store: 38, Tenant: 1, User: 36
+INFO 2026-04-08 19:42:08 categories.services update_category:108 - Category updated: 42. Store: 38, Tenant: 1, User: 36
+INFO 2026-04-08 19:42:13 categories.services create_category:49 - Category created: 47. Store: 41, Tenant: 1, User: 39
+INFO 2026-04-08 19:42:13 categories.views post:105 - Category created: id=47, store_id=41, user_id=39
+WARNING 2026-04-08 19:42:14 categories.views get_store:48 - Multi-tenant violation: User 41 (tenant_id: 1) attempted to access store 44 (tenant_id: 2)
+WARNING 2026-04-08 19:42:14 categories.views get_store:48 - Multi-tenant violation: User 41 (tenant_id: 1) attempted to access store 44 (tenant_id: 2)
+INFO 2026-04-08 19:42:18 categories.services delete_category:150 - Category deleted: 52. Store: 47, Tenant: 1, User: 45
+INFO 2026-04-08 19:42:23 categories.services update_category:108 - Category updated: 58. Store: 53, Tenant: 1, User: 51
+INFO 2026-04-08 19:42:25 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 53, tenant_id: 55)
+INFO 2026-04-08 19:42:27 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 55, tenant_id: 56)
+INFO 2026-04-08 19:42:29 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 57, tenant_id: 57)
+INFO 2026-04-08 19:42:30 stores.services create_store:45 - Store 'Store A' created successfully by user 'usera' (user_id: 59, tenant_id: 58)
+INFO 2026-04-08 19:42:30 stores.services create_store:45 - Store 'Store B' created successfully by user 'userb' (user_id: 60, tenant_id: 59)
+INFO 2026-04-08 19:42:37 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 67, tenant_id: 67)
+INFO 2026-04-08 19:42:37 stores.services add_domain:202 - Domain 'newshop.com' added to store 'Test Store' (id: 69), is_primary=False
+INFO 2026-04-08 19:42:37 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 68, tenant_id: 68)
+INFO 2026-04-08 19:42:37 stores.services add_domain:202 - Domain 'duplicate.com' added to store 'Test Store' (id: 70), is_primary=False
+INFO 2026-04-08 19:42:38 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 69, tenant_id: 69)
+INFO 2026-04-08 19:42:38 stores.services add_domain:202 - Domain 'primary.com' added to store 'Test Store' (id: 71), is_primary=True
+INFO 2026-04-08 19:42:39 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 70, tenant_id: 70)
+INFO 2026-04-08 19:42:39 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 72), is_primary=False
+INFO 2026-04-08 19:42:39 stores.services delete_domain:272 - Domain 'shop.com' deleted from store 'Test Store' (id: 72)
+INFO 2026-04-08 19:42:40 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 71, tenant_id: 71)
+INFO 2026-04-08 19:42:41 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 72, tenant_id: 72)
+INFO 2026-04-08 19:42:41 stores.services add_domain:202 - Domain 'store2.com' added to store 'Store 2' (id: 74), is_primary=False
+INFO 2026-04-08 19:42:42 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 73, tenant_id: 73)
+INFO 2026-04-08 19:42:42 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 75), is_primary=False
+INFO 2026-04-08 19:42:43 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 74, tenant_id: 74)
+INFO 2026-04-08 19:42:43 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 76), is_primary=True
+INFO 2026-04-08 19:42:43 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 76), is_primary=False
+INFO 2026-04-08 19:42:44 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 75, tenant_id: 75)
+INFO 2026-04-08 19:42:44 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 77), is_primary=False
+INFO 2026-04-08 19:42:44 stores.services update_domain:238 - Domain 'shop.com' updated in store 'Test Store' (id: 77), is_primary=True
+INFO 2026-04-08 19:42:45 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 76, tenant_id: 78)
+INFO 2026-04-08 19:42:45 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 78), is_primary=True
+INFO 2026-04-08 19:42:46 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 77, tenant_id: 79)
+INFO 2026-04-08 19:42:46 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 79), is_primary=False
+INFO 2026-04-08 19:42:47 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 78, tenant_id: 80)
+INFO 2026-04-08 19:42:47 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 80), is_primary=False
+ERROR 2026-04-08 19:42:47 stores.services add_domain:206 - Error adding domain 'myshop.com' to store 'Test Store' (id: 80): duplicate key value violates unique constraint "stores_storedomain_domain_key"
+DETAIL:  Key (domain)=(myshop.com) already exists.
+
+INFO 2026-04-08 19:42:47 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 79, tenant_id: 81)
+INFO 2026-04-08 19:42:47 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 81), is_primary=True
+INFO 2026-04-08 19:42:47 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 81), is_primary=True
+INFO 2026-04-08 19:42:48 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 80, tenant_id: 82)
+INFO 2026-04-08 19:42:48 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 82), is_primary=False
+INFO 2026-04-08 19:42:48 stores.services delete_domain:272 - Domain 'myshop.com' deleted from store 'Test Store' (id: 82)
+INFO 2026-04-08 19:42:49 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 81, tenant_id: 83)
+WARNING 2026-04-08 19:42:49 stores.services delete_domain:276 - Domain 'nonexistent.com' not found for store 'Test Store' (id: 83)
+INFO 2026-04-08 19:42:50 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 82, tenant_id: 84)
+INFO 2026-04-08 19:42:51 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 83, tenant_id: 85)
+INFO 2026-04-08 19:42:51 stores.services add_domain:202 - Domain 'store1.com' added to store 'Test Store' (id: 84), is_primary=False
+INFO 2026-04-08 19:42:51 stores.services add_domain:202 - Domain 'store2.com' added to store 'Store 2' (id: 85), is_primary=False
+INFO 2026-04-08 19:42:52 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 84, tenant_id: 86)
+INFO 2026-04-08 19:42:52 stores.services add_domain:202 - Domain 'zebra.com' added to store 'Test Store' (id: 86), is_primary=False
+INFO 2026-04-08 19:42:52 stores.services add_domain:202 - Domain 'alpha.com' added to store 'Test Store' (id: 86), is_primary=True
+INFO 2026-04-08 19:42:52 stores.services add_domain:202 - Domain 'beta.com' added to store 'Test Store' (id: 86), is_primary=False
+INFO 2026-04-08 19:42:53 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 85, tenant_id: 87)
+INFO 2026-04-08 19:42:53 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 87), is_primary=True
+INFO 2026-04-08 19:42:53 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 87), is_primary=False
+INFO 2026-04-08 19:42:53 stores.services update_domain:238 - Domain 'shop.com' updated in store 'Test Store' (id: 87), is_primary=True
+INFO 2026-04-08 19:42:54 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 86, tenant_id: 88)
+WARNING 2026-04-08 19:42:54 stores.services update_domain:242 - Domain 'nonexistent.com' not found for store 'Test Store' (id: 88)
+INFO 2026-04-08 19:42:57 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 89, tenant_id: 999)
+INFO 2026-04-08 19:42:58 stores.services create_store:45 - Store '' created successfully by user 'user' (user_id: 90, tenant_id: 92)
+INFO 2026-04-08 19:42:59 stores.services create_store:45 - Store 'Original' created successfully by user 'user' (user_id: 92, tenant_id: 94)
+INFO 2026-04-08 19:42:59 stores.services update_store:114 - Store 'Updated' (id: 94, tenant_id: 94) updated: name: 'Original' -> 'Updated', description: 'Original Desc' -> 'Updated Desc', status: 'active' -> 'inactive'
+INFO 2026-04-08 19:43:01 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 94, tenant_id: 96)
+INFO 2026-04-08 19:43:02 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 95, tenant_id: 97)
+INFO 2026-04-08 19:43:03 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 96, tenant_id: 98)
+INFO 2026-04-08 19:43:04 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 97, tenant_id: 99)
+INFO 2026-04-08 19:43:05 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 98, tenant_id: 100)
+INFO 2026-04-08 19:43:06 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 99, tenant_id: 101)
+INFO 2026-04-08 19:43:07 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 100, tenant_id: 102)
+INFO 2026-04-08 19:43:08 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 101, tenant_id: 103)
+INFO 2026-04-08 19:43:09 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 102, tenant_id: 104)
+INFO 2026-04-08 19:43:10 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 103, tenant_id: 103)
+INFO 2026-04-08 19:43:11 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 104, tenant_id: 104)
+INFO 2026-04-08 19:43:12 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 105, tenant_id: 107)
+INFO 2026-04-08 19:43:12 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 106, tenant_id: 106)
+INFO 2026-04-08 19:43:14 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 107, tenant_id: 107)
+INFO 2026-04-08 19:43:15 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 108, tenant_id: 110)
+INFO 2026-04-08 19:43:15 stores.services update_store_settings:158 - StoreSettings for store 'Test Store' (id: 110) updated: currency: 'USD' -> 'GBP', language: 'en' -> 'fr', timezone: 'UTC' -> 'Europe/Paris'
+INFO 2026-04-08 19:43:16 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 109, tenant_id: 111)
+INFO 2026-04-08 19:43:17 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 110, tenant_id: 112)
+INFO 2026-04-08 19:43:17 stores.services update_store_settings:158 - StoreSettings for store 'Test Store' (id: 112) updated: currency: 'USD' -> 'EUR'
+INFO 2026-04-08 19:43:19 stores.services create_store:45 - Store 'Custom Slug Store' created successfully by user 'user' (user_id: 113, tenant_id: 1)
+INFO 2026-04-08 19:43:19 stores.views perform_create:46 - Store created: id=114, owner=113, tenant_id=1
+INFO 2026-04-08 19:43:21 stores.services create_store:45 - Store 'Another Store' created successfully by user 'user' (user_id: 114, tenant_id: 1)
+INFO 2026-04-08 19:43:21 stores.views perform_create:46 - Store created: id=116, owner=114, tenant_id=1
+INFO 2026-04-08 19:43:22 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 116, tenant_id: 118)
+INFO 2026-04-08 19:43:22 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 116, tenant_id: 119)
+INFO 2026-04-08 19:43:23 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 120)
+INFO 2026-04-08 19:43:23 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 121)
+INFO 2026-04-08 19:43:23 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 122)
+INFO 2026-04-08 19:43:23 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 123)
+INFO 2026-04-08 19:43:24 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 118, tenant_id: 124)
+INFO 2026-04-08 19:43:25 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 119, tenant_id: 125)
+INFO 2026-04-08 19:43:25 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 119, tenant_id: 126)
+INFO 2026-04-08 19:43:25 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 119, tenant_id: 127)
+INFO 2026-04-08 19:43:26 stores.services create_store:45 - Store 'My   Store   Name' created successfully by user 'user' (user_id: 120, tenant_id: 128)
+INFO 2026-04-08 19:43:26 stores.services create_store:45 - Store 'My   Store   Name' created successfully by user 'user' (user_id: 120, tenant_id: 129)
+INFO 2026-04-08 19:43:27 stores.services create_store:45 - Store 'Store @ #2024!' created successfully by user 'user' (user_id: 121, tenant_id: 130)
+INFO 2026-04-08 19:43:27 stores.services create_store:45 - Store 'Store @ #2024!' created successfully by user 'user' (user_id: 121, tenant_id: 131)
+INFO 2026-04-08 19:43:29 stores.services create_store:45 - Store 'New Store' created successfully by user 'usera' (user_id: 122, tenant_id: 1)
+INFO 2026-04-08 19:43:29 stores.views perform_create:46 - Store created: id=134, owner=122, tenant_id=1
+WARNING 2026-04-08 19:43:34 stores.views get_object:65 - Store not found. User: 128, tenant_id: 1
+WARNING 2026-04-08 19:43:36 stores.views get_object:65 - Store not found. User: 131, tenant_id: 2
+WARNING 2026-04-08 19:43:53 stores.views get_object:98 - Store not found for deletion. User: 148, tenant_id: 1
+WARNING 2026-04-08 19:43:58 stores.views get_object:65 - Store not found. User: 154, tenant_id: 1
+WARNING 2026-04-08 19:44:10 stores.views get_object:65 - Store not found. User: 167, tenant_id: 2
+INFO 2026-04-08 19:46:37 categories.services create_category:49 - Category created: 1. Store: 1, Tenant: 1, User: 1
+INFO 2026-04-08 19:46:37 categories.views post:105 - Category created: id=1, store_id=1, user_id=1
+INFO 2026-04-08 19:46:39 categories.services delete_category:150 - Category deleted: 2. Store: 3, Tenant: 1, User: 3
+INFO 2026-04-08 19:46:42 categories.services update_category:108 - Category updated: 6. Store: 6, Tenant: 1, User: 6
+WARNING 2026-04-08 19:46:52 categories.views get_store:48 - Multi-tenant violation: User 16 (tenant_id: 1) attempted to access store 18 (tenant_id: 2)
+WARNING 2026-04-08 19:46:55 categories.views get_store:48 - Multi-tenant violation: User 20 (tenant_id: 1) attempted to access store 22 (tenant_id: 2)
+INFO 2026-04-08 19:47:11 categories.services create_category:49 - Category created: 38. Store: 33, Tenant: 1, User: 31
+WARNING 2026-04-08 19:47:11 categories.services create_category:35 - Duplicate category name: Electronics. Store: 33
+WARNING 2026-04-08 19:47:12 categories.services create_category:29 - Category creation attempted with empty name. Store: 34
+INFO 2026-04-08 19:47:14 categories.services create_category:49 - Category created: 39. Store: 35, Tenant: 1, User: 33
+INFO 2026-04-08 19:47:16 categories.services create_category:49 - Category created: 40. Store: 36, Tenant: 1, User: 34
+INFO 2026-04-08 19:47:16 categories.services delete_category:150 - Category deleted: 40. Store: 36, Tenant: 1, User: 34
+INFO 2026-04-08 19:47:19 categories.services create_category:49 - Category created: 41. Store: 37, Tenant: 1, User: 35
+WARNING 2026-04-08 19:47:19 categories.services update_category:80 - Category update attempted with empty name. Category: 41
+INFO 2026-04-08 19:47:21 categories.services create_category:49 - Category created: 42. Store: 38, Tenant: 1, User: 36
+INFO 2026-04-08 19:47:21 categories.services update_category:108 - Category updated: 42. Store: 38, Tenant: 1, User: 36
+INFO 2026-04-08 19:47:28 categories.services create_category:49 - Category created: 47. Store: 41, Tenant: 1, User: 39
+INFO 2026-04-08 19:47:28 categories.views post:105 - Category created: id=47, store_id=41, user_id=39
+WARNING 2026-04-08 19:47:32 categories.views get_store:48 - Multi-tenant violation: User 41 (tenant_id: 1) attempted to access store 44 (tenant_id: 2)
+WARNING 2026-04-08 19:47:32 categories.views get_store:48 - Multi-tenant violation: User 41 (tenant_id: 1) attempted to access store 44 (tenant_id: 2)
+INFO 2026-04-08 19:47:36 categories.services delete_category:150 - Category deleted: 52. Store: 47, Tenant: 1, User: 45
+INFO 2026-04-08 19:47:42 categories.services update_category:108 - Category updated: 58. Store: 53, Tenant: 1, User: 51
+INFO 2026-04-08 19:47:44 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 53, tenant_id: 55)
+INFO 2026-04-08 19:47:46 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 55, tenant_id: 56)
+INFO 2026-04-08 19:47:47 stores.services create_store:45 - Store 'Test Store' created successfully by user 'usera' (user_id: 57, tenant_id: 57)
+INFO 2026-04-08 19:47:49 stores.services create_store:45 - Store 'Store A' created successfully by user 'usera' (user_id: 59, tenant_id: 58)
+INFO 2026-04-08 19:47:49 stores.services create_store:45 - Store 'Store B' created successfully by user 'userb' (user_id: 60, tenant_id: 59)
+INFO 2026-04-08 19:47:55 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 67, tenant_id: 67)
+INFO 2026-04-08 19:47:55 stores.services add_domain:202 - Domain 'newshop.com' added to store 'Test Store' (id: 69), is_primary=False
+INFO 2026-04-08 19:47:56 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 68, tenant_id: 68)
+INFO 2026-04-08 19:47:56 stores.services add_domain:202 - Domain 'duplicate.com' added to store 'Test Store' (id: 70), is_primary=False
+INFO 2026-04-08 19:47:57 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 69, tenant_id: 69)
+INFO 2026-04-08 19:47:57 stores.services add_domain:202 - Domain 'primary.com' added to store 'Test Store' (id: 71), is_primary=True
+INFO 2026-04-08 19:47:58 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 70, tenant_id: 70)
+INFO 2026-04-08 19:47:58 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 72), is_primary=False
+INFO 2026-04-08 19:47:58 stores.services delete_domain:272 - Domain 'shop.com' deleted from store 'Test Store' (id: 72)
+INFO 2026-04-08 19:47:59 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 71, tenant_id: 71)
+INFO 2026-04-08 19:48:00 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 72, tenant_id: 72)
+INFO 2026-04-08 19:48:00 stores.services add_domain:202 - Domain 'store2.com' added to store 'Store 2' (id: 74), is_primary=False
+INFO 2026-04-08 19:48:01 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 73, tenant_id: 73)
+INFO 2026-04-08 19:48:01 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 75), is_primary=False
+INFO 2026-04-08 19:48:01 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 74, tenant_id: 74)
+INFO 2026-04-08 19:48:01 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 76), is_primary=True
+INFO 2026-04-08 19:48:01 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 76), is_primary=False
+INFO 2026-04-08 19:48:02 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 75, tenant_id: 75)
+INFO 2026-04-08 19:48:02 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 77), is_primary=False
+INFO 2026-04-08 19:48:02 stores.services update_domain:238 - Domain 'shop.com' updated in store 'Test Store' (id: 77), is_primary=True
+INFO 2026-04-08 19:48:03 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 76, tenant_id: 78)
+INFO 2026-04-08 19:48:03 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 78), is_primary=True
+INFO 2026-04-08 19:48:04 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 77, tenant_id: 79)
+INFO 2026-04-08 19:48:04 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 79), is_primary=False
+INFO 2026-04-08 19:48:05 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 78, tenant_id: 80)
+INFO 2026-04-08 19:48:05 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 80), is_primary=False
+ERROR 2026-04-08 19:48:05 stores.services add_domain:206 - Error adding domain 'myshop.com' to store 'Test Store' (id: 80): duplicate key value violates unique constraint "stores_storedomain_domain_key"
+DETAIL:  Key (domain)=(myshop.com) already exists.
+
+INFO 2026-04-08 19:48:06 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 79, tenant_id: 81)
+INFO 2026-04-08 19:48:06 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 81), is_primary=True
+INFO 2026-04-08 19:48:06 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 81), is_primary=True
+INFO 2026-04-08 19:48:07 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 80, tenant_id: 82)
+INFO 2026-04-08 19:48:07 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 82), is_primary=False
+INFO 2026-04-08 19:48:07 stores.services delete_domain:272 - Domain 'myshop.com' deleted from store 'Test Store' (id: 82)
+INFO 2026-04-08 19:48:08 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 81, tenant_id: 83)
+WARNING 2026-04-08 19:48:08 stores.services delete_domain:276 - Domain 'nonexistent.com' not found for store 'Test Store' (id: 83)
+INFO 2026-04-08 19:48:09 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 82, tenant_id: 84)
+INFO 2026-04-08 19:48:10 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 83, tenant_id: 85)
+INFO 2026-04-08 19:48:10 stores.services add_domain:202 - Domain 'store1.com' added to store 'Test Store' (id: 84), is_primary=False
+INFO 2026-04-08 19:48:10 stores.services add_domain:202 - Domain 'store2.com' added to store 'Store 2' (id: 85), is_primary=False
+INFO 2026-04-08 19:48:11 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 84, tenant_id: 86)
+INFO 2026-04-08 19:48:11 stores.services add_domain:202 - Domain 'zebra.com' added to store 'Test Store' (id: 86), is_primary=False
+INFO 2026-04-08 19:48:11 stores.services add_domain:202 - Domain 'alpha.com' added to store 'Test Store' (id: 86), is_primary=True
+INFO 2026-04-08 19:48:11 stores.services add_domain:202 - Domain 'beta.com' added to store 'Test Store' (id: 86), is_primary=False
+INFO 2026-04-08 19:48:12 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 85, tenant_id: 87)
+INFO 2026-04-08 19:48:12 stores.services add_domain:202 - Domain 'myshop.com' added to store 'Test Store' (id: 87), is_primary=True
+INFO 2026-04-08 19:48:12 stores.services add_domain:202 - Domain 'shop.com' added to store 'Test Store' (id: 87), is_primary=False
+INFO 2026-04-08 19:48:12 stores.services update_domain:238 - Domain 'shop.com' updated in store 'Test Store' (id: 87), is_primary=True
+INFO 2026-04-08 19:48:13 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 86, tenant_id: 88)
+WARNING 2026-04-08 19:48:13 stores.services update_domain:242 - Domain 'nonexistent.com' not found for store 'Test Store' (id: 88)
+INFO 2026-04-08 19:48:15 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 89, tenant_id: 999)
+INFO 2026-04-08 19:48:16 stores.services create_store:45 - Store '' created successfully by user 'user' (user_id: 90, tenant_id: 92)
+INFO 2026-04-08 19:48:18 stores.services create_store:45 - Store 'Original' created successfully by user 'user' (user_id: 92, tenant_id: 94)
+INFO 2026-04-08 19:48:18 stores.services update_store:114 - Store 'Updated' (id: 94, tenant_id: 94) updated: name: 'Original' -> 'Updated', description: 'Original Desc' -> 'Updated Desc', status: 'active' -> 'inactive'
+INFO 2026-04-08 19:48:20 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 94, tenant_id: 96)
+INFO 2026-04-08 19:48:21 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 95, tenant_id: 97)
+INFO 2026-04-08 19:48:21 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 96, tenant_id: 98)
+INFO 2026-04-08 19:48:22 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 97, tenant_id: 99)
+INFO 2026-04-08 19:48:23 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 98, tenant_id: 100)
+INFO 2026-04-08 19:48:24 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 99, tenant_id: 101)
+INFO 2026-04-08 19:48:25 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 100, tenant_id: 102)
+INFO 2026-04-08 19:48:26 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 101, tenant_id: 103)
+INFO 2026-04-08 19:48:27 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 102, tenant_id: 104)
+INFO 2026-04-08 19:48:28 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 103, tenant_id: 103)
+INFO 2026-04-08 19:48:29 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 104, tenant_id: 104)
+INFO 2026-04-08 19:48:30 stores.services create_store:45 - Store 'Store 2' created successfully by user 'user2' (user_id: 105, tenant_id: 107)
+INFO 2026-04-08 19:48:31 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 106, tenant_id: 106)
+INFO 2026-04-08 19:48:32 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 107, tenant_id: 107)
+INFO 2026-04-08 19:48:33 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 108, tenant_id: 110)
+INFO 2026-04-08 19:48:33 stores.services update_store_settings:158 - StoreSettings for store 'Test Store' (id: 110) updated: currency: 'USD' -> 'GBP', language: 'en' -> 'fr', timezone: 'UTC' -> 'Europe/Paris'
+INFO 2026-04-08 19:48:34 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 109, tenant_id: 111)
+INFO 2026-04-08 19:48:35 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 110, tenant_id: 112)
+INFO 2026-04-08 19:48:35 stores.services update_store_settings:158 - StoreSettings for store 'Test Store' (id: 112) updated: currency: 'USD' -> 'EUR'
+INFO 2026-04-08 19:48:37 stores.services create_store:45 - Store 'Custom Slug Store' created successfully by user 'user' (user_id: 113, tenant_id: 1)
+INFO 2026-04-08 19:48:37 stores.views perform_create:46 - Store created: id=114, owner=113, tenant_id=1
+INFO 2026-04-08 19:48:39 stores.services create_store:45 - Store 'Another Store' created successfully by user 'user' (user_id: 114, tenant_id: 1)
+INFO 2026-04-08 19:48:39 stores.views perform_create:46 - Store created: id=116, owner=114, tenant_id=1
+INFO 2026-04-08 19:48:40 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 116, tenant_id: 118)
+INFO 2026-04-08 19:48:40 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 116, tenant_id: 119)
+INFO 2026-04-08 19:48:41 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 120)
+INFO 2026-04-08 19:48:41 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 121)
+INFO 2026-04-08 19:48:41 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 122)
+INFO 2026-04-08 19:48:41 stores.services create_store:45 - Store 'Test Store' created successfully by user 'user' (user_id: 117, tenant_id: 123)
+INFO 2026-04-08 19:48:42 stores.services create_store:45 - Store 'My Store' created successfully by user 'user' (user_id: 118, tenant_id: 124)
+INFO 2026-04-08 19:48:43 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 119, tenant_id: 125)
+INFO 2026-04-08 19:48:43 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 119, tenant_id: 126)
+INFO 2026-04-08 19:48:43 stores.services create_store:45 - Store 'Unique Store' created successfully by user 'user' (user_id: 119, tenant_id: 127)
+INFO 2026-04-08 19:48:44 stores.services create_store:45 - Store 'My   Store   Name' created successfully by user 'user' (user_id: 120, tenant_id: 128)
+INFO 2026-04-08 19:48:44 stores.services create_store:45 - Store 'My   Store   Name' created successfully by user 'user' (user_id: 120, tenant_id: 129)
+INFO 2026-04-08 19:48:45 stores.services create_store:45 - Store 'Store @ #2024!' created successfully by user 'user' (user_id: 121, tenant_id: 130)
+INFO 2026-04-08 19:48:45 stores.services create_store:45 - Store 'Store @ #2024!' created successfully by user 'user' (user_id: 121, tenant_id: 131)
+INFO 2026-04-08 19:48:46 stores.services create_store:45 - Store 'New Store' created successfully by user 'usera' (user_id: 122, tenant_id: 1)
+INFO 2026-04-08 19:48:46 stores.views perform_create:46 - Store created: id=134, owner=122, tenant_id=1
+WARNING 2026-04-08 19:48:51 stores.views get_object:65 - Store not found. User: 128, tenant_id: 1
+WARNING 2026-04-08 19:48:53 stores.views get_object:65 - Store not found. User: 131, tenant_id: 2
+WARNING 2026-04-08 19:49:08 stores.views get_object:98 - Store not found for deletion. User: 148, tenant_id: 1
+WARNING 2026-04-08 19:49:13 stores.views get_object:65 - Store not found. User: 154, tenant_id: 1
+WARNING 2026-04-08 19:49:23 stores.views get_object:65 - Store not found. User: 167, tenant_id: 2
