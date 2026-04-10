@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.core.exceptions import ValidationError as ModelValidationError
 from stores.models import Store
 from categories.models import Category
 
@@ -106,9 +107,13 @@ class Product(models.Model):
     
     def save(self, *args, **kwargs):
         """
-        Override save to ensure tenant_id is set correctly.
+        Override save to ensure tenant_id is set correctly and validate price.
         MULTI-TENANT RULE: tenant_id must be set from store.tenant_id
         """
+        # 🔴 إضافة التحقق من أن السعر موجب (هذا هو التعديل الوحيد)
+        if self.price and self.price <= 0:
+            raise ModelValidationError("Price must be greater than 0")
+        
         if not self.tenant_id:
             # Get tenant_id from store
             if self.store and self.store.tenant_id:

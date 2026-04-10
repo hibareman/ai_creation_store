@@ -1,5 +1,6 @@
 import logging
 from django.db import DatabaseError
+from django.core.exceptions import ValidationError
 from django.utils.text import slugify
 from .models import Store, StoreSettings, StoreDomain
 
@@ -125,22 +126,42 @@ def update_store(store, **kwargs):
         raise
 
 
-def update_store_settings(store, **kwargs):
+def update_store_settings(store, user=None, **kwargs):
     """
     Update StoreSettings for a given store.
     Allowed fields: currency, language, timezone
     
     Args:
         store: Store instance
+        user: User making the update (for permission check)
         **kwargs: Settings fields to update (currency, language, timezone)
     
     Returns:
         Updated StoreSettings instance
     
     Raises:
-        StoreSettings.DoesNotExist: If store has no settings (shouldn't happen)
-        DatabaseError: If database operation fails (re-raised after logging)
+        ValidationError: If user does not have permission
+        StoreSettings.DoesNotExist: If store has no settings
+        DatabaseError: If database operation fails
     """
+    # 🔴 إضافة التحقق من الصلاحيات
+    if user:
+        # التحقق 1: tenant_id يجب أن يتطابق
+        if user.tenant_id != store.tenant_id:
+            logger.warning(
+                f"Multi-tenant violation: User {user.id} (tenant_id: {user.tenant_id}) "
+                f"attempted to update settings for store {store.id} (tenant_id: {store.tenant_id})"
+            )
+            raise ValidationError("You do not have access to this store")
+        
+        # التحقق 2: المستخدم يجب أن يكون مالك المتجر
+        if user.id != store.owner_id:
+            logger.warning(
+                f"Ownership violation: User {user.id} attempted to update settings "
+                f"for store {store.id} owned by {store.owner_id}"
+            )
+            raise ValidationError("You must own the store to update settings")
+    
     try:
         settings = store.settings
         updated_fields = []

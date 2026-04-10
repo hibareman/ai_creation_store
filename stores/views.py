@@ -2,6 +2,7 @@ import logging
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.core.exceptions import ValidationError
 from .models import Store, StoreSettings, StoreDomain
 from .serializers import (
     StoreSerializer,
@@ -180,6 +181,42 @@ class RetrieveUpdateStoreSettingsView(generics.RetrieveUpdateAPIView):
             raise PermissionDenied("You do not own this store")
         
         return store.settings
+    
+    # 🔴 أضف هذه الدالة لتحديث الإعدادات مع التحقق
+    def update(self, request, *args, **kwargs):
+        """Update store settings with permission check"""
+        store_id = self.kwargs['store_id']
+        try:
+            store = Store.objects.get(id=store_id)
+        except Store.DoesNotExist:
+            from rest_framework.exceptions import NotFound
+            raise NotFound("Store not found")
+        
+        # التحقق من الصلاحيات
+        if store.tenant_id != request.tenant_id:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You do not have access to this store")
+        
+        if store.owner_id != request.user.id:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You do not own this store")
+        
+        # استخدام الخدمة مع التحقق
+        try:
+            updated_settings = update_store_settings(
+                store=store,
+                user=request.user,
+                **request.data
+            )
+            serializer = self.get_serializer(updated_settings)
+            return Response(serializer.data)
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # 🔴 أضف هذه الدالة للـ PATCH
+    def patch(self, request, *args, **kwargs):
+        """Partial update of store settings"""
+        return self.update(request, *args, **kwargs)
 
 
 # StoreDomain Views
