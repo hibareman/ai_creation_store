@@ -27,7 +27,6 @@ class RegisterView(generics.GenericAPIView):
             email=data["email"],
             password=data["password"],
             role=data.get("role", "Store Owner"),
-            tenant_id=request.data.get("tenant_id")
         )
 
         send_activation_email(user)

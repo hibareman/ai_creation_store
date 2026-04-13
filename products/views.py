@@ -12,13 +12,14 @@ import logging
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.shortcuts import get_object_or_404
 from django.http import Http404
 from django.core.exceptions import ValidationError
 
 from stores.models import Store
+from users.permissions import TenantAuthenticated
 from .models import Product, ProductImage
 from .serializers import (
     ProductListSerializer, ProductDetailSerializer,
@@ -31,14 +32,53 @@ from . import services
 logger = logging.getLogger(__name__)
 
 
-class ProductListCreateView(generics.ListCreateAPIView):
+class ProductStoreAccessMixin:
+    """
+    Shared authorization helper for product-layer endpoints.
+
+    Rules:
+    - store.tenant_id must match request.tenant_id
+    - store.owner_id must match request.user.id
+    """
+
+    def get_store(self):
+        if hasattr(self, '_validated_store'):
+            return self._validated_store
+
+        store_id = self.kwargs.get('store_id')
+        store = get_object_or_404(Store, id=store_id)
+
+        if store.tenant_id != getattr(self.request, 'tenant_id', None):
+            raise PermissionDenied("You do not have access to this store")
+
+        if store.owner_id != self.request.user.id:
+            raise PermissionDenied("You do not own this store")
+
+        self._validated_store = store
+        return store
+
+    def get_store_product(self):
+        store = self.get_store()
+        product_id = self.kwargs.get('product_id')
+
+        try:
+            return selectors.get_product_by_id(
+                product_id=product_id,
+                store_id=store.id,
+                tenant_id=store.tenant_id
+            )
+        except Product.DoesNotExist:
+            raise Http404("Product not found")
+
+
+class ProductListCreateView(ProductStoreAccessMixin, generics.ListCreateAPIView):
     """
     GET: List all products for current store
     POST: Create a new product
     
     MULTI-TENANT: Filters by current store and tenant_id
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [TenantAuthenticated]
     
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -50,15 +90,11 @@ class ProductListCreateView(generics.ListCreateAPIView):
         MULTI-TENANT: Return products only from current store/tenant
         SECURITY: Uses store_id and tenant_id from user context
         """
-        store_id = self.kwargs.get('store_id')
-        tenant_id = getattr(self.request, 'tenant_id', None)
-        
-        if not tenant_id:
-            return Product.objects.none()
-        
+        store = self.get_store()
+
         return selectors.get_products_by_store(
-            store_id=store_id,
-            tenant_id=tenant_id
+            store_id=store.id,
+            tenant_id=store.tenant_id
         )
     
     def create(self, request, *args, **kwargs):
@@ -67,27 +103,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
         
         MULTI-TENANT: tenant_id comes from middleware/request context
         """
-        store_id = kwargs.get('store_id')
-        tenant_id = getattr(request, 'tenant_id', None)
-        
-        if not tenant_id:
-            return Response(
-                {"detail": "No tenant context found"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Get store with tenant verification
-        try:
-            store = Store.objects.get(id=store_id, tenant_id=tenant_id)
-        except Store.DoesNotExist:
-            logger.warning(
-                f"Unauthorized store access attempt: store_id={store_id}, "
-                f"tenant_id={tenant_id}"
-            )
-            return Response(
-                {"detail": "Store not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        store = self.get_store()
         
         # Validate serializer
         serializer = self.get_serializer(data=request.data)
@@ -96,6 +112,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
         # Use service for business logic
         try:
             product = services.create_product(
+                user=request.user,
                 store=store,
                 name=serializer.validated_data['name'],
                 price=serializer.validated_data['price'],
@@ -113,6 +130,11 @@ class ProductListCreateView(generics.ListCreateAPIView):
                 {"detail": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        except PermissionDenied as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_403_FORBIDDEN
+            )
         except Exception as e:
             logger.error(f"Error creating product: {str(e)}")
             return Response(
@@ -121,7 +143,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
             )
 
 
-class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
+class ProductDetailView(ProductStoreAccessMixin, generics.RetrieveUpdateDestroyAPIView):
     """
     GET: Retrieve product details
     PUT: Update product
@@ -129,28 +151,14 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     MULTI-TENANT: Verifies ownership before any operation
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [TenantAuthenticated]
     serializer_class = ProductDetailSerializer
     
     def get_object(self):
         """
         MULTI-TENANT: Get product with ownership verification
         """
-        product_id = self.kwargs.get('product_id')
-        store_id = self.kwargs.get('store_id')
-        tenant_id = getattr(self.request, 'tenant_id', None)
-        
-        if not tenant_id:
-            self.permission_denied(self.request, "No tenant context")
-        
-        try:
-            return selectors.get_product_by_id(
-                product_id=product_id,
-                store_id=store_id,
-                tenant_id=tenant_id
-            )
-        except Product.DoesNotExist:
-            raise Http404("Product not found")
+        return self.get_store_product()
     
     def get_serializer_class(self):
         if self.request.method == 'PUT' or self.request.method == 'PATCH':
@@ -164,17 +172,16 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
         MULTI-TENANT: Verifies ownership in service layer
         """
         product = self.get_object()
-        store_id = kwargs.get('store_id')
-        tenant_id = getattr(request, 'tenant_id', None)
+        store = self.get_store()
         
         serializer = self.get_serializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         
         try:
             updated = services.update_product(
+                user=request.user,
+                store=store,
                 product=product,
-                store_id=store_id,
-                tenant_id=tenant_id,
                 **serializer.validated_data
             )
             
@@ -185,6 +192,11 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
             return Response(
                 {"detail": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
+            )
+        except PermissionDenied as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_403_FORBIDDEN
             )
         except Exception as e:
             logger.error(f"Error updating product: {str(e)}")
@@ -200,14 +212,13 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
         MULTI-TENANT: Verifies ownership in service layer
         """
         product = self.get_object()
-        store_id = kwargs.get('store_id')
-        tenant_id = getattr(request, 'tenant_id', None)
+        store = self.get_store()
         
         try:
             services.delete_product(
+                user=request.user,
+                store=store,
                 product=product,
-                store_id=store_id,
-                tenant_id=tenant_id
             )
             return Response(status=status.HTTP_204_NO_CONTENT)
         
@@ -215,6 +226,11 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
             return Response(
                 {"detail": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
+            )
+        except PermissionDenied as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_403_FORBIDDEN
             )
         except Exception as e:
             logger.error(f"Error deleting product: {str(e)}")
@@ -224,14 +240,14 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
             )
 
 
-class ProductImageView(generics.ListCreateAPIView):
+class ProductImageView(ProductStoreAccessMixin, generics.ListCreateAPIView):
     """
     GET: List all images for a product
     POST: Add new image to product
     
     MULTI-TENANT: Verifies product ownership before any operation
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [TenantAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     serializer_class = ProductImageSerializer
     
@@ -240,23 +256,19 @@ class ProductImageView(generics.ListCreateAPIView):
         MULTI-TENANT: Get images only if product belongs to user's store
         """
         product_id = self.kwargs.get('product_id')
-        store_id = self.kwargs.get('store_id')
-        tenant_id = getattr(self.request, 'tenant_id', None)
-        
-        if not tenant_id:
-            return ProductImage.objects.none()
+        store = self.get_store()
         
         try:
             # Verify product ownership first
             selectors.get_product_by_id(
                 product_id=product_id,
-                store_id=store_id,
-                tenant_id=tenant_id
+                store_id=store.id,
+                tenant_id=store.tenant_id
             )
             return selectors.get_product_images(
                 product_id=product_id,
-                store_id=store_id,
-                tenant_id=tenant_id
+                store_id=store.id,
+                tenant_id=store.tenant_id
             )
         except Product.DoesNotExist:
             return ProductImage.objects.none()
@@ -266,20 +278,13 @@ class ProductImageView(generics.ListCreateAPIView):
         Add image to product with ownership verification.
         """
         product_id = kwargs.get('product_id')
-        store_id = kwargs.get('store_id')
-        tenant_id = getattr(request, 'tenant_id', None)
-        
-        if not tenant_id:
-            return Response(
-                {"detail": "No tenant context"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        store = self.get_store()
         
         try:
             product = selectors.get_product_by_id(
                 product_id=product_id,
-                store_id=store_id,
-                tenant_id=tenant_id
+                store_id=store.id,
+                tenant_id=store.tenant_id
             )
         except Product.DoesNotExist:
             return Response(
@@ -293,9 +298,9 @@ class ProductImageView(generics.ListCreateAPIView):
         
         try:
             image = services.add_product_image(
+                user=request.user,
+                store=store,
                 product=product,
-                store_id=store_id,
-                tenant_id=tenant_id,
                 image_url=serializer.validated_data.get('image_url'),
                 image_file=serializer.validated_data.get('image_file')
             )
@@ -308,53 +313,39 @@ class ProductImageView(generics.ListCreateAPIView):
                 {"detail": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        except PermissionDenied as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
 
-class ProductImageDetailView(generics.DestroyAPIView):
+class ProductImageDetailView(ProductStoreAccessMixin, generics.DestroyAPIView):
     """
     DELETE: Delete a product image
     
     MULTI-TENANT: Verifies product ownership before deletion
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [TenantAuthenticated]
     
     def get_object(self):
         """
         MULTI-TENANT: Get image with ownership verification
         """
         image_id = self.kwargs.get('image_id')
-        store_id = self.kwargs.get('store_id')
-        tenant_id = getattr(self.request, 'tenant_id', None)
-        
-        if not tenant_id:
-            self.permission_denied(self.request, "No tenant context")
-        
-        image = get_object_or_404(ProductImage, id=image_id)
-        
-        # Verify image belongs to product in this store/tenant
-        if (image.product.store_id != store_id or
-            image.product.tenant_id != tenant_id):
-            
-            logger.warning(
-                f"Unauthorized image access: image_id={image_id}, "
-                f"attempted_tenant_id={tenant_id}, "
-                f"actual_tenant_id={image.product.tenant_id}"
-            )
-            self.permission_denied(self.request, "Cannot access this image")
-        
-        return image
+        product = self.get_store_product()
+        return get_object_or_404(ProductImage, id=image_id, product=product)
     
     def destroy(self, request, *args, **kwargs):
         """Delete image with ownership verification"""
         image = self.get_object()
-        store_id = kwargs.get('store_id')
-        tenant_id = getattr(request, 'tenant_id', None)
+        store = self.get_store()
         
         try:
             services.delete_product_image(
+                user=request.user,
+                store=store,
                 product_image=image,
-                store_id=store_id,
-                tenant_id=tenant_id
             )
             return Response(status=status.HTTP_204_NO_CONTENT)
         
@@ -363,51 +354,41 @@ class ProductImageDetailView(generics.DestroyAPIView):
                 {"detail": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        except PermissionDenied as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
 
-class InventoryUpdateView(generics.UpdateAPIView):
+class InventoryUpdateView(ProductStoreAccessMixin, generics.UpdateAPIView):
     """
     PUT: Update product inventory
     
     MULTI-TENANT: Verifies product ownership before updating
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [TenantAuthenticated]
     serializer_class = InventoryUpdateSerializer
     
     def get_object(self):
         """
         MULTI-TENANT: Get product with ownership verification
         """
-        product_id = self.kwargs.get('product_id')
-        store_id = self.kwargs.get('store_id')
-        tenant_id = getattr(self.request, 'tenant_id', None)
-        
-        if not tenant_id:
-            self.permission_denied(self.request, "No tenant context")
-        
-        try:
-            return selectors.get_product_by_id(
-                product_id=product_id,
-                store_id=store_id,
-                tenant_id=tenant_id
-            )
-        except Product.DoesNotExist:
-            raise Http404("Product not found")
+        return self.get_store_product()
     
     def update(self, request, *args, **kwargs):
         """Update inventory with business logic validation"""
         product = self.get_object()
-        store_id = kwargs.get('store_id')
-        tenant_id = getattr(request, 'tenant_id', None)
+        store = self.get_store()
         
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         try:
             inventory = services.update_inventory(
+                user=request.user,
+                store=store,
                 product=product,
-                store_id=store_id,
-                tenant_id=tenant_id,
                 stock_quantity=serializer.validated_data['stock_quantity']
             )
             
@@ -419,4 +400,9 @@ class InventoryUpdateView(generics.UpdateAPIView):
             return Response(
                 {"detail": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
+            )
+        except PermissionDenied as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_403_FORBIDDEN
             )

@@ -19,8 +19,8 @@ cd ai_store_creation
 
 2. **Create Virtual Environment**
 ```bash
-python -m venv venv_ai_creation
-source venv_ai_creation/bin/activate  # On Windows: venv_ai_creation\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\\Scripts\\activate
 ```
 
 3. **Install Dependencies**
@@ -30,10 +30,18 @@ pip install -r requirements.txt
 
 4. **Database Setup**
 ```bash
-# Configure database in config/settings.py
-# Default: PostgreSQL on localhost:5433
-# You can use environment variables:
+# Django reads DATABASE_URL automatically if provided
 export DATABASE_URL=postgresql://user:password@localhost:5432/ai_store_db
+# Windows PowerShell:
+# $env:DATABASE_URL="postgresql://user:password@localhost:5432/ai_store_db"
+
+# Or use DB_* fallback variables:
+# DB_ENGINE=django.db.backends.postgresql
+# DB_NAME=ai_store_db
+# DB_USER=postgres
+# DB_PASSWORD=1234
+# DB_HOST=localhost
+# DB_PORT=5433
 
 # Run migrations
 python manage.py migrate

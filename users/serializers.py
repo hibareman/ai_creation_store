@@ -13,7 +13,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     - username: Unique username (required, max 150 characters)
     - email: Unique email address (required)
     - password: User password (write_only, required)
-    - role: User role - Admin, Store Owner, or Customer (required)
+    - role: User role - Admin, Store Owner, or Customer (optional)
     
     **Features:**
     - Password hashing: Passwords are automatically hashed using Django's secure function
@@ -43,9 +43,23 @@ class RegisterSerializer(serializers.ModelSerializer):
             },
             "role": {
                 "help_text": "User role: Admin, Store Owner, or Customer",
-                "required": True,
+                "required": False,
             },
         }
+
+    def to_internal_value(self, data):
+        if "tenant_id" in data:
+            raise serializers.ValidationError(
+                {"tenant_id": "This field is not allowed in registration."}
+            )
+        return super().to_internal_value(data)
+
+    def validate_role(self, value):
+        if value != "Store Owner":
+            raise serializers.ValidationError(
+                "Self-registration only supports the 'Store Owner' role."
+            )
+        return value
 
     def create(self, validated_data):
 

@@ -24,12 +24,12 @@ class StoreSerializer(serializers.ModelSerializer):
         fields = ['id', 'owner', 'name', 'slug', 'description', 'status', 'tenant_id', 'created_at', 'updated_at']
         read_only_fields = ['id', 'tenant_id', 'created_at', 'updated_at', 'owner']
         extra_kwargs = {
-            'slug': {'validators': []},
             'name': {
                 'help_text': 'Store display name (max 255 characters)',
                 'max_length': 255,
             },
             'slug': {
+                'validators': [],
                 'help_text': 'URL-friendly identifier (lowercase, dashes allowed)',
                 'max_length': 255,
             },

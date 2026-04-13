@@ -15,6 +15,10 @@ urlpatterns = [
 
     path('api/auth/', include('users.urls')),
     path('api/stores/', include('stores.urls')),
+    # Category contract route used by tests/docs:
+    # /api/stores/<store_id>/categories/
+    path('api/', include('categories.urls')),
+    # Backward-compatible route kept temporarily:
     path('api/categories/', include('categories.urls')),
     path('api/products/', include('products.urls')),
 ]

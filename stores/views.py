@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -182,40 +182,43 @@ class RetrieveUpdateStoreSettingsView(generics.RetrieveUpdateAPIView):
         
         return store.settings
     
-    # 🔴 أضف هذه الدالة لتحديث الإعدادات مع التحقق
+    # ًں”´ ط£ط¶ظپ ظ‡ط°ظ‡ ط§ظ„ط¯ط§ظ„ط© ظ„طھط­ط¯ظٹط« ط§ظ„ط¥ط¹ط¯ط§ط¯ط§طھ ظ…ط¹ ط§ظ„طھط­ظ‚ظ‚
     def update(self, request, *args, **kwargs):
         """Update store settings with permission check"""
+        partial = kwargs.pop('partial', False)
         store_id = self.kwargs['store_id']
         try:
             store = Store.objects.get(id=store_id)
         except Store.DoesNotExist:
             from rest_framework.exceptions import NotFound
             raise NotFound("Store not found")
-        
-        # التحقق من الصلاحيات
+
         if store.tenant_id != request.tenant_id:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You do not have access to this store")
-        
+
         if store.owner_id != request.user.id:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You do not own this store")
-        
-        # استخدام الخدمة مع التحقق
+
+        serializer = self.get_serializer(store.settings, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+
         try:
             updated_settings = update_store_settings(
                 store=store,
                 user=request.user,
-                **request.data
+                **serializer.validated_data
             )
             serializer = self.get_serializer(updated_settings)
             return Response(serializer.data)
         except ValidationError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
-    # 🔴 أضف هذه الدالة للـ PATCH
+    # ًں”´ ط£ط¶ظپ ظ‡ط°ظ‡ ط§ظ„ط¯ط§ظ„ط© ظ„ظ„ظ€ PATCH
     def patch(self, request, *args, **kwargs):
         """Partial update of store settings"""
+        kwargs['partial'] = True
         return self.update(request, *args, **kwargs)
 
 
@@ -311,3 +314,4 @@ class RetrieveUpdateDestroyStoreDomainView(generics.RetrieveUpdateDestroyAPIView
         store_id = self.kwargs['store_id']
         store = Store.objects.get(id=store_id)
         delete_domain(store, instance.domain)
+

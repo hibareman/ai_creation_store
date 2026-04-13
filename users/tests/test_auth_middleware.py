@@ -87,3 +87,11 @@ class MiddlewareTests(TestCase):
         resp = self.client.get('/api/auth/register/', HTTP_AUTHORIZATION=auth)
         # middleware should allow; view doesn't accept GET so Method Not Allowed (405)
         self.assertEqual(resp.status_code, 405)
+
+    def test_invalid_x_tenant_header_is_ignored(self):
+        resp = self.client.get(
+            '/api/auth/register/',
+            HTTP_X_TENANT_ID='not-an-int'
+        )
+        # Header is ignored; endpoint itself is GET-not-allowed.
+        self.assertEqual(resp.status_code, 405)
