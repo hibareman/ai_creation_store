@@ -6,7 +6,7 @@ from .models import Store, StoreSettings, StoreDomain
 
 logger = logging.getLogger(__name__)
 
-def create_store(owner, name, description="", status="active", slug=None):
+def create_store(owner, name, description="", status="setup", slug=None):
     """
     Create a new store for the given owner.
     The store inherits the owner's tenant_id.
@@ -16,7 +16,7 @@ def create_store(owner, name, description="", status="active", slug=None):
         owner: The user who owns the store
         name: Store name
         description: Store description
-        status: Store status (default: 'active')
+        status: Store status (default: 'setup')
         slug: Optional custom slug for the store
     
     Returns:

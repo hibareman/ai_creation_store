@@ -4,6 +4,7 @@ from django.utils.text import slugify
 
 class Store(models.Model):
     STATUS_CHOICES = (
+        ("setup", "Setup"),
         ("active", "Active"),
         ("inactive", "Inactive"),
     )
@@ -12,7 +13,7 @@ class Store(models.Model):
     name = models.CharField(max_length=255)
     slug = models.SlugField(unique=True, blank=True)
     description = models.TextField(blank=True, default='')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="setup")
     tenant_id = models.IntegerField(null=True, blank=True, db_index=True)  # Added db_index for performance
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

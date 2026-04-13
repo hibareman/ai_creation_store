@@ -44,3 +44,14 @@ Thumbs.db
 integrationFullIntegrationTest.py
 tests_integration.py
 verify_logging_setup.py
+.venv/
+git_audit/
+git_report/
+logs/
+media/
+senior 1/
+db.sqlite3
+integrationFullIntegrationTest.py
+__pycache__/
+**/__pycache__/
+*.pyc

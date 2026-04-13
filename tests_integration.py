@@ -162,14 +162,10 @@ class MultiTenantIsolationTests(TestCase):
 
         # محاولة جلب قائمة التصنيفات
         response = self.client.get(
-            f'/api/categories/',
+            f'/api/stores/{self.tenant2_store.id}/categories/',
             HTTP_AUTHORIZATION=auth
         )
-
-        # إذا كانت موجودة (200)، التحقق من أن قائمة التصنيفات لا تحتوي على تصنيفات المستأجر 2
-        if response.status_code == 200:
-            category_ids = [cat['id'] for cat in response.data] if response.data else []
-            self.assertNotIn(self.tenant2_category.id, category_ids)
+        self.assertIn(response.status_code, [403, 404])
 
     def test_tenant2_cannot_access_tenant1_categories(self):
         """المستأجر 2 لا يستطيع الوصول إلى تصنيفات المستأجر 1"""
@@ -177,14 +173,10 @@ class MultiTenantIsolationTests(TestCase):
 
         # محاولة جلب قائمة التصنيفات
         response = self.client.get(
-            f'/api/categories/',
+            f'/api/stores/{self.tenant1_store.id}/categories/',
             HTTP_AUTHORIZATION=auth
         )
-
-        # إذا كانت موجودة (200)، التحقق من أن قائمة التصنيفات لا تحتوي على تصنيفات المستأجر 1
-        if response.status_code == 200:
-            category_ids = [cat['id'] for cat in response.data] if response.data else []
-            self.assertNotIn(self.tenant1_category.id, category_ids)
+        self.assertIn(response.status_code, [403, 404])
 
     def test_tenant1_cannot_update_tenant2_category(self):
         """المستأجر 1 لا يستطيع تحديث تصنيف المستأجر 2"""
@@ -193,7 +185,7 @@ class MultiTenantIsolationTests(TestCase):
         data = {'name': 'Hacked Category'}
 
         response = self.client.patch(
-            f'/api/categories/{self.tenant2_category.id}/',
+            f'/api/stores/{self.tenant2_store.id}/categories/{self.tenant2_category.id}/',
             data,
             HTTP_AUTHORIZATION=auth,
             format='json'
@@ -210,7 +202,7 @@ class MultiTenantIsolationTests(TestCase):
         auth = self._get_auth_header(self.tenant1_user)
 
         response = self.client.delete(
-            f'/api/categories/{self.tenant2_category.id}/',
+            f'/api/stores/{self.tenant2_store.id}/categories/{self.tenant2_category.id}/',
             HTTP_AUTHORIZATION=auth
         )
 
@@ -226,30 +218,20 @@ class MultiTenantIsolationTests(TestCase):
         auth = self._get_auth_header(self.tenant1_user)
 
         response = self.client.get(
-            f'/api/products/',
+            f'/api/products/{self.tenant2_store.id}/products/',
             HTTP_AUTHORIZATION=auth
         )
-
-        # إذا كانت 200، يجب أن تحتوي فقط على منتجات المستأجر 1
-        if response.status_code == 200:
-            product_ids = [prod['id'] for prod in response.data] if response.data else []
-            self.assertIn(self.tenant1_product.id, product_ids)
-            self.assertNotIn(self.tenant2_product.id, product_ids)
+        self.assertIn(response.status_code, [403, 404])
 
     def test_tenant2_cannot_access_list_tenant1_products(self):
         """المستأجر 2 قائمة المنتجات تحتوي فقط على منتجاته"""
         auth = self._get_auth_header(self.tenant2_user)
 
         response = self.client.get(
-            f'/api/products/',
+            f'/api/products/{self.tenant1_store.id}/products/',
             HTTP_AUTHORIZATION=auth
         )
-
-        # إذا كانت 200، يجب أن تحتوي فقط على منتجات المستأجر 2
-        if response.status_code == 200:
-            product_ids = [prod['id'] for prod in response.data] if response.data else []
-            self.assertIn(self.tenant2_product.id, product_ids)
-            self.assertNotIn(self.tenant1_product.id, product_ids)
+        self.assertIn(response.status_code, [403, 404])
 
     def test_tenant1_cannot_update_tenant2_product(self):
         """المستأجر 1 لا يستطيع تحديث منتج المستأجر 2"""
@@ -258,7 +240,7 @@ class MultiTenantIsolationTests(TestCase):
         data = {'name': 'Hacked Product'}
 
         response = self.client.patch(
-            f'/api/products/{self.tenant2_product.id}/',
+            f'/api/products/{self.tenant2_store.id}/products/{self.tenant2_product.id}/',
             data,
             HTTP_AUTHORIZATION=auth,
             format='json'
@@ -275,7 +257,7 @@ class MultiTenantIsolationTests(TestCase):
         auth = self._get_auth_header(self.tenant1_user)
 
         response = self.client.delete(
-            f'/api/products/{self.tenant2_product.id}/',
+            f'/api/products/{self.tenant2_store.id}/products/{self.tenant2_product.id}/',
             HTTP_AUTHORIZATION=auth
         )
 
@@ -291,7 +273,7 @@ class MultiTenantIsolationTests(TestCase):
         data = {'name': 'Hacked Product'}
 
         response = self.client.patch(
-            f'/api/products/{self.tenant1_product.id}/',
+            f'/api/products/{self.tenant1_store.id}/products/{self.tenant1_product.id}/',
             data,
             HTTP_AUTHORIZATION=auth,
             format='json'

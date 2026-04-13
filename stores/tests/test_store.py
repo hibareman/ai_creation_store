@@ -39,6 +39,15 @@ class StoreTests(TestCase):
         response = self.client.post("/api/stores/", {"name": "New Store"})
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Store.objects.filter(owner=self.user_a, name="New Store").exists(), True)
+        created_store = Store.objects.get(owner=self.user_a, name="New Store")
+        self.assertEqual(created_store.status, "setup")
+
+    def test_create_store_ignores_client_active_status_and_starts_setup(self):
+        response = self.client.post("/api/stores/", {"name": "Client Active Store", "status": "active"})
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        created_store = Store.objects.get(owner=self.user_a, name="Client Active Store")
+        self.assertEqual(created_store.status, "setup")
+        self.assertEqual(response.data["status"], "setup")
 
     def test_update_store_user_a(self):
         response = self.client.patch(f"/api/stores/{self.store_a.id}/", {"name": "Updated Store"})
@@ -69,6 +78,47 @@ class StoreTests(TestCase):
         self.assertTrue(all(store['owner'] == self.user_a.id for store in data))
         # Should not include user_b's store
         self.assertFalse(any(store['owner'] == self.user_b.id for store in data))
+
+    def test_get_stores_excludes_other_owner_in_same_tenant(self):
+        user_same_tenant = User.objects.create_user(
+            username="user_same_tenant",
+            email="same_tenant@test.com",
+            password="pass123",
+        )
+        user_same_tenant.is_active = True
+        user_same_tenant.tenant_id = self.user_a.tenant_id
+        user_same_tenant.save()
+        other_store_same_tenant = Store.objects.create(
+            owner=user_same_tenant,
+            name="Other Owner Same Tenant Store",
+            tenant_id=self.user_a.tenant_id,
+        )
+
+        response = self.client.get("/api/stores/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        returned_ids = {store["id"] for store in response.json()}
+
+        self.assertIn(self.store_a.id, returned_ids)
+        self.assertNotIn(other_store_same_tenant.id, returned_ids)
+
+    def test_super_admin_can_list_all_stores(self):
+        super_admin = User.objects.create_user(
+            username="superadmin",
+            email="superadmin@test.com",
+            password="pass123",
+            role="Super Admin",
+            is_active=True,
+            tenant_id=None,
+        )
+        refresh = RefreshToken.for_user(super_admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+
+        response = self.client.get("/api/stores/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        returned_ids = {store["id"] for store in response.json()}
+
+        self.assertIn(self.store_a.id, returned_ids)
+        self.assertIn(self.store_b.id, returned_ids)
 
 
 class GetUserStoresTests(TestCase):
@@ -131,6 +181,16 @@ class GetUserStoresTests(TestCase):
         
         # Verify the queryset has select_related
         self.assertEqual(str(user_stores.query).count('SELECT'), 1)
+
+    def test_get_user_stores_excludes_same_tenant_different_owner(self):
+        user_c = User.objects.create_user(username="userc", email="c@test.com", password="pass123")
+        user_c.is_active = True
+        user_c.tenant_id = self.user_a.tenant_id
+        user_c.save()
+        store_c = Store.objects.create(owner=user_c, name="Store C", tenant_id=self.user_a.tenant_id)
+
+        user_a_stores = get_user_stores(self.user_a)
+        self.assertNotIn(store_c, user_a_stores)
 
 
 class CreateStoreSettingsTests(TestCase):
@@ -843,3 +903,9 @@ class StoreDomainAPITests(TestCase):
         response = self.client.post(f"/api/stores/{self.store.id}/domains/", data)
         
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_domain_for_nonexistent_store_returns_404_not_500(self):
+        """Test POST domain on a non-existent store returns 404."""
+        data = {'domain': 'ghost-store.com', 'is_primary': False}
+        response = self.client.post("/api/stores/999999/domains/", data)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
