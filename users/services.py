@@ -9,7 +9,7 @@ import uuid
 logger = logging.getLogger(__name__)
 
 
-def register_user(username, email, password, role='Store Owner', tenant_id=None):
+def register_user(username, email, password, role='Store Owner'):
     """
     Register a new user with activation token.
     """
@@ -25,12 +25,8 @@ def register_user(username, email, password, role='Store Owner', tenant_id=None)
         user.set_password(password)
         user.save()
 
-        if tenant_id is None:
-            user.tenant_id = user.id
-            user.save(update_fields=['tenant_id'])
-        else:
-            user.tenant_id = tenant_id
-            user.save(update_fields=['tenant_id'])
+        user.tenant_id = user.id
+        user.save(update_fields=['tenant_id'])
 
         logger.info(f"User '{username}' registered successfully")
         return user

@@ -1,0 +1,81 @@
+name: Django Backend Tests & Coverage
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run migrations
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        SECRET_KEY: test-secret-key-for-ci
+        DEBUG: False
+      run: |
+        python manage.py migrate
+
+    - name: Run tests with coverage
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        SECRET_KEY: test-secret-key-for-ci
+        DEBUG: False
+      run: |
+        coverage run --source='.' manage.py test
+        coverage xml
+        coverage report
+        coverage html
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        fail_ci_if_error: false
+
+    - name: Archive coverage reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: htmlcov/
+
+    - name: Test Summary
+      if: always()
+      run: |
+        echo "=== Test Run Complete ==="
+        echo "Coverage Report: Check artifacts for detailed HTML report"
+        echo "Status: ${{ job.status }}"

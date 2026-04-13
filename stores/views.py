@@ -1,9 +1,28 @@
-from rest_framework import generics
+﻿import logging
+from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.core.exceptions import ValidationError
 from .models import Store, StoreSettings, StoreDomain
-from .serializers import StoreSerializer, StoreSettingsSerializer, StoreDomainSerializer
-from .services import create_store, update_store_settings, add_domain, update_domain, delete_domain
+from .serializers import (
+    StoreSerializer,
+    StoreSettingsSerializer,
+    StoreDomainSerializer,
+    CheckSlugSerializer,
+    SuggestSlugSerializer,
+)
+from .services import (
+    create_store,
+    update_store_settings,
+    add_domain,
+    update_domain,
+    delete_domain,
+    is_slug_available,
+    suggest_slugs,
+)
 from users.permissions import TenantAuthenticated
+
+logger = logging.getLogger(__name__)
 
 # Create store
 class StoreListCreateView(generics.ListCreateAPIView):
@@ -17,12 +36,15 @@ class StoreListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         owner = self.request.user
+        logger.debug(f"User {owner.id} (tenant_id: {self.request.tenant_id}) creating store")
         store = create_store(
             owner=owner,
             name=serializer.validated_data['name'],
             description=serializer.validated_data.get('description', ''),
-            status=serializer.validated_data.get('status', 'active')
+            status=serializer.validated_data.get('status', 'active'),
+            slug=serializer.validated_data.get('slug')
         )
+        logger.info(f"Store created: id={store.id}, owner={owner.id}, tenant_id={store.tenant_id}")
         serializer.instance = store
 
 # Update store
@@ -41,18 +63,22 @@ class UpdateStoreView(generics.UpdateAPIView):
             store = super().get_object()
         except Exception:
             # Store not found
+            logger.warning(f"Store not found. User: {self.request.user.id}, tenant_id: {self.request.tenant_id}")
             raise
         
         # Check tenant_id match FIRST
         if store.tenant_id != self.request.tenant_id:
+            logger.warning(f"Multi-tenant violation: User {self.request.user.id} (tenant_id: {self.request.tenant_id}) attempted to update store {store.id} (tenant_id: {store.tenant_id})")
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You do not have access to this store")
         
         # Check ownership
         if store.owner_id != self.request.user.id:
+            logger.warning(f"Ownership violation: User {self.request.user.id} attempted to update store {store.id} owned by {store.owner_id}")
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You do not own this store")
         
+        logger.debug(f"User {self.request.user.id} updating store {store.id}")
         return store
 
 # Delete store
@@ -70,19 +96,60 @@ class DestroyStoreView(generics.DestroyAPIView):
             store = super().get_object()
         except Exception:
             # Store not found
+            logger.warning(f"Store not found for deletion. User: {self.request.user.id}, tenant_id: {self.request.tenant_id}")
             raise
         
         # Check tenant_id match FIRST
         if store.tenant_id != self.request.tenant_id:
+            logger.warning(f"Multi-tenant violation: User {self.request.user.id} (tenant_id: {self.request.tenant_id}) attempted to delete store {store.id} (tenant_id: {store.tenant_id})")
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You do not have access to this store")
         
         # Check ownership
         if store.owner_id != self.request.user.id:
+            logger.warning(f"Ownership violation: User {self.request.user.id} attempted to delete store {store.id} owned by {store.owner_id}")
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You do not own this store")
         
+        logger.info(f"User {self.request.user.id} deleting store {store.id}")
         return store
+
+
+class CheckSlugAvailabilityView(generics.GenericAPIView):
+    serializer_class = CheckSlugSerializer
+    permission_classes = [TenantAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        slug = serializer.validated_data['slug']
+        store_id = serializer.validated_data.get('store_id')
+        available = is_slug_available(slug, store_id=store_id)
+
+        return Response({
+            'slug': slug,
+            'available': available,
+        }, status=status.HTTP_200_OK)
+
+
+class SuggestSlugView(generics.GenericAPIView):
+    serializer_class = SuggestSlugSerializer
+    permission_classes = [TenantAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        name = serializer.validated_data['name']
+        store_id = serializer.validated_data.get('store_id')
+        limit = serializer.validated_data['limit']
+        suggestions = suggest_slugs(name, limit=limit, store_id=store_id)
+
+        return Response({
+            'name': name,
+            'suggestions': suggestions,
+        }, status=status.HTTP_200_OK)
 
 
 # StoreSettings Views
@@ -114,6 +181,45 @@ class RetrieveUpdateStoreSettingsView(generics.RetrieveUpdateAPIView):
             raise PermissionDenied("You do not own this store")
         
         return store.settings
+    
+    # ًں”´ ط£ط¶ظپ ظ‡ط°ظ‡ ط§ظ„ط¯ط§ظ„ط© ظ„طھط­ط¯ظٹط« ط§ظ„ط¥ط¹ط¯ط§ط¯ط§طھ ظ…ط¹ ط§ظ„طھط­ظ‚ظ‚
+    def update(self, request, *args, **kwargs):
+        """Update store settings with permission check"""
+        partial = kwargs.pop('partial', False)
+        store_id = self.kwargs['store_id']
+        try:
+            store = Store.objects.get(id=store_id)
+        except Store.DoesNotExist:
+            from rest_framework.exceptions import NotFound
+            raise NotFound("Store not found")
+
+        if store.tenant_id != request.tenant_id:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You do not have access to this store")
+
+        if store.owner_id != request.user.id:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You do not own this store")
+
+        serializer = self.get_serializer(store.settings, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            updated_settings = update_store_settings(
+                store=store,
+                user=request.user,
+                **serializer.validated_data
+            )
+            serializer = self.get_serializer(updated_settings)
+            return Response(serializer.data)
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # ًں”´ ط£ط¶ظپ ظ‡ط°ظ‡ ط§ظ„ط¯ط§ظ„ط© ظ„ظ„ظ€ PATCH
+    def patch(self, request, *args, **kwargs):
+        """Partial update of store settings"""
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
 
 
 # StoreDomain Views
@@ -208,3 +314,4 @@ class RetrieveUpdateDestroyStoreDomainView(generics.RetrieveUpdateDestroyAPIView
         store_id = self.kwargs['store_id']
         store = Store.objects.get(id=store_id)
         delete_domain(store, instance.domain)
+

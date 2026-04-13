@@ -26,13 +26,14 @@ class Store(models.Model):
     def save(self, *args, **kwargs):
         if not self.slug:
             base_slug = slugify(self.name)
-            self.slug = base_slug
-            
-            # Check for slug uniqueness and add counter if duplicate
-            counter = 1
-            while Store.objects.filter(slug=self.slug).exclude(pk=self.pk).exists():
-                self.slug = f"{base_slug}-{counter}"
-                counter += 1
+        else:
+            base_slug = self.slug
+
+        self.slug = base_slug
+        counter = 1
+        while Store.objects.filter(slug=self.slug).exclude(pk=self.pk).exists():
+            self.slug = f"{base_slug}-{counter}"
+            counter += 1
 
         # Ensure tenant_id is never None (critical for multi-tenant)
         if not self.tenant_id:
@@ -40,9 +41,9 @@ class Store(models.Model):
                 owner_tenant_id = getattr(self.owner, 'tenant_id', None)
                 if owner_tenant_id is not None:
                     self.tenant_id = owner_tenant_id
-            
+
             super().save(*args, **kwargs)
-            
+
             # If tenant_id is still None, set it to the store's own id
             if not self.tenant_id:
                 self.tenant_id = self.id

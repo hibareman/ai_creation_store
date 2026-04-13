@@ -1,7 +1,0 @@
-new push(after main push):
-for any apdate in code for push:
-	git add .
-	git commit -m "describe your changes"
-	git push
-for add all without a specific file or folder:
-	git add --all -- ':!venv_ai_creation' ':!senior01' ':!do to.txt'

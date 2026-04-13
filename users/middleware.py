@@ -23,8 +23,12 @@ class JWTTenantMiddleware(MiddlewareMixin):
         auth_header = request.META.get('HTTP_AUTHORIZATION', None)
 
         if not auth_header:
-            request.user = None
             request.tenant_id = None
+
+            existing_user = getattr(request, 'user', None)
+            if existing_user and getattr(existing_user, 'is_authenticated', False):
+                request.tenant_id = getattr(existing_user, 'tenant_id', None)
+            # Never trust tenant context from client-supplied headers.
             return
 
         try:

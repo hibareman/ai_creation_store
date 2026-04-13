@@ -1,10 +1,12 @@
 import logging
 from django.db import DatabaseError
+from django.core.exceptions import ValidationError
+from django.utils.text import slugify
 from .models import Store, StoreSettings, StoreDomain
 
 logger = logging.getLogger(__name__)
 
-def create_store(owner, name, description="", status="active"):
+def create_store(owner, name, description="", status="active", slug=None):
     """
     Create a new store for the given owner.
     The store inherits the owner's tenant_id.
@@ -15,6 +17,7 @@ def create_store(owner, name, description="", status="active"):
         name: Store name
         description: Store description
         status: Store status (default: 'active')
+        slug: Optional custom slug for the store
     
     Returns:
         Store instance if created successfully, None if failed
@@ -28,7 +31,8 @@ def create_store(owner, name, description="", status="active"):
             name=name,
             description=description,
             status=status,
-            tenant_id=getattr(owner, 'tenant_id', None)
+            tenant_id=getattr(owner, 'tenant_id', None),
+            slug=slug
         )
         store.save()
         
@@ -48,6 +52,37 @@ def create_store(owner, name, description="", status="active"):
     except Exception as e:
         logger.error(f"Unexpected error while creating store '{name}' for user '{owner.username}': {str(e)}")
         raise
+
+
+def is_slug_available(slug, store_id=None):
+    """Return True if the slug is available for use."""
+    query = Store.objects.filter(slug=slug)
+    if store_id:
+        query = query.exclude(id=store_id)
+    return not query.exists()
+
+
+def suggest_slugs(name, limit=5, store_id=None):
+    """Suggest available slugs based on a store name."""
+    base_slug = slugify(name)
+    suggestions = []
+    counter = 0
+
+    while len(suggestions) < limit:
+        candidate = base_slug if counter == 0 else f"{base_slug}-{counter}"
+        query = Store.objects.filter(slug=candidate)
+        if store_id:
+            query = query.exclude(id=store_id)
+
+        if not query.exists():
+            suggestions.append(candidate)
+
+        counter += 1
+        if counter > limit * 10:
+            break
+
+    return suggestions
+
 
 def update_store(store, **kwargs):
     """
@@ -73,7 +108,7 @@ def update_store(store, **kwargs):
                 new_value = kwargs[field]
                 if old_value != new_value:
                     setattr(store, field, new_value)
-                    updated_fields.append(f"{field}: '{old_value}' → '{new_value}'")
+                    updated_fields.append(f"{field}: '{old_value}' -> '{new_value}'")
         
         if updated_fields:
             store.save()
@@ -91,22 +126,42 @@ def update_store(store, **kwargs):
         raise
 
 
-def update_store_settings(store, **kwargs):
+def update_store_settings(store, user=None, **kwargs):
     """
     Update StoreSettings for a given store.
     Allowed fields: currency, language, timezone
     
     Args:
         store: Store instance
+        user: User making the update (for permission check)
         **kwargs: Settings fields to update (currency, language, timezone)
     
     Returns:
         Updated StoreSettings instance
     
     Raises:
-        StoreSettings.DoesNotExist: If store has no settings (shouldn't happen)
-        DatabaseError: If database operation fails (re-raised after logging)
+        ValidationError: If user does not have permission
+        StoreSettings.DoesNotExist: If store has no settings
+        DatabaseError: If database operation fails
     """
+    # 🔴 إضافة التحقق من الصلاحيات
+    if user:
+        # التحقق 1: tenant_id يجب أن يتطابق
+        if user.tenant_id != store.tenant_id:
+            logger.warning(
+                f"Multi-tenant violation: User {user.id} (tenant_id: {user.tenant_id}) "
+                f"attempted to update settings for store {store.id} (tenant_id: {store.tenant_id})"
+            )
+            raise ValidationError("You do not have access to this store")
+        
+        # التحقق 2: المستخدم يجب أن يكون مالك المتجر
+        if user.id != store.owner_id:
+            logger.warning(
+                f"Ownership violation: User {user.id} attempted to update settings "
+                f"for store {store.id} owned by {store.owner_id}"
+            )
+            raise ValidationError("You must own the store to update settings")
+    
     try:
         settings = store.settings
         updated_fields = []
@@ -117,7 +172,7 @@ def update_store_settings(store, **kwargs):
                 new_value = kwargs[field]
                 if old_value != new_value:
                     setattr(settings, field, new_value)
-                    updated_fields.append(f"{field}: '{old_value}' → '{new_value}'")
+                    updated_fields.append(f"{field}: '{old_value}' -> '{new_value}'")
         
         if updated_fields:
             settings.save()

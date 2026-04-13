@@ -22,7 +22,26 @@ def create_category(store, name, description="", user=None):
         
     Raises:
         ValidationError: If name is empty or already exists in store
+        ValidationError: If user does not own the store (MULTI-TENANT)
     """
+    
+    # 🔴 🔴 🔴 الإضافة الجديدة - التحقق من الصلاحيات (MULTI-TENANT)
+    if user:
+        # التحقق 1: tenant_id يجب أن يتطابق
+        if user.tenant_id != store.tenant_id:
+            logger.warning(
+                f"Multi-tenant violation: User {user.id} (tenant_id: {user.tenant_id}) "
+                f"attempted to create category in store {store.id} (tenant_id: {store.tenant_id})"
+            )
+            raise ValidationError("You do not have permission to create a category in this store")
+        
+        # التحقق 2: المستخدم يجب أن يكون مالك المتجر
+        if user.id != store.owner_id:
+            logger.warning(
+                f"Ownership violation: User {user.id} attempted to create category "
+                f"in store {store.id} owned by {store.owner_id}"
+            )
+            raise ValidationError("You must own the store to create categories")
     
     # Validation: name is required and not empty
     if not name or not name.strip():
@@ -70,7 +89,26 @@ def update_category(category, name=None, description=None, user=None):
         
     Raises:
         ValidationError: If validation fails
+        ValidationError: If user does not own the category's store (MULTI-TENANT)
     """
+    
+    # 🔴 🔴 🔴 الإضافة الجديدة - التحقق من الصلاحيات (MULTI-TENANT)
+    if user:
+        # التحقق 1: tenant_id يجب أن يتطابق
+        if user.tenant_id != category.tenant_id:
+            logger.warning(
+                f"Multi-tenant violation: User {user.id} (tenant_id: {user.tenant_id}) "
+                f"attempted to update category {category.id} (tenant_id: {category.tenant_id})"
+            )
+            raise ValidationError("You do not have permission to update this category")
+        
+        # التحقق 2: المستخدم يجب أن يكون مالك المتجر
+        if user.id != category.store.owner_id:
+            logger.warning(
+                f"Ownership violation: User {user.id} attempted to update category {category.id} "
+                f"in store {category.store.id} owned by {category.store.owner_id}"
+            )
+            raise ValidationError("You must own the store to update categories")
     
     updated = False
     
@@ -127,7 +165,26 @@ def delete_category(category, user=None):
         
     Raises:
         ValidationError: If category has linked products
+        ValidationError: If user does not own the category's store (MULTI-TENANT)
     """
+    
+    # 🔴 🔴 🔴 الإضافة الجديدة - التحقق من الصلاحيات (MULTI-TENANT)
+    if user:
+        # التحقق 1: tenant_id يجب أن يتطابق
+        if user.tenant_id != category.tenant_id:
+            logger.warning(
+                f"Multi-tenant violation: User {user.id} (tenant_id: {user.tenant_id}) "
+                f"attempted to delete category {category.id} (tenant_id: {category.tenant_id})"
+            )
+            raise ValidationError("You do not have permission to delete this category")
+        
+        # التحقق 2: المستخدم يجب أن يكون مالك المتجر
+        if user.id != category.store.owner_id:
+            logger.warning(
+                f"Ownership violation: User {user.id} attempted to delete category {category.id} "
+                f"in store {category.store.id} owned by {category.store.owner_id}"
+            )
+            raise ValidationError("You must own the store to delete categories")
     
     # Check if category has linked products
     if selectors.check_category_has_products(category):

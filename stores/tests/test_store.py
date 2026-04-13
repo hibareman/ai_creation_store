@@ -1,6 +1,7 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
 from users.models import User
 from ..models import Store, StoreSettings, StoreDomain
 from ..selectors import get_user_stores
@@ -254,6 +255,50 @@ class StoreSlugTests(TestCase):
         
         self.assertEqual(store1.slug, "my-store-name")
         self.assertEqual(store2.slug, "my-store-name-1")
+
+
+class StoreSlugApiTests(TestCase):
+    """Test slug availability and suggestion endpoints."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="user", email="test@test.com", password="pass123")
+        self.user.is_active = True
+        self.user.tenant_id = 1
+        self.user.save()
+        refresh = RefreshToken.for_user(self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+
+    def test_check_slug_available_returns_true(self):
+        response = self.client.post('/api/stores/slug/check/', {'slug': 'available-slug'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['slug'], 'available-slug')
+        self.assertTrue(response.data['available'])
+
+    def test_check_slug_returns_false_for_existing_slug(self):
+        Store.objects.create(owner=self.user, name='Existing Store', tenant_id=1, slug='taken-slug')
+        response = self.client.post('/api/stores/slug/check/', {'slug': 'taken-slug'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['available'])
+
+    def test_suggest_slug_returns_unique_suggestions(self):
+        Store.objects.create(owner=self.user, name='Existing Store', tenant_id=1, slug='my-store')
+        response = self.client.post('/api/stores/slug/suggest/', {'name': 'My Store', 'limit': 3}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['suggestions'], ['my-store-1', 'my-store-2', 'my-store-3'])
+
+    def test_create_store_accepts_custom_slug(self):
+        response = self.client.post('/api/stores/', {'name': 'Custom Slug Store', 'slug': 'custom-slug'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['slug'], 'custom-slug')
+        self.assertTrue(Store.objects.filter(slug='custom-slug').exists())
+
+    def test_create_store_with_duplicate_custom_slug_autoincrements(self):
+        Store.objects.create(owner=self.user, name='Existing Store', tenant_id=1, slug='custom-slug')
+        response = self.client.post('/api/stores/', {'name': 'Another Store', 'slug': 'custom-slug'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['slug'], 'custom-slug-1')
+        self.assertTrue(Store.objects.filter(slug='custom-slug-1').exists())
 
 
 class StoreSerializersTests(TestCase):
