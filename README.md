@@ -1,6 +1,6 @@
 # AI Store Creation Backend
 
-Multi-Tenant E-commerce Backend API with AI-Powered Features
+Multi-Tenant E-commerce Backend API
 
 ## Quick Start
 
@@ -15,21 +15,24 @@ Multi-Tenant E-commerce Backend API with AI-Powered Features
 ```bash
 git clone <repo-url>
 cd ai_store_creation
-```
 
-2. **Create Virtual Environment**
-```bash
+2. Create Virtual Environment
+
+
+
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\\Scripts\\activate
-```
 
-3. **Install Dependencies**
-```bash
+3. Install Dependencies
+
+
+
 pip install -r requirements.txt
-```
 
-4. **Database Setup**
-```bash
+4. Database Setup
+
+
+
 # Django reads DATABASE_URL automatically if provided
 export DATABASE_URL=postgresql://user:password@localhost:5432/ai_store_db
 # Windows PowerShell:
@@ -45,52 +48,73 @@ export DATABASE_URL=postgresql://user:password@localhost:5432/ai_store_db
 
 # Run migrations
 python manage.py migrate
-```
 
-5. **Create Superuser**
-```bash
+5. Create Superuser
+
+
+
 python manage.py createsuperuser
-```
 
-6. **Run Development Server**
-```bash
+6. Run Development Server
+
+
+
 python manage.py runserver
-```
 
 Server will be available at: http://localhost:8000
 
+
 ---
 
-## 📚 API Documentation
+📚 API Documentation
 
-### Access Documentation
+Access Documentation
 
-1. **Swagger UI** (Interactive):
-   - URL: http://localhost:8000/api/docs/
-   - Try requests directly in browser
-   - Parameter validation & syntax highlighting
+1. Swagger UI (Interactive):
 
-2. **ReDoc** (Clean View):
-   - URL: http://localhost:8000/api/redoc/
-   - Better for reading documentation
-   - Organized by endpoint groups
+URL: http://localhost:8000/api/docs/
 
-3. **OpenAPI Schema**:
-   - URL: http://localhost:8000/api/schema/
-   - JSON format for API client generation
+Try requests directly in browser
 
-### Full Documentation
+Parameter validation & syntax highlighting
+
+
+
+2. ReDoc (Clean View):
+
+URL: http://localhost:8000/api/redoc/
+
+Better for reading documentation
+
+Organized by endpoint groups
+
+
+
+3. OpenAPI Schema:
+
+URL: http://localhost:8000/api/schema/
+
+JSON format for API client generation
+
+
+
+
+Full Documentation
 
 Use the live OpenAPI docs:
-- Swagger UI: `http://localhost:8000/api/docs/`
-- ReDoc: `http://localhost:8000/api/redoc/`
-- OpenAPI schema: `http://localhost:8000/api/schema/`
+
+Swagger UI: http://localhost:8000/api/docs/
+
+ReDoc: http://localhost:8000/api/redoc/
+
+OpenAPI schema: http://localhost:8000/api/schema/
+
+
 
 ---
 
-## 🏗️ Project Structure
+🏗️ Project Structure
 
-```
 ai_store_creation/
 ├── .github/
 │   └── workflows/
@@ -126,6 +150,15 @@ ai_store_creation/
 │   ├── views.py                 # Product endpoints
 │   ├── services.py              # Business logic
 │   └── tests/
+├── themes/
+│   ├── models.py                # ThemeTemplate, StoreThemeConfig
+│   ├── serializers.py           # Theme serializers
+│   ├── selectors.py             # Theme read queries
+│   ├── services.py              # Theme business logic
+│   ├── views.py                 # Theme endpoints
+│   ├── urls.py                  # Theme routes
+│   ├── migrations/
+│   └── tests/
 ├── utils/
 │   ├── exceptions.py            # Custom exceptions
 │   ├── errors.py                # Error utilities
@@ -135,321 +168,476 @@ ai_store_creation/
 ├── requirements.txt             # Python dependencies
 ├── manage.py                    # Django management
 └── README.md                    # This file
-```
+
 
 ---
 
-## 🧪 Testing
+🧪 Testing
 
-### Run All Tests
-```bash
+Run All Tests
+
 python manage.py test
-```
 
-Current output (April 13, 2026): 143 tests, all pass
+Current test suite passes.
 
-### Run Specific App Tests
-```bash
+Run Specific App Tests
+
 python manage.py test stores
 python manage.py test users
 python manage.py test categories
 python manage.py test products
 python manage.py test themes
-```
 
-### Run with Coverage
-```bash
+Run with Coverage
+
 coverage run --source='.' manage.py test
 coverage report
 coverage html  # Creates htmlcov/index.html
-```
 
-### Integration Tests
+Integration Tests
+
 Multi-tenant isolation is verified in:
-```bash
+
 python manage.py test tests_integration
-```
+
 
 ---
 
-## 🚀 CI/CD Pipeline
+🚀 CI/CD Pipeline
 
-### GitHub Actions Workflow
+GitHub Actions Workflow
 
-**File:** `.github/workflows/backend-tests.yml`
+File: .github/workflows/backend-tests.yml
 
-**Triggers:**
-- Every push to `main` or `develop` branches
-- Every pull request
+Triggers:
 
-**What It Does:**
+Every push to main or develop branches
+
+Every pull request
+
+
+What It Does:
+
 1. Sets up Python 3.12
+
+
 2. Installs PostgreSQL service
+
+
 3. Installs dependencies
+
+
 4. Runs migrations
+
+
 5. Executes all tests
+
+
 6. Generates coverage reports
+
+
 7. Uploads artifacts
 
-**Monitor:**
-- Go to GitHub Actions tab
-- See real-time test results
-- Download coverage reports
+
+
+Monitor:
+
+Go to GitHub Actions tab
+
+See real-time test results
+
+Download coverage reports
+
+
 
 ---
 
-## 📊 Database Schema
+📊 Database Schema
 
-### Core Models
+Core Models
 
-**Users**
-- Authentication & authorization
-- Multi-tenant isolation
-- Email activation
+Users
 
-**Stores**
-- Store instance per owner
-- Belongs to tenant
-- Has settings & domains
+Authentication & authorization
 
-**StoreSettings**
-- Currency, language, timezone
-- Per-store configuration
+Multi-tenant isolation
 
-**StoreDomain**
-- Custom domains
-- Primary domain selection
+Email activation
 
-**Categories**
-- Product categorization
-- Per-store isolation
 
-**Products**
-- Product catalog
-- SKU tracking
-- Status management
+Stores
 
-**ProductImages**
-- Product gallery
-- Media storage
+Store instance per owner
 
-**Inventory**
-- Stock tracking
-- Quantity management
+Belongs to tenant
 
-**Themes**
-- Shared `ThemeTemplate` records
-- Per-store `StoreThemeConfig`
-- Theme Foundation endpoints for listing templates and reading/updating the current store theme
+Has settings & domains
+
+
+StoreSettings
+
+Currency, language, timezone
+
+Per-store configuration
+
+
+StoreDomain
+
+Custom domains
+
+Primary domain selection
+
+
+Categories
+
+Product categorization
+
+Per-store isolation
+
+
+Products
+
+Product catalog
+
+SKU tracking
+
+Status management
+
+
+ProductImages
+
+Product gallery
+
+Media storage
+
+
+Inventory
+
+Stock tracking
+
+Quantity management
+
+
+Themes
+
+Shared ThemeTemplate records
+
+Per-store StoreThemeConfig
+
+Theme Foundation endpoints for listing templates and reading/updating the current store theme
+
+
 
 ---
 
-## Theme Foundation API
+Theme Foundation API
 
-- `GET /api/stores/{store_id}/themes/templates/`
-  Returns the available theme templates for the authenticated store owner.
+GET /api/stores/{store_id}/themes/templates/ Returns the available theme templates for the authenticated store owner.
 
-- `GET /api/stores/{store_id}/theme/`
-  Returns the current theme configuration for the specified store.
+GET /api/stores/{store_id}/theme/ Returns the current theme configuration for the specified store.
 
-- `PATCH /api/stores/{store_id}/theme/`
-  Updates only the editable theme fields for the specified store:
-  `theme_template`, `primary_color`, `secondary_color`, `font_family`, `logo_url`, `banner_url`.
+PATCH /api/stores/{store_id}/theme/ Updates only the editable theme fields for the specified store: theme_template, primary_color, secondary_color, font_family, logo_url, banner_url.
+
+
 
 ---
 
-## 🔐 Security Features
+🔐 Security Features
 
-### Authentication
-- JWT Bearer tokens (SimpleJWT)
-- Email activation required
-- Secure password hashing
+Authentication
 
-### Authorization
-- Multi-tenant isolation
-- Role-based access control
-- Ownership verification
-- Permission-based views
+JWT Bearer tokens (SimpleJWT)
 
-### Data Protection
-- Tenant_id in all queries
-- Cross-tenant access blocked
-- Error messages don't leak data
-- CSRF protection on POST/PUT/PATCH/DELETE
+Email activation required
 
-### Environment Variables
-```bash
+Secure password hashing
+
+
+Authorization
+
+Multi-tenant isolation
+
+Role-based access control
+
+Ownership verification
+
+Permission-based views
+
+
+Data Protection
+
+Tenant_id in all queries
+
+Cross-tenant access blocked
+
+Error messages don't leak data
+
+CSRF protection on POST/PUT/PATCH/DELETE
+
+
+Environment Variables
+
 DATABASE_URL=postgresql://user:pass@host:port/db
 SECRET_KEY=your-secret-key
-DEBUG=False (production)
+DEBUG=False
 ALLOWED_HOSTS=yourdomain.com
-```
+
 
 ---
 
-## 🛠️ Development
+🛠️ Development
 
-### Code Style
-- PEP 8 compliance
-- Functions < 30 lines
-- Docstrings required for public functions
-- Type hints (optional but recommended)
+Code Style
 
-### Layered Architecture
-- **Views/Serializers:** API interface
-- **Services:** Business logic
-- **Selectors:** Database queries
-- **Models:** Data structures
+PEP 8 compliance
 
-### Adding Features
+Functions < 30 lines
 
-1. Define model in `app/models.py`
-2. Create migrations: `python manage.py makemigrations`
-3. Write serializers in `app/serializers.py`
+Docstrings required for public functions
+
+Type hints (optional but recommended)
+
+
+Layered Architecture
+
+Views/Serializers: API interface
+
+Services: Business logic
+
+Selectors: Database queries
+
+Models: Data structures
+
+
+Adding Features
+
+1. Define model in app/models.py
+
+
+2. Create migrations: python manage.py makemigrations
+
+
+3. Write serializers in app/serializers.py
+
+
 4. Add help_text for OpenAPI docs
-5. Implement views in `app/views.py`
-6. Add business logic in `app/services.py`
-7. Write tests in `app/tests/`
-8. Update README + OpenAPI annotations (`help_text`, schema docs)
+
+
+5. Implement views in app/views.py
+
+
+6. Add business logic in app/services.py
+
+
+7. Write tests in app/tests/
+
+
+8. Update README + OpenAPI annotations (help_text, schema docs)
+
+
+
 
 ---
 
-## 📝 Logging
+📝 Logging
 
-Logs are stored in `logs/` directory with format:
-```
+Logs are stored in logs/ directory with format:
+
 [TIMESTAMP] LEVEL LOGGER_NAME -> MESSAGE
-```
 
-### Log Levels
-- DEBUG: Detailed information
-- INFO: Confirmation of operations
-- WARNING: Warning messages
-- ERROR: Error messages (with stack trace)
+Log Levels
 
-### View Logs
-```bash
+DEBUG: Detailed information
+
+INFO: Confirmation of operations
+
+WARNING: Warning messages
+
+ERROR: Error messages (with stack trace)
+
+
+View Logs
+
 tail -f logs/*.log
-```
+
 
 ---
 
-## 🐛 Troubleshooting
+🐛 Troubleshooting
 
-### Database Connection Error
-```
+Database Connection Error
+
 Check:
 - PostgreSQL is running
 - DATABASE_URL is correct
 - Port 5433 is accessible
-```
 
-### Migration Error
-```bash
+Migration Error
+
 # Reset migrations (development only!)
 python manage.py migrate app_name zero
 python manage.py migrate
-```
 
-### Port Already in Use
-```bash
+Port Already in Use
+
 # Use different port
 python manage.py runserver 8001
-```
 
-### Tests Failing
+Tests Failing
+
 1. Run individually to isolate issue
-2. Check logs in `logs/` directory
+
+
+2. Check logs in logs/ directory
+
+
 3. Ensure database is migrated
-4. Check multi-tenant isolation in test
+
+
+4. Check multi-tenant isolation in tests
+
+
+
 
 ---
 
-## 📦 Dependencies
+📦 Dependencies
 
-### Core
-- Django 6.0.3
-- Django REST Framework 3.17.1
-- drf-spectacular 0.27.0 (API documentation)
-- djangorestframework_simplejwt 5.5.1 (JWT auth)
+Core
 
-### Database
-- psycopg2-binary (PostgreSQL adapter)
+Django 6.0.3
 
-### Development
-- coverage (test coverage reporting)
+Django REST Framework 3.17.1
 
-### Testing
-- Django TestCase
-- DRF APITestCase
+drf-spectacular 0.27.0 (API documentation)
 
-Full list: See `requirements.txt`
+djangorestframework_simplejwt 5.5.1 (JWT auth)
 
----
 
-## 🎯 API Endpoints Summary
+Database
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/auth/register/` | POST | User registration |
-| `/api/auth/login/` | POST | User login |
-| `/api/stores/` | GET/POST | List/create stores |
-| `/api/stores/{id}/` | PATCH | Update store |
-| `/api/stores/{id}/delete/` | DELETE | Delete store |
-| `/api/stores/{id}/settings/` | GET/PATCH | Store settings |
-| `/api/stores/{id}/domains/` | GET/POST | Domain management |
-| `/api/stores/{id}/domains/{domain_id}/` | GET/PATCH/DELETE | Domain detail |
-| `/api/stores/slug/check/` | POST | Check slug availability |
-| `/api/stores/slug/suggest/` | POST | Suggest slug candidates |
-| `/api/stores/{id}/categories/` | GET/POST | Category operations |
-| `/api/stores/{id}/categories/{category_id}/` | GET/PATCH/DELETE | Category details |
-| `/api/categories/stores/{id}/categories/` | GET/POST | Legacy-compatible category route |
-| `/api/categories/stores/{id}/categories/{category_id}/` | GET/PATCH/DELETE | Legacy-compatible category detail route |
-| `/api/products/{store_id}/products/` | GET/POST | Product operations |
-| `/api/products/{store_id}/products/{product_id}/` | GET/PATCH/DELETE | Product details |
-| `/api/products/{store_id}/products/{product_id}/images/` | GET/POST | Product images |
-| `/api/products/{store_id}/products/{product_id}/images/{image_id}/` | DELETE | Delete product image |
-| `/api/products/{store_id}/products/{product_id}/inventory/` | PUT/PATCH | Update inventory |
-| `/api/docs/` | GET | Swagger UI documentation |
-| `/api/redoc/` | GET | ReDoc documentation |
-| `/api/schema/` | GET | OpenAPI schema (JSON) |
+psycopg2-binary (PostgreSQL adapter)
+
+
+Development
+
+coverage (test coverage reporting)
+
+
+Testing
+
+Django TestCase
+
+DRF APITestCase
+
+
+Full list: See requirements.txt
+
 
 ---
 
-## 📞 Support & Contribution
+🎯 API Endpoints Summary
 
-### Reporting Issues
+Endpoint	Method	Purpose
+
+/api/auth/register/	POST	User registration
+/api/auth/login/	POST	User login
+/api/stores/	GET/POST	List/create stores
+/api/stores/{id}/	PATCH	Update store
+/api/stores/{id}/delete/	DELETE	Delete store
+/api/stores/{id}/settings/	GET/PATCH	Store settings
+/api/stores/{id}/domains/	GET/POST	Domain management
+/api/stores/{id}/domains/{domain_id}/	GET/PATCH/DELETE	Domain detail
+/api/stores/slug/check/	POST	Check slug availability
+/api/stores/slug/suggest/	POST	Suggest slug candidates
+/api/stores/{id}/categories/	GET/POST	Category operations
+/api/stores/{id}/categories/{category_id}/	GET/PATCH/DELETE	Category details
+/api/categories/stores/{id}/categories/	GET/POST	Legacy-compatible category route
+/api/categories/stores/{id}/categories/{category_id}/	GET/PATCH/DELETE	Legacy-compatible category detail routeح
+/api/products/{store_id}/products/	GET/POST	Product operations
+/api/products/{store_id}/products/{product_id}/	GET/PATCH/DELETE	Product details
+/api/products/{store_id}/products/{product_id}/images/	GET/POST	Product images
+/api/products/{store_id}/products/{product_id}/images/{image_id}/	DELETE	Delete product image
+/api/products/{store_id}/products/{product_id}/inventory/	PUT/PATCH	Update inventory
+/api/stores/{store_id}/themes/templates/	GET	List available theme templates
+/api/stores/{store_id}/theme/	GET/PATCH	Read/update current store theme
+/api/docs/	GET	Swagger UI documentation
+/api/redoc/	GET	ReDoc documentation
+/api/schema/	GET	OpenAPI schema (JSON)
+
+
+
+---
+
+📞 Support & Contribution
+
+Reporting Issues
+
 1. Check GitHub Issues
-2. Check troubleshooting section
-3. Check logs in `logs/` directory
-4. Create new issue with:
-   - Error message
-   - Steps to reproduce
-   - System info
-   - Logs
 
-### Contributing
-1. Create feature branch: `git checkout -b feature/name`
+
+2. Check troubleshooting section
+
+
+3. Check logs in logs/ directory
+
+
+4. Create new issue with:
+
+Error message
+
+Steps to reproduce
+
+System info
+
+Logs
+
+
+
+
+Contributing
+
+1. Create feature branch: git checkout -b feature/name
+
+
 2. Make changes
-3. Run tests: `python manage.py test`
-4. Commit: `git commit -m "description"`
-5. Push: `git push origin feature/name`
+
+
+3. Run tests: python manage.py test
+
+
+4. Commit: git commit -m "description"
+
+
+5. Push: git push origin feature/name
+
+
 6. Create Pull Request
 
+
+
+
 ---
 
-## 📄 License
+📄 License
 
 MIT License - See LICENSE file
 
+
 ---
 
-## Version History
+Version History
 
-- v1.0.0 (2024-04-08)
-  - Initial release
-  - Complete API endpoints
-  - Multi-tenant support
-  - API documentation
-  - CI/CD pipeline
-  - 143 tests passing
+v1.0.0 (2024-04-08)
+
+Initial release
+
+Complete API endpoints
+
+Multi-tenant support
+
+API documentation
+
+CI/CD pipeline
+
+Theme Foundation
