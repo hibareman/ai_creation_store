@@ -20,9 +20,36 @@ from .services import (
     is_slug_available,
     suggest_slugs,
 )
+from .selectors import get_user_stores, get_store_by_id, get_store_domains_by_store_id
 from users.permissions import TenantAuthenticated
 
 logger = logging.getLogger(__name__)
+
+
+class StoreAccessMixin:
+    """
+    Minimal shared helpers for store fetch + access checks.
+    """
+
+    def _get_store_or_not_found(self, store_id):
+        from rest_framework.exceptions import NotFound
+        store = get_store_by_id(store_id)
+        if not store:
+            raise NotFound("Store not found")
+        return store
+
+    def _has_store_access(self, request, store):
+        return (
+            store.tenant_id == request.tenant_id and
+            store.owner_id == request.user.id
+        )
+
+    def _enforce_store_access(self, request, store):
+        from rest_framework.exceptions import PermissionDenied
+        if store.tenant_id != request.tenant_id:
+            raise PermissionDenied("You do not have access to this store")
+        if store.owner_id != request.user.id:
+            raise PermissionDenied("You do not own this store")
 
 # Create store
 class StoreListCreateView(generics.ListCreateAPIView):
@@ -32,7 +59,7 @@ class StoreListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         if self.request.user.role == 'Super Admin':
             return Store.objects.all()
-        return Store.objects.filter(tenant_id=self.request.tenant_id)
+        return get_user_stores(self.request.user)
 
     def perform_create(self, serializer):
         owner = self.request.user
@@ -41,7 +68,8 @@ class StoreListCreateView(generics.ListCreateAPIView):
             owner=owner,
             name=serializer.validated_data['name'],
             description=serializer.validated_data.get('description', ''),
-            status=serializer.validated_data.get('status', 'active'),
+            # New stores must start in setup state (not active).
+            status='setup',
             slug=serializer.validated_data.get('slug')
         )
         logger.info(f"Store created: id={store.id}, owner={owner.id}, tenant_id={store.tenant_id}")
@@ -153,7 +181,7 @@ class SuggestSlugView(generics.GenericAPIView):
 
 
 # StoreSettings Views
-class RetrieveUpdateStoreSettingsView(generics.RetrieveUpdateAPIView):
+class RetrieveUpdateStoreSettingsView(StoreAccessMixin, generics.RetrieveUpdateAPIView):
     """
     Get or update StoreSettings for a specific store.
     GET /api/stores/{store_id}/settings/
@@ -164,22 +192,8 @@ class RetrieveUpdateStoreSettingsView(generics.RetrieveUpdateAPIView):
     
     def get_object(self):
         store_id = self.kwargs['store_id']
-        try:
-            store = Store.objects.get(id=store_id)
-        except Store.DoesNotExist:
-            from rest_framework.exceptions import NotFound
-            raise NotFound("Store not found")
-        
-        # Check tenant isolation first (critical for multi-tenant) - MUST be checked FIRST
-        if store.tenant_id != self.request.tenant_id:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You do not have access to this store")
-        
-        # Then check ownership - user must own the store
-        if store.owner_id != self.request.user.id:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You do not own this store")
-        
+        store = self._get_store_or_not_found(store_id)
+        self._enforce_store_access(self.request, store)
         return store.settings
     
     # ًں”´ ط£ط¶ظپ ظ‡ط°ظ‡ ط§ظ„ط¯ط§ظ„ط© ظ„طھط­ط¯ظٹط« ط§ظ„ط¥ط¹ط¯ط§ط¯ط§طھ ظ…ط¹ ط§ظ„طھط­ظ‚ظ‚
@@ -187,19 +201,8 @@ class RetrieveUpdateStoreSettingsView(generics.RetrieveUpdateAPIView):
         """Update store settings with permission check"""
         partial = kwargs.pop('partial', False)
         store_id = self.kwargs['store_id']
-        try:
-            store = Store.objects.get(id=store_id)
-        except Store.DoesNotExist:
-            from rest_framework.exceptions import NotFound
-            raise NotFound("Store not found")
-
-        if store.tenant_id != request.tenant_id:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You do not have access to this store")
-
-        if store.owner_id != request.user.id:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You do not own this store")
+        store = self._get_store_or_not_found(store_id)
+        self._enforce_store_access(request, store)
 
         serializer = self.get_serializer(store.settings, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
@@ -223,7 +226,7 @@ class RetrieveUpdateStoreSettingsView(generics.RetrieveUpdateAPIView):
 
 
 # StoreDomain Views
-class ListCreateStoreDomainView(generics.ListCreateAPIView):
+class ListCreateStoreDomainView(StoreAccessMixin, generics.ListCreateAPIView):
     """
     List all domains for a store or create a new one.
     GET /api/stores/{store_id}/domains/
@@ -234,34 +237,17 @@ class ListCreateStoreDomainView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         store_id = self.kwargs['store_id']
-        try:
-            store = Store.objects.get(id=store_id)
-        except Store.DoesNotExist:
+        store = get_store_by_id(store_id)
+        if not store:
             return StoreDomain.objects.none()
-        
-        # Check tenant isolation first (critical for multi-tenant)
-        if store.tenant_id != self.request.tenant_id:
+        if not self._has_store_access(self.request, store):
             return StoreDomain.objects.none()
-        
-        # Check ownership
-        if store.owner_id != self.request.user.id:
-            return StoreDomain.objects.none()
-        
-        return StoreDomain.objects.filter(store_id=store_id)
+        return get_store_domains_by_store_id(store_id)
     
     def perform_create(self, serializer):
         store_id = self.kwargs['store_id']
-        store = Store.objects.get(id=store_id)
-        
-        # Check tenant isolation first
-        if store.tenant_id != self.request.tenant_id:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You do not have access to this store")
-        
-        # Check ownership
-        if store.owner_id != self.request.user.id:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("You do not own this store")
+        store = self._get_store_or_not_found(store_id)
+        self._enforce_store_access(self.request, store)
         
         domain = serializer.validated_data['domain']
         is_primary = serializer.validated_data.get('is_primary', False)
@@ -270,7 +256,7 @@ class ListCreateStoreDomainView(generics.ListCreateAPIView):
         serializer.instance = domain_obj
 
 
-class RetrieveUpdateDestroyStoreDomainView(generics.RetrieveUpdateDestroyAPIView):
+class RetrieveUpdateDestroyStoreDomainView(StoreAccessMixin, generics.RetrieveUpdateDestroyAPIView):
     """
     Retrieve, update, or delete a specific domain.
     GET /api/stores/{store_id}/domains/{domain_id}/
@@ -284,24 +270,17 @@ class RetrieveUpdateDestroyStoreDomainView(generics.RetrieveUpdateDestroyAPIView
     
     def get_queryset(self):
         store_id = self.kwargs['store_id']
-        try:
-            store = Store.objects.get(id=store_id)
-        except Store.DoesNotExist:
+        store = get_store_by_id(store_id)
+        if not store:
             return StoreDomain.objects.none()
-        
-        # Check tenant isolation first (critical for multi-tenant)
-        if store.tenant_id != self.request.tenant_id:
+        if not self._has_store_access(self.request, store):
             return StoreDomain.objects.none()
-        
-        # Check ownership
-        if store.owner_id != self.request.user.id:
-            return StoreDomain.objects.none()
-        
-        return StoreDomain.objects.filter(store_id=store_id)
+        return get_store_domains_by_store_id(store_id)
     
     def perform_update(self, serializer):
         store_id = self.kwargs['store_id']
-        store = Store.objects.get(id=store_id)
+        store = self._get_store_or_not_found(store_id)
+        self._enforce_store_access(self.request, store)
         domain_obj = self.get_object()
         
         is_primary = serializer.validated_data.get('is_primary', domain_obj.is_primary)
@@ -312,6 +291,7 @@ class RetrieveUpdateDestroyStoreDomainView(generics.RetrieveUpdateDestroyAPIView
     
     def perform_destroy(self, instance):
         store_id = self.kwargs['store_id']
-        store = Store.objects.get(id=store_id)
+        store = self._get_store_or_not_found(store_id)
+        self._enforce_store_access(self.request, store)
         delete_domain(store, instance.domain)
 

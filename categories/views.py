@@ -14,7 +14,46 @@ from . import selectors, services
 logger = logging.getLogger(__name__)
 
 
-class CategoryListCreateView(generics.ListCreateAPIView):
+class CategoryStoreAccessMixin:
+    """
+    Shared store lookup + tenant/owner checks for category endpoints.
+    Keeps existing behavior/messages while removing duplicated view logic.
+    """
+
+    def get_store(self):
+        store_id = self.kwargs.get('store_id')
+
+        try:
+            store = get_object_or_404(Store, id=store_id)
+        except Exception:
+            logger.warning(
+                f"Store not found. User: {self.request.user.id}, "
+                f"store_id: {store_id}, tenant_id: {self.request.tenant_id}"
+            )
+            raise PermissionDenied("Store not found or access denied")
+
+        # Multi-tenant check: FIRST validate tenant_id
+        if store.tenant_id != self.request.tenant_id:
+            logger.warning(
+                f"Multi-tenant violation: User {self.request.user.id} "
+                f"(tenant_id: {self.request.tenant_id}) attempted to access "
+                f"store {store_id} (tenant_id: {store.tenant_id})"
+            )
+            raise PermissionDenied("You do not have access to this store")
+
+        # Then check ownership
+        if store.owner_id != self.request.user.id:
+            logger.warning(
+                f"Ownership violation: User {self.request.user.id} "
+                f"attempted to access store {store_id} owned by {store.owner_id}"
+            )
+            raise PermissionDenied("You do not own this store")
+
+        logger.debug(f"User {self.request.user.id} accessing store {store_id}")
+        return store
+
+
+class CategoryListCreateView(CategoryStoreAccessMixin, generics.ListCreateAPIView):
     """
     API endpoint for listing and creating categories for a store.
     
@@ -24,37 +63,6 @@ class CategoryListCreateView(generics.ListCreateAPIView):
     
     permission_classes = [TenantAuthenticated]
     serializer_class = CategorySerializer
-    
-    def get_store(self):
-        """
-        Retrieve and validate store ownership by tenant_id.
-        
-        Returns:
-            Store instance
-            
-        Raises:
-            PermissionDenied: If user's tenant_id doesn't match store's tenant_id
-        """
-        store_id = self.kwargs.get('store_id')
-        
-        try:
-            store = get_object_or_404(Store, id=store_id)
-        except Exception:
-            logger.warning(f"Store not found. User: {self.request.user.id}, store_id: {store_id}, tenant_id: {self.request.tenant_id}")
-            raise PermissionDenied("Store not found or access denied")
-        
-        # Multi-tenant check: FIRST validate tenant_id
-        if store.tenant_id != self.request.tenant_id:
-            logger.warning(f"Multi-tenant violation: User {self.request.user.id} (tenant_id: {self.request.tenant_id}) attempted to access store {store_id} (tenant_id: {store.tenant_id})")
-            raise PermissionDenied("You do not have access to this store")
-        
-        # Then check ownership
-        if store.owner_id != self.request.user.id:
-            logger.warning(f"Ownership violation: User {self.request.user.id} attempted to access store {store_id} owned by {store.owner_id}")
-            raise PermissionDenied("You do not own this store")
-        
-        logger.debug(f"User {self.request.user.id} accessing store {store_id}")
-        return store
     
     def get_queryset(self):
         """
@@ -115,7 +123,7 @@ class CategoryListCreateView(generics.ListCreateAPIView):
             )
 
 
-class CategoryRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+class CategoryRetrieveUpdateDestroyView(CategoryStoreAccessMixin, generics.RetrieveUpdateDestroyAPIView):
     """
     API endpoint for retrieving, updating, and deleting a specific category.
     
@@ -126,27 +134,6 @@ class CategoryRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     
     permission_classes = [TenantAuthenticated]
     serializer_class = CategorySerializer
-    
-    def get_store(self):
-        """
-        Retrieve and validate store ownership by tenant_id.
-        """
-        store_id = self.kwargs.get('store_id')
-        
-        try:
-            store = get_object_or_404(Store, id=store_id)
-        except Exception:
-            raise PermissionDenied("Store not found or access denied")
-        
-        # Multi-tenant check: FIRST validate tenant_id
-        if store.tenant_id != self.request.tenant_id:
-            raise PermissionDenied("You do not have access to this store")
-        
-        # Then check ownership
-        if store.owner_id != self.request.user.id:
-            raise PermissionDenied("You do not own this store")
-        
-        return store
     
     def get_queryset(self):
         """

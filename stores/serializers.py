@@ -9,7 +9,7 @@ class StoreSerializer(serializers.ModelSerializer):
     **Features:**
     - Multi-tenant isolation (tenant_id)
     - Unique slug per tenant
-    - Status tracking (active, inactive, archived)
+    - Status tracking (setup, active, inactive)
     - Timestamps (created_at, updated_at)
     
     **Read-Only Fields:**
@@ -38,8 +38,8 @@ class StoreSerializer(serializers.ModelSerializer):
                 'required': False,
             },
             'status': {
-                'help_text': 'Store status: active, inactive, or archived',
-                'default': 'active',
+                'help_text': 'Store status: setup, active, or inactive',
+                'default': 'setup',
             },
         }
 

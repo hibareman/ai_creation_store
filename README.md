@@ -81,13 +81,10 @@ Server will be available at: http://localhost:8000
 
 ### Full Documentation
 
-See [API_DOCUMENTATION.md](API_DOCUMENTATION.md) for:
-- Complete endpoint reference
-- Request/response examples
-- Authentication flow
-- Multi-tenant isolation explanation
-- Error handling
-- Testing examples
+Use the live OpenAPI docs:
+- Swagger UI: `http://localhost:8000/api/docs/`
+- ReDoc: `http://localhost:8000/api/redoc/`
+- OpenAPI schema: `http://localhost:8000/api/schema/`
 
 ---
 
@@ -135,7 +132,6 @@ ai_store_creation/
 │   ├── middleware.py            # Custom middleware
 │   └── logging_config.py        # Logging setup
 ├── tests_integration.py         # Multi-tenant isolation tests
-├── API_DOCUMENTATION.md         # Complete API guide
 ├── requirements.txt             # Python dependencies
 ├── manage.py                    # Django management
 └── README.md                    # This file
@@ -150,7 +146,7 @@ ai_store_creation/
 python manage.py test
 ```
 
-Output: 126 tests, all must pass
+Current output (April 13, 2026): 143 tests, all pass
 
 ### Run Specific App Tests
 ```bash
@@ -190,7 +186,7 @@ python manage.py test tests_integration
 2. Installs PostgreSQL service
 3. Installs dependencies
 4. Runs migrations
-5. Executes all 126 tests
+5. Executes all tests
 6. Generates coverage reports
 7. Uploads artifacts
 
@@ -245,7 +241,7 @@ python manage.py test tests_integration
 ## 🔐 Security Features
 
 ### Authentication
-- JWT Bearer tokens (SimplJWT)
+- JWT Bearer tokens (SimpleJWT)
 - Email activation required
 - Secure password hashing
 
@@ -294,7 +290,7 @@ ALLOWED_HOSTS=yourdomain.com
 5. Implement views in `app/views.py`
 6. Add business logic in `app/services.py`
 7. Write tests in `app/tests/`
-8. Update `API_DOCUMENTATION.md`
+8. Update README + OpenAPI annotations (`help_text`, schema docs)
 
 ---
 
@@ -378,12 +374,22 @@ Full list: See `requirements.txt`
 | `/api/auth/register/` | POST | User registration |
 | `/api/auth/login/` | POST | User login |
 | `/api/stores/` | GET/POST | List/create stores |
-| `/api/stores/{id}/` | GET/PATCH/DELETE | Store operations |
-| `/api/stores/{id}/settings/` | PATCH | Update store settings |
+| `/api/stores/{id}/` | PATCH | Update store |
+| `/api/stores/{id}/delete/` | DELETE | Delete store |
+| `/api/stores/{id}/settings/` | GET/PATCH | Store settings |
 | `/api/stores/{id}/domains/` | GET/POST | Domain management |
+| `/api/stores/{id}/domains/{domain_id}/` | GET/PATCH/DELETE | Domain detail |
+| `/api/stores/slug/check/` | POST | Check slug availability |
+| `/api/stores/slug/suggest/` | POST | Suggest slug candidates |
 | `/api/stores/{id}/categories/` | GET/POST | Category operations |
-| `/api/stores/{id}/products/` | GET/POST | Product operations |
-| `/api/stores/{id}/products/{id}/` | GET/PATCH/DELETE | Product details |
+| `/api/stores/{id}/categories/{category_id}/` | GET/PATCH/DELETE | Category details |
+| `/api/categories/stores/{id}/categories/` | GET/POST | Legacy-compatible category route |
+| `/api/categories/stores/{id}/categories/{category_id}/` | GET/PATCH/DELETE | Legacy-compatible category detail route |
+| `/api/products/{store_id}/products/` | GET/POST | Product operations |
+| `/api/products/{store_id}/products/{product_id}/` | GET/PATCH/DELETE | Product details |
+| `/api/products/{store_id}/products/{product_id}/images/` | GET/POST | Product images |
+| `/api/products/{store_id}/products/{product_id}/images/{image_id}/` | DELETE | Delete product image |
+| `/api/products/{store_id}/products/{product_id}/inventory/` | PUT/PATCH | Update inventory |
 | `/api/docs/` | GET | Swagger UI documentation |
 | `/api/redoc/` | GET | ReDoc documentation |
 | `/api/schema/` | GET | OpenAPI schema (JSON) |
@@ -426,4 +432,4 @@ MIT License - See LICENSE file
   - Multi-tenant support
   - API documentation
   - CI/CD pipeline
-  - 126 tests passing
+  - 143 tests passing
