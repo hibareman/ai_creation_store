@@ -21,6 +21,7 @@ urlpatterns = [
     # Backward-compatible route kept temporarily:
     path('api/categories/', include('categories.urls')),
     path('api/products/', include('products.urls')),
+    path('api/', include('themes.urls')),
 ]
 
 if settings.DEBUG:

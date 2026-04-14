@@ -154,6 +154,7 @@ python manage.py test stores
 python manage.py test users
 python manage.py test categories
 python manage.py test products
+python manage.py test themes
 ```
 
 ### Run with Coverage
@@ -235,6 +236,25 @@ python manage.py test tests_integration
 **Inventory**
 - Stock tracking
 - Quantity management
+
+**Themes**
+- Shared `ThemeTemplate` records
+- Per-store `StoreThemeConfig`
+- Theme Foundation endpoints for listing templates and reading/updating the current store theme
+
+---
+
+## Theme Foundation API
+
+- `GET /api/stores/{store_id}/themes/templates/`
+  Returns the available theme templates for the authenticated store owner.
+
+- `GET /api/stores/{store_id}/theme/`
+  Returns the current theme configuration for the specified store.
+
+- `PATCH /api/stores/{store_id}/theme/`
+  Updates only the editable theme fields for the specified store:
+  `theme_template`, `primary_color`, `secondary_color`, `font_family`, `logo_url`, `banner_url`.
 
 ---
 
