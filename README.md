@@ -433,3 +433,35 @@ MIT License - See LICENSE file
   - API documentation
   - CI/CD pipeline
   - 143 tests passing
+
+---
+
+## Auth Session Bootstrap Endpoints
+
+- `POST /api/auth/register/` is a **public endpoint** for new user self-registration (no login required).
+- `GET /api/auth/me/` is a **protected endpoint** and requires `Authorization: Bearer <access_token>`.
+
+### GET /api/auth/me/
+
+Returns the current authenticated user identity derived from the access token.
+
+Example response:
+
+```json
+{
+  "user_id": 1,
+  "username": "omarMas",
+  "email": "omarmas@gmail.com",
+  "role": "Store Owner",
+  "tenant_id": 1,
+  "is_active": true,
+  "display_name": "Omar Mas",
+  "created_at": "2026-04-14T22:56:42.259202Z",
+  "updated_at": "2026-04-14T22:56:42.259202Z"
+}
+```
+
+Notes:
+- `tenant_id` may be `null` for `Super Admin` when no tenant is associated.
+- This endpoint does **not** return `access` or `refresh`.
+- This endpoint does **not** return stores; stores are fetched separately via `GET /api/stores/`.

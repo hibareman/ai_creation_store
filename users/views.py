@@ -1,8 +1,9 @@
 from rest_framework import generics, status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema
 
-from .serializers import RegisterSerializer, LoginSerializer
+from .serializers import RegisterSerializer, LoginSerializer, CurrentUserSerializer
 from .services import (
     register_user,
     login_user,
@@ -76,3 +77,22 @@ class ActivateView(generics.GenericAPIView):
             }, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MeView(generics.GenericAPIView):
+    """
+    Return identity for the currently authenticated user.
+    GET /api/auth/me/
+    """
+
+    serializer_class = CurrentUserSerializer
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Get current authenticated user",
+        description="Protected endpoint that returns identity data for the currently authenticated user.",
+        responses={200: CurrentUserSerializer},
+    )
+    def get(self, request):
+        serializer = self.get_serializer(request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)

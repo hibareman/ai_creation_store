@@ -112,3 +112,31 @@ class LoginSerializer(serializers.Serializer):
 
         data["user"] = user
         return data
+
+
+class CurrentUserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the authenticated user identity (session bootstrap).
+    """
+
+    user_id = serializers.IntegerField(source="id", read_only=True)
+    display_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            "user_id",
+            "username",
+            "email",
+            "role",
+            "tenant_id",
+            "is_active",
+            "display_name",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_display_name(self, obj):
+        full_name = f"{obj.first_name} {obj.last_name}".strip()
+        return full_name or obj.username
