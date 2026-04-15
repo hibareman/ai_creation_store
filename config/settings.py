@@ -146,6 +146,8 @@ SPECTACULAR_SETTINGS = {
     
     **API Endpoints:**
     - `/api/auth/` - User authentication
+    - `/api/auth/me/` - Protected current-user identity endpoint (Bearer token required)
+    - `/api/auth/register/` - Public self-registration endpoint (no authentication required)
     - `/api/stores/` - Store management
     - `/api/` - Products and Categories
     - `/api/docs/` - Swagger UI (this page)

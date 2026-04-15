@@ -187,8 +187,11 @@ python manage.py test users
 python manage.py test categories
 python manage.py test products
 python manage.py test themes
+ feature/increment-1-multi-tenant-backend
+```
 
 Run with Coverage
+ main
 
 coverage run --source='.' manage.py test
 coverage report
@@ -327,6 +330,25 @@ Per-store StoreThemeConfig
 Theme Foundation endpoints for listing templates and reading/updating the current store theme
 
 
+
+**Themes**
+- Shared `ThemeTemplate` records
+- Per-store `StoreThemeConfig`
+- Theme Foundation endpoints for listing templates and reading/updating the current store theme
+
+---
+
+## Theme Foundation API
+
+- `GET /api/stores/{store_id}/themes/templates/`
+  Returns the available theme templates for the authenticated store owner.
+
+- `GET /api/stores/{store_id}/theme/`
+  Returns the current theme configuration for the specified store.
+
+- `PATCH /api/stores/{store_id}/theme/`
+  Updates only the editable theme fields for the specified store:
+  `theme_template`, `primary_color`, `secondary_color`, `font_family`, `logo_url`, `banner_url`.
 
 ---
 
@@ -640,4 +662,46 @@ API documentation
 
 CI/CD pipeline
 
+ feature/increment-1-multi-tenant-backend
+- v1.0.0 (2024-04-08)
+  - Initial release
+  - Complete API endpoints
+  - Multi-tenant support
+  - API documentation
+  - CI/CD pipeline
+  - 143 tests passing
+
+---
+
+## Auth Session Bootstrap Endpoints
+
+- `POST /api/auth/register/` is a **public endpoint** for new user self-registration (no login required).
+- `GET /api/auth/me/` is a **protected endpoint** and requires `Authorization: Bearer <access_token>`.
+
+### GET /api/auth/me/
+
+Returns the current authenticated user identity derived from the access token.
+
+Example response:
+
+```json
+{
+  "user_id": 1,
+  "username": "omarMas",
+  "email": "omarmas@gmail.com",
+  "role": "Store Owner",
+  "tenant_id": 1,
+  "is_active": true,
+  "display_name": "Omar Mas",
+  "created_at": "2026-04-14T22:56:42.259202Z",
+  "updated_at": "2026-04-14T22:56:42.259202Z"
+}
+```
+
+Notes:
+- `tenant_id` may be `null` for `Super Admin` when no tenant is associated.
+- This endpoint does **not** return `access` or `refresh`.
+- This endpoint does **not** return stores; stores are fetched separately via `GET /api/stores/`.
+=======
 Theme Foundation
+ main
