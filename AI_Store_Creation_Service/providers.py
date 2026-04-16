@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import json
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -41,8 +41,8 @@ class AIProviderContract(ABC):
         self,
         *,
         store_id: int,
-        prompt: str,
-        context: Mapping[str, Any] | None = None,
+        user_store_description: str,
+        available_theme_templates: Sequence[str],
     ) -> ProviderRawResponse:
         """
         Execute provider call for initial draft generation.
@@ -70,9 +70,10 @@ class AIProviderContract(ABC):
         self,
         *,
         store_id: int,
-        current_draft: Mapping[str, Any] | None = None,
-        prompt: str | None = None,
-        context: Mapping[str, Any] | None = None,
+        original_store_description: str,
+        current_draft: Mapping[str, Any],
+        clarification_context: Mapping[str, Any] | Sequence[Any] | None = None,
+        available_theme_templates: Sequence[str] | None = None,
     ) -> ProviderRawResponse:
         """
         Execute provider call for regeneration pass.
@@ -136,13 +137,17 @@ class OpenAIProviderClient(AIProviderContract):
         self,
         *,
         store_id: int,
-        prompt: str,
-        context: Mapping[str, Any] | None = None,
+        user_store_description: str,
+        available_theme_templates: Sequence[str],
     ) -> ProviderRawResponse:
+        """
+        Execute official generation flow using description + available templates.
+
+        `store_id` remains part of the contract for workflow anchoring.
+        """
         messages = build_generate_store_draft_messages(
-            store_id=store_id,
-            prompt=prompt,
-            context=context,
+            user_store_description=user_store_description,
+            available_theme_templates=available_theme_templates,
         )
         return self._call_chat_completions(messages)
 
@@ -166,15 +171,23 @@ class OpenAIProviderClient(AIProviderContract):
         self,
         *,
         store_id: int,
-        current_draft: Mapping[str, Any] | None = None,
-        prompt: str | None = None,
-        context: Mapping[str, Any] | None = None,
+        original_store_description: str,
+        current_draft: Mapping[str, Any],
+        clarification_context: Mapping[str, Any] | Sequence[Any] | None = None,
+        available_theme_templates: Sequence[str] | None = None,
     ) -> ProviderRawResponse:
+        """
+        Execute official full-regeneration flow.
+
+        Uses original description + current draft + optional clarification context
+        and optional available template names.
+        """
         messages = build_regenerate_store_draft_messages(
             store_id=store_id,
+            original_store_description=original_store_description,
             current_draft=current_draft,
-            prompt=prompt,
-            context=context,
+            clarification_context=clarification_context,
+            available_theme_templates=available_theme_templates,
         )
         return self._call_chat_completions(messages)
 
