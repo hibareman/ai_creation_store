@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'categories',
     'products',
     'themes',
+    'AI_Store_Creation_Service',
 ]
 
 
@@ -241,3 +242,11 @@ LOGGING_CONFIG = 'logging.config.dictConfig'
 from utils.logging_config import LOGGING_CONFIG as CUSTOM_LOGGING  # noqa
 
 LOGGING = CUSTOM_LOGGING
+
+
+# AI Store Creation configuration (foundation only)
+AI_API_KEY = os.getenv("AI_API_KEY", "")
+AI_MODEL_NAME = os.getenv("AI_MODEL_NAME", "gpt-5.2")
+AI_TIMEOUT = int(os.getenv("AI_TIMEOUT", "30"))
+AI_DRAFT_TTL = int(os.getenv("AI_DRAFT_TTL", "3600"))
+AI_DRAFT_PREFIX = os.getenv("AI_DRAFT_PREFIX", "ai_draft")
