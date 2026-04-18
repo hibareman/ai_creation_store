@@ -20,6 +20,7 @@ from .prompts import (
     build_generate_store_draft_messages,
     build_clarify_store_draft_messages,
     build_regenerate_store_draft_messages,
+    build_regenerate_store_draft_section_messages,
 )
 
 
@@ -77,6 +78,23 @@ class AIProviderContract(ABC):
     ) -> ProviderRawResponse:
         """
         Execute provider call for regeneration pass.
+        Returns raw provider response.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def regenerate_store_draft_section(
+        self,
+        *,
+        store_id: int,
+        target_section: str,
+        original_store_description: str,
+        current_draft: Mapping[str, Any],
+        clarification_context: Mapping[str, Any] | Sequence[Any] | None = None,
+        available_theme_templates: Sequence[str] | None = None,
+    ) -> ProviderRawResponse:
+        """
+        Execute provider call for partial section regeneration.
         Returns raw provider response.
         """
         raise NotImplementedError
@@ -184,6 +202,29 @@ class OpenAIProviderClient(AIProviderContract):
         """
         messages = build_regenerate_store_draft_messages(
             store_id=store_id,
+            original_store_description=original_store_description,
+            current_draft=current_draft,
+            clarification_context=clarification_context,
+            available_theme_templates=available_theme_templates,
+        )
+        return self._call_chat_completions(messages)
+
+    def regenerate_store_draft_section(
+        self,
+        *,
+        store_id: int,
+        target_section: str,
+        original_store_description: str,
+        current_draft: Mapping[str, Any],
+        clarification_context: Mapping[str, Any] | Sequence[Any] | None = None,
+        available_theme_templates: Sequence[str] | None = None,
+    ) -> ProviderRawResponse:
+        """
+        Execute official partial-regeneration flow for one target section.
+        """
+        messages = build_regenerate_store_draft_section_messages(
+            store_id=store_id,
+            target_section=target_section,
             original_store_description=original_store_description,
             current_draft=current_draft,
             clarification_context=clarification_context,

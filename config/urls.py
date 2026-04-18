@@ -22,7 +22,10 @@ urlpatterns = [
     path('api/categories/', include('categories.urls')),
     path('api/products/', include('products.urls')),
     path('api/', include('themes.urls')),
-    # path('api/AI', include('AI_Store_Creation_Service.urls')),
+    path(
+        'api/ai/',
+        include(('AI_Store_Creation_Service.urls', 'ai_store_creation'), namespace='ai_store_creation'),
+    ),
 ]
 
 if settings.DEBUG:

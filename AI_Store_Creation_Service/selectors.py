@@ -123,3 +123,17 @@ def get_available_theme_template_names() -> list[str]:
     return list(
         ThemeTemplate.objects.order_by("name").values_list("name", flat=True)
     )
+
+
+def get_theme_template_by_exact_name(theme_template_name: str):
+    """
+    Return ThemeTemplate by exact name match, if it exists.
+    """
+    if not isinstance(theme_template_name, str) or not theme_template_name.strip():
+        return None
+
+    return (
+        ThemeTemplate.objects.filter(name=theme_template_name.strip())
+        .order_by("id")
+        .first()
+    )

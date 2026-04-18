@@ -10,14 +10,32 @@ import json
 import logging
 from typing import Any
 
+from django.db import transaction
 from django.core.exceptions import ValidationError
 
+from categories.models import Category
+from products.models import Inventory, Product, ProductImage
 from stores.models import Store
+from themes.models import StoreThemeConfig
 
-from .draft_store import get_ai_draft, get_ai_draft_meta, save_ai_draft, save_ai_draft_meta
+from .draft_store import (
+    delete_ai_draft,
+    delete_ai_draft_meta,
+    get_ai_draft,
+    get_ai_draft_meta,
+    save_ai_draft,
+    save_ai_draft_meta,
+)
 from .parsers import AIProviderParsingError, parse_provider_raw_response_to_dict
 from .providers import get_ai_provider_client
-from .selectors import get_available_theme_template_names, get_store_for_ai_flow
+from .selectors import (
+    get_available_theme_template_names,
+    get_store_for_ai_flow,
+    get_store_categories_for_ai_flow,
+    get_store_products_for_ai_flow,
+    get_store_theme_config_for_ai_flow,
+    get_theme_template_by_exact_name,
+)
 from .validators import (
     AIDraftSchemaValidationError,
     build_ai_fallback_payload,
@@ -30,6 +48,58 @@ from .validators import (
 
 
 logger = logging.getLogger(__name__)
+_ALLOWED_PARTIAL_TARGET_SECTIONS = {"theme", "categories", "products"}
+
+
+def _ensure_theme_template_is_available(
+    theme_data: dict[str, Any],
+    available_theme_templates: list[str],
+) -> None:
+    """
+    Ensure theme_template matches an exact currently available ThemeTemplate name.
+    """
+    selected_template_name = theme_data.get("theme_template")
+    if selected_template_name not in set(available_theme_templates):
+        raise AIDraftSchemaValidationError(
+            "Theme field 'theme_template' must match an available ThemeTemplate name."
+        )
+
+
+def _extract_partial_section_replacement(
+    payload: dict[str, Any],
+    target_section: str,
+) -> Any:
+    """
+    Extract section replacement from partial regeneration payload.
+
+    Expected strict shape:
+    - {"theme": {...}}
+    - {"categories": [...]}
+    - {"products": [...]}
+    """
+    if target_section not in payload:
+        raise AIDraftSchemaValidationError(
+            f"Partial regeneration payload must include top-level key '{target_section}'."
+        )
+
+    if len(payload) != 1:
+        raise AIDraftSchemaValidationError(
+            "Partial regeneration payload must include only the requested section key."
+        )
+
+    return payload[target_section]
+
+
+def _normalize_category_name_for_compare(name: str) -> str:
+    return " ".join(name.strip().split()).casefold()
+
+
+def _normalize_category_name_for_store(name: str) -> str:
+    return " ".join(name.strip().split())
+
+
+def _normalize_sku_for_compare(sku: str) -> str:
+    return " ".join(sku.strip().split()).casefold()
 
 
 def create_draft_store_for_ai_flow(
@@ -147,6 +217,10 @@ def generate_initial_store_draft(
 
         if mode == "draft_ready":
             validate_theme_section(payload["theme"])
+            _ensure_theme_template_is_available(
+                payload["theme"],
+                available_theme_templates,
+            )
             validated_categories = validate_categories_section(payload["categories"])
             category_names = [item["name"] for item in validated_categories]
             validate_products_section(payload["products"], category_names)
@@ -303,7 +377,6 @@ def process_clarification_round(
             },
         )
         return fallback_payload
-
     if clarification_answers is None:
         raise ValidationError("clarification_answers is required")
 
@@ -365,7 +438,14 @@ def process_clarification_round(
         new_round_count = clarification_round_count + 1
 
         if mode == "draft_ready":
+            available_theme_templates = get_available_theme_template_names()
+            if not available_theme_templates:
+                raise AIDraftSchemaValidationError("No available theme templates found")
             validate_theme_section(payload["theme"])
+            _ensure_theme_template_is_available(
+                payload["theme"],
+                available_theme_templates,
+            )
             validated_categories = validate_categories_section(payload["categories"])
             category_names = [item["name"] for item in validated_categories]
             validate_products_section(payload["products"], category_names)
@@ -445,3 +525,796 @@ def process_clarification_round(
             },
         )
         return fallback_payload
+
+
+def regenerate_store_draft(
+    store_id: int,
+    user,
+    tenant_id: int | None,
+) -> dict[str, Any]:
+    """
+    Orchestrate full temporary draft regeneration for the same store/session.
+
+    Approved constraints:
+    - no new free-text regeneration prompt is accepted
+    - same store_id, same authenticated owner, same trusted tenant context
+    - reuse original description + current draft + saved clarification context/history
+    """
+    if not user or not getattr(user, "is_authenticated", False):
+        raise ValidationError("Authentication required")
+
+    if tenant_id is None:
+        raise ValidationError("Trusted tenant context is required")
+
+    try:
+        normalized_tenant_id = int(tenant_id)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError("Invalid trusted tenant context") from exc
+
+    if normalized_tenant_id <= 0:
+        raise ValidationError("Invalid trusted tenant context")
+
+    if getattr(user, "tenant_id", None) != normalized_tenant_id:
+        raise ValidationError("User tenant context does not match trusted tenant context")
+
+    store = get_store_for_ai_flow(store_id=store_id, user=user, tenant_id=normalized_tenant_id)
+    if not store:
+        raise ValidationError("Store not found or access denied")
+
+    current_draft = get_ai_draft(store.id)
+    if current_draft is None:
+        raise ValidationError("No temporary AI draft found for this store")
+
+    draft_meta = get_ai_draft_meta(store.id) or {}
+    original_description = draft_meta.get("original_user_store_description")
+    if not isinstance(original_description, str) or not original_description.strip():
+        raise ValidationError("Original user store description is missing from draft metadata")
+    normalized_description = original_description.strip()
+
+    available_theme_templates = get_available_theme_template_names()
+    if not available_theme_templates:
+        raise ValidationError("No available theme templates found")
+
+    clarification_history = (
+        draft_meta.get("clarification_history")
+        if isinstance(draft_meta.get("clarification_history"), list)
+        else []
+    )
+    latest_clarification_input = draft_meta.get("latest_clarification_input")
+    clarification_context = {
+        "clarification_history": clarification_history,
+        "latest_clarification_input": latest_clarification_input,
+    }
+
+    raw_round_count = draft_meta.get("clarification_round_count", 0)
+    try:
+        clarification_round_count = int(raw_round_count)
+    except (TypeError, ValueError):
+        clarification_round_count = 0
+
+    save_ai_draft_meta(
+        store.id,
+        {
+            "status": "processing",
+            "current_step": "analyzing_description",
+            "is_fallback": False,
+            "original_user_store_description": normalized_description,
+            "clarification_round_count": clarification_round_count,
+            "latest_clarification_input": latest_clarification_input,
+            "clarification_history": clarification_history,
+        },
+    )
+
+    try:
+        provider = get_ai_provider_client()
+        raw_response = provider.regenerate_store_draft(
+            store_id=store.id,
+            original_store_description=normalized_description,
+            current_draft=current_draft,
+            clarification_context=clarification_context,
+            available_theme_templates=available_theme_templates,
+        )
+
+        payload = parse_provider_raw_response_to_dict(raw_response)
+        validate_basic_draft_schema(payload)
+        mode = detect_ai_response_mode(payload)
+
+        if mode == "draft_ready":
+            validate_theme_section(payload["theme"])
+            _ensure_theme_template_is_available(
+                payload["theme"],
+                available_theme_templates,
+            )
+            validated_categories = validate_categories_section(payload["categories"])
+            category_names = [item["name"] for item in validated_categories]
+            validate_products_section(payload["products"], category_names)
+
+            save_ai_draft(store.id, payload)
+            save_ai_draft_meta(
+                store.id,
+                {
+                    "status": "draft_ready",
+                    "current_step": "setting_up_store_configuration",
+                    "mode": "draft_ready",
+                    "is_fallback": False,
+                    "original_user_store_description": normalized_description,
+                    "clarification_round_count": clarification_round_count,
+                    "latest_clarification_input": latest_clarification_input,
+                    "clarification_history": clarification_history,
+                },
+            )
+            return payload
+
+        save_ai_draft(store.id, payload)
+        save_ai_draft_meta(
+            store.id,
+            {
+                "status": "needs_clarification",
+                "current_step": "analyzing_description",
+                "mode": "clarification",
+                "is_fallback": False,
+                "original_user_store_description": normalized_description,
+                "clarification_round_count": clarification_round_count,
+                "latest_clarification_input": latest_clarification_input,
+                "clarification_history": clarification_history,
+            },
+        )
+        return payload
+
+    except (AIProviderParsingError, AIDraftSchemaValidationError, Exception) as exc:
+        logger.warning(
+            "Full draft regeneration failed; saving standardized fallback. "
+            "store_id=%s, reason=%s",
+            store.id,
+            str(exc),
+        )
+        fallback_payload = build_ai_fallback_payload()
+        save_ai_draft(store.id, fallback_payload)
+        save_ai_draft_meta(
+            store.id,
+            {
+                "status": "failed",
+                "current_step": "analyzing_description",
+                "mode": "clarification",
+                "is_fallback": True,
+                "reason": str(exc),
+                "original_user_store_description": normalized_description,
+                "clarification_round_count": clarification_round_count,
+                "latest_clarification_input": latest_clarification_input,
+                "clarification_history": clarification_history,
+            },
+        )
+        return fallback_payload
+
+
+def regenerate_store_draft_section(
+    store_id: int,
+    user,
+    tenant_id: int | None,
+    target_section: str,
+) -> dict[str, Any]:
+    """
+    Orchestrate partial draft regeneration for one supported section only.
+
+    Supported target sections in MVP:
+    - theme
+    - categories
+    - products
+
+    Critical guarantees:
+    - same store_id/user/tenant/session
+    - no new free-text user prompt
+    - do not overwrite current draft with fallback on failure
+    """
+    if not user or not getattr(user, "is_authenticated", False):
+        raise ValidationError("Authentication required")
+
+    if tenant_id is None:
+        raise ValidationError("Trusted tenant context is required")
+
+    try:
+        normalized_tenant_id = int(tenant_id)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError("Invalid trusted tenant context") from exc
+
+    if normalized_tenant_id <= 0:
+        raise ValidationError("Invalid trusted tenant context")
+
+    if getattr(user, "tenant_id", None) != normalized_tenant_id:
+        raise ValidationError("User tenant context does not match trusted tenant context")
+
+    if not isinstance(target_section, str):
+        raise ValidationError("target_section is required")
+    normalized_target_section = target_section.strip().lower()
+    if normalized_target_section not in _ALLOWED_PARTIAL_TARGET_SECTIONS:
+        raise ValidationError(
+            "target_section must be one of: theme, categories, products"
+        )
+
+    store = get_store_for_ai_flow(store_id=store_id, user=user, tenant_id=normalized_tenant_id)
+    if not store:
+        raise ValidationError("Store not found or access denied")
+
+    current_draft = get_ai_draft(store.id)
+    if current_draft is None:
+        raise ValidationError("No temporary AI draft found for this store")
+
+    draft_meta = get_ai_draft_meta(store.id) or {}
+    original_description = draft_meta.get("original_user_store_description")
+    if not isinstance(original_description, str) or not original_description.strip():
+        raise ValidationError("Original user store description is missing from draft metadata")
+    normalized_description = original_description.strip()
+
+    clarification_history = (
+        draft_meta.get("clarification_history")
+        if isinstance(draft_meta.get("clarification_history"), list)
+        else []
+    )
+    latest_clarification_input = draft_meta.get("latest_clarification_input")
+    clarification_context = {
+        "clarification_history": clarification_history,
+        "latest_clarification_input": latest_clarification_input,
+    }
+
+    raw_round_count = draft_meta.get("clarification_round_count", 0)
+    try:
+        clarification_round_count = int(raw_round_count)
+    except (TypeError, ValueError):
+        clarification_round_count = 0
+
+    current_status = draft_meta.get("status")
+    if current_status != "draft_ready":
+        raise ValidationError(
+            "Partial regeneration is allowed only when current workflow state is draft_ready"
+        )
+    preserved_status = "draft_ready"
+    preserved_mode = "draft_ready"
+    preserved_step = "setting_up_store_configuration"
+
+    available_theme_templates: list[str] | None = None
+    if normalized_target_section == "theme":
+        available_theme_templates = get_available_theme_template_names()
+        if not available_theme_templates:
+            raise ValidationError("No available theme templates found")
+
+    try:
+        provider = get_ai_provider_client()
+        raw_response = provider.regenerate_store_draft_section(
+            store_id=store.id,
+            target_section=normalized_target_section,
+            original_store_description=normalized_description,
+            current_draft=current_draft,
+            clarification_context=clarification_context,
+            available_theme_templates=available_theme_templates,
+        )
+
+        replacement_payload = parse_provider_raw_response_to_dict(raw_response)
+        replacement_value = _extract_partial_section_replacement(
+            replacement_payload,
+            normalized_target_section,
+        )
+
+        updated_draft = dict(current_draft)
+
+        if normalized_target_section == "theme":
+            validated_theme = validate_theme_section(replacement_value)
+            _ensure_theme_template_is_available(
+                validated_theme,
+                available_theme_templates or [],
+            )
+            updated_draft["theme"] = validated_theme
+        elif normalized_target_section == "categories":
+            validated_categories = validate_categories_section(replacement_value)
+            # Keep current draft coherent: existing products must stay valid against new categories.
+            category_names = [item["name"] for item in validated_categories]
+            validate_products_section(current_draft.get("products"), category_names)
+            updated_draft["categories"] = validated_categories
+        else:
+            existing_categories = validate_categories_section(current_draft.get("categories"))
+            category_names = [item["name"] for item in existing_categories]
+            updated_draft["products"] = validate_products_section(
+                replacement_value,
+                category_names,
+            )
+
+        save_ai_draft(store.id, updated_draft)
+        save_ai_draft_meta(
+            store.id,
+            {
+                "status": preserved_status,
+                "current_step": preserved_step,
+                "mode": preserved_mode,
+                "is_fallback": False,
+                "original_user_store_description": normalized_description,
+                "clarification_round_count": clarification_round_count,
+                "latest_clarification_input": latest_clarification_input,
+                "clarification_history": clarification_history,
+                "last_partial_regeneration_target_section": normalized_target_section,
+            },
+        )
+        return updated_draft
+
+    except (AIProviderParsingError, AIDraftSchemaValidationError, Exception) as exc:
+        logger.warning(
+            "Partial draft regeneration failed. Keeping current draft unchanged. "
+            "store_id=%s, section=%s, reason=%s",
+            store.id,
+            normalized_target_section,
+            str(exc),
+        )
+        save_ai_draft_meta(
+            store.id,
+            {
+                "status": preserved_status,
+                "current_step": preserved_step,
+                "mode": preserved_mode,
+                "is_fallback": False,
+                "original_user_store_description": normalized_description,
+                "clarification_round_count": clarification_round_count,
+                "latest_clarification_input": latest_clarification_input,
+                "clarification_history": clarification_history,
+                "last_partial_regeneration_target_section": normalized_target_section,
+                "last_partial_regeneration_error": str(exc),
+            },
+        )
+        raise ValidationError(
+            f"Partial regeneration failed for section '{normalized_target_section}'."
+        ) from exc
+
+
+def apply_current_ai_draft_store_core(
+    store_id: int,
+    user,
+    tenant_id: int | None,
+) -> dict[str, Any]:
+    """
+    Apply current temporary AI draft to Store + StoreThemeConfig only.
+
+    Scope is intentionally limited:
+    - update existing Store from draft.store
+    - create/update StoreThemeConfig from draft.theme
+    - do not apply categories/products in this step
+    - do not delete draft cache or perform final status transition
+    """
+    if not user or not getattr(user, "is_authenticated", False):
+        raise ValidationError("Authentication required")
+
+    if tenant_id is None:
+        raise ValidationError("Trusted tenant context is required")
+
+    try:
+        normalized_tenant_id = int(tenant_id)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError("Invalid trusted tenant context") from exc
+
+    if normalized_tenant_id <= 0:
+        raise ValidationError("Invalid trusted tenant context")
+
+    if getattr(user, "tenant_id", None) != normalized_tenant_id:
+        raise ValidationError("User tenant context does not match trusted tenant context")
+
+    store = get_store_for_ai_flow(store_id=store_id, user=user, tenant_id=normalized_tenant_id)
+    if not store:
+        raise ValidationError("Store not found or access denied")
+
+    current_draft = get_ai_draft(store.id)
+    if current_draft is None:
+        raise ValidationError("No temporary AI draft found for this store")
+
+    draft_meta = get_ai_draft_meta(store.id) or {}
+    if draft_meta.get("status") != "draft_ready":
+        raise ValidationError("Current workflow state is not draft_ready")
+
+    try:
+        validate_basic_draft_schema(current_draft)
+        mode = detect_ai_response_mode(current_draft)
+        if mode != "draft_ready":
+            raise AIDraftSchemaValidationError("Current draft payload is not draft_ready")
+
+        store_section = current_draft.get("store")
+        if not isinstance(store_section, dict):
+            raise AIDraftSchemaValidationError("Draft field 'store' must be an object.")
+
+        store_name = store_section.get("name")
+        store_description = store_section.get("description")
+        if not isinstance(store_name, str) or not store_name.strip():
+            raise AIDraftSchemaValidationError("Draft field 'store.name' must be a non-empty string.")
+        if not isinstance(store_description, str):
+            raise AIDraftSchemaValidationError("Draft field 'store.description' must be a string.")
+
+        theme_data = validate_theme_section(current_draft["theme"])
+        validated_categories = validate_categories_section(current_draft["categories"])
+        category_names = [item["name"] for item in validated_categories]
+        validate_products_section(current_draft["products"], category_names)
+
+        available_theme_templates = get_available_theme_template_names()
+        if not available_theme_templates:
+            raise AIDraftSchemaValidationError("No available theme templates found")
+        _ensure_theme_template_is_available(theme_data, available_theme_templates)
+
+        theme_template_name = str(theme_data["theme_template"]).strip()
+        theme_template_obj = get_theme_template_by_exact_name(theme_template_name)
+        if theme_template_obj is None:
+            raise AIDraftSchemaValidationError(
+                "Theme field 'theme_template' does not resolve to an existing ThemeTemplate."
+            )
+    except AIDraftSchemaValidationError as exc:
+        raise ValidationError(str(exc)) from exc
+
+    with transaction.atomic():
+        store.name = store_name.strip()
+        store.description = store_description
+        store.save()
+
+        store_theme_config = get_store_theme_config_for_ai_flow(
+            store_id=store.id,
+            user=user,
+            tenant_id=normalized_tenant_id,
+        )
+        if store_theme_config is None:
+            store_theme_config = StoreThemeConfig.objects.create(
+                store=store,
+                theme_template=theme_template_obj,
+                primary_color=theme_data["primary_color"],
+                secondary_color=theme_data["secondary_color"],
+                font_family=theme_data["font_family"],
+                logo_url=theme_data["logo_url"],
+                banner_url=theme_data["banner_url"],
+            )
+        else:
+            store_theme_config.theme_template = theme_template_obj
+            store_theme_config.primary_color = theme_data["primary_color"]
+            store_theme_config.secondary_color = theme_data["secondary_color"]
+            store_theme_config.font_family = theme_data["font_family"]
+            store_theme_config.logo_url = theme_data["logo_url"]
+            store_theme_config.banner_url = theme_data["banner_url"]
+            store_theme_config.save()
+
+    return {
+        "store_id": store.id,
+        "draft_status": "draft_ready",
+        "store": {
+            "name": store.name,
+            "description": store.description,
+        },
+        "theme": {
+            "theme_template": store_theme_config.theme_template.name,
+            "primary_color": store_theme_config.primary_color,
+            "secondary_color": store_theme_config.secondary_color,
+            "font_family": store_theme_config.font_family,
+            "logo_url": store_theme_config.logo_url,
+            "banner_url": store_theme_config.banner_url,
+        },
+    }
+
+
+def apply_current_ai_draft_categories(
+    store_id: int,
+    user,
+    tenant_id: int | None,
+) -> dict[str, Any]:
+    """
+    Apply only the categories section of the current temporary AI draft.
+
+    Scope is intentionally limited:
+    - apply Category only (safe additive: create missing, skip existing)
+    - no Store creation/update
+    - no StoreThemeConfig/Product/Inventory apply
+    - no draft deletion
+    - no final status transition
+    """
+    if not user or not getattr(user, "is_authenticated", False):
+        raise ValidationError("Authentication required")
+
+    if tenant_id is None:
+        raise ValidationError("Trusted tenant context is required")
+
+    try:
+        normalized_tenant_id = int(tenant_id)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError("Invalid trusted tenant context") from exc
+
+    if normalized_tenant_id <= 0:
+        raise ValidationError("Invalid trusted tenant context")
+
+    if getattr(user, "tenant_id", None) != normalized_tenant_id:
+        raise ValidationError("User tenant context does not match trusted tenant context")
+
+    store = get_store_for_ai_flow(store_id=store_id, user=user, tenant_id=normalized_tenant_id)
+    if not store:
+        raise ValidationError("Store not found or access denied")
+
+    current_draft = get_ai_draft(store.id)
+    if current_draft is None:
+        raise ValidationError("No temporary AI draft found for this store")
+
+    draft_meta = get_ai_draft_meta(store.id) or {}
+    if draft_meta.get("status") != "draft_ready":
+        raise ValidationError("Current workflow state is not draft_ready")
+
+    try:
+        validate_basic_draft_schema(current_draft)
+        mode = detect_ai_response_mode(current_draft)
+        if mode != "draft_ready":
+            raise AIDraftSchemaValidationError("Current draft payload is not draft_ready")
+
+        validated_categories = validate_categories_section(current_draft["categories"])
+        category_names = [item["name"] for item in validated_categories]
+        validate_products_section(current_draft["products"], category_names)
+    except AIDraftSchemaValidationError as exc:
+        raise ValidationError(str(exc)) from exc
+
+    existing_categories_qs = get_store_categories_for_ai_flow(
+        store_id=store.id,
+        user=user,
+        tenant_id=normalized_tenant_id,
+    )
+    existing_names_normalized = {
+        _normalize_category_name_for_compare(category.name)
+        for category in existing_categories_qs
+    }
+
+    created_categories: list[str] = []
+    skipped_categories: list[str] = []
+
+    try:
+        with transaction.atomic():
+            for item in validated_categories:
+                draft_name = str(item["name"])
+                normalized_name = _normalize_category_name_for_compare(draft_name)
+
+                if normalized_name in existing_names_normalized:
+                    skipped_categories.append(_normalize_category_name_for_store(draft_name))
+                    continue
+
+                safe_name = _normalize_category_name_for_store(draft_name)
+                Category.objects.create(
+                    store=store,
+                    tenant_id=normalized_tenant_id,
+                    name=safe_name,
+                )
+                existing_names_normalized.add(normalized_name)
+                created_categories.append(safe_name)
+    except Exception as exc:
+        raise ValidationError(f"Failed to apply categories from current draft: {exc}") from exc
+
+    return {
+        "store_id": store.id,
+        "draft_status": "draft_ready",
+        "created_categories": created_categories,
+        "skipped_categories": skipped_categories,
+    }
+
+
+def apply_current_ai_draft_products(
+    store_id: int,
+    user,
+    tenant_id: int | None,
+) -> dict[str, Any]:
+    """
+    Apply only the products section of the current temporary AI draft.
+
+    Scope is intentionally limited:
+    - apply Product only (safe additive: create missing by SKU, skip existing)
+    - no Store creation/update
+    - no StoreThemeConfig/Category/Inventory apply
+    - no draft deletion
+    - no final status transition
+    """
+    if not user or not getattr(user, "is_authenticated", False):
+        raise ValidationError("Authentication required")
+
+    if tenant_id is None:
+        raise ValidationError("Trusted tenant context is required")
+
+    try:
+        normalized_tenant_id = int(tenant_id)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError("Invalid trusted tenant context") from exc
+
+    if normalized_tenant_id <= 0:
+        raise ValidationError("Invalid trusted tenant context")
+
+    if getattr(user, "tenant_id", None) != normalized_tenant_id:
+        raise ValidationError("User tenant context does not match trusted tenant context")
+
+    store = get_store_for_ai_flow(store_id=store_id, user=user, tenant_id=normalized_tenant_id)
+    if not store:
+        raise ValidationError("Store not found or access denied")
+
+    current_draft = get_ai_draft(store.id)
+    if current_draft is None:
+        raise ValidationError("No temporary AI draft found for this store")
+
+    draft_meta = get_ai_draft_meta(store.id) or {}
+    if draft_meta.get("status") != "draft_ready":
+        raise ValidationError("Current workflow state is not draft_ready")
+
+    try:
+        validate_basic_draft_schema(current_draft)
+        mode = detect_ai_response_mode(current_draft)
+        if mode != "draft_ready":
+            raise AIDraftSchemaValidationError("Current draft payload is not draft_ready")
+
+        validated_categories = validate_categories_section(current_draft["categories"])
+        category_names = [item["name"] for item in validated_categories]
+        validated_products = validate_products_section(current_draft["products"], category_names)
+    except AIDraftSchemaValidationError as exc:
+        raise ValidationError(str(exc)) from exc
+
+    existing_categories_qs = get_store_categories_for_ai_flow(
+        store_id=store.id,
+        user=user,
+        tenant_id=normalized_tenant_id,
+    )
+    category_by_normalized_name = {
+        _normalize_category_name_for_compare(category.name): category
+        for category in existing_categories_qs
+    }
+
+    for item in validated_products:
+        normalized_category_name = _normalize_category_name_for_compare(
+            str(item["category_name"])
+        )
+        if normalized_category_name not in category_by_normalized_name:
+            raise ValidationError(
+                "Failed to resolve product category_name to an existing category in this store"
+            )
+
+    existing_products_qs = get_store_products_for_ai_flow(
+        store_id=store.id,
+        user=user,
+        tenant_id=normalized_tenant_id,
+    )
+    existing_skus_normalized = {
+        _normalize_sku_for_compare(product.sku)
+        for product in existing_products_qs
+    }
+
+    created_products: list[str] = []
+    skipped_products: list[str] = []
+
+    try:
+        with transaction.atomic():
+            for item in validated_products:
+                draft_sku = str(item["sku"])
+                normalized_sku = _normalize_sku_for_compare(draft_sku)
+
+                if normalized_sku in existing_skus_normalized:
+                    skipped_products.append(" ".join(draft_sku.strip().split()))
+                    continue
+
+                normalized_category_name = _normalize_category_name_for_compare(
+                    str(item["category_name"])
+                )
+                resolved_category = category_by_normalized_name[normalized_category_name]
+
+                safe_sku = " ".join(draft_sku.strip().split())
+                created_product = Product.objects.create(
+                    store=store,
+                    tenant_id=normalized_tenant_id,
+                    category=resolved_category,
+                    name=str(item["name"]).strip(),
+                    description=str(item["description"]),
+                    price=item["price"],
+                    sku=safe_sku,
+                )
+
+                Inventory.objects.create(
+                    product=created_product,
+                    stock_quantity=item["stock_quantity"],
+                )
+
+                image_url = str(item["image_url"]).strip()
+                if image_url:
+                    ProductImage.objects.create(
+                        product=created_product,
+                        image_url=image_url,
+                    )
+                existing_skus_normalized.add(normalized_sku)
+                created_products.append(safe_sku)
+    except Exception as exc:
+        raise ValidationError(f"Failed to apply products from current draft: {exc}") from exc
+
+    return {
+        "store_id": store.id,
+        "draft_status": "draft_ready",
+        "created_products": created_products,
+        "skipped_products": skipped_products,
+    }
+
+
+def apply_current_ai_draft_to_store(
+    store_id: int,
+    user,
+    tenant_id: int | None,
+) -> dict[str, Any]:
+    """
+    Confirm/apply the current AI draft completely using existing sub-services.
+
+    Apply order (strict):
+    1) store core
+    2) categories
+    3) products
+    4) transition store status from draft -> setup
+
+    Cache cleanup rule:
+    - delete draft + metadata only after successful DB commit via on_commit.
+    - response indicates cleanup was scheduled, not synchronously completed inline.
+    """
+    if not user or not getattr(user, "is_authenticated", False):
+        raise ValidationError("Authentication required")
+
+    if tenant_id is None:
+        raise ValidationError("Trusted tenant context is required")
+
+    try:
+        normalized_tenant_id = int(tenant_id)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError("Invalid trusted tenant context") from exc
+
+    if normalized_tenant_id <= 0:
+        raise ValidationError("Invalid trusted tenant context")
+
+    if getattr(user, "tenant_id", None) != normalized_tenant_id:
+        raise ValidationError("User tenant context does not match trusted tenant context")
+
+    store = get_store_for_ai_flow(store_id=store_id, user=user, tenant_id=normalized_tenant_id)
+    if not store:
+        raise ValidationError("Store not found or access denied")
+
+    current_draft = get_ai_draft(store.id)
+    if current_draft is None:
+        raise ValidationError("No temporary AI draft found for this store")
+
+    draft_meta = get_ai_draft_meta(store.id) or {}
+    if draft_meta.get("status") != "draft_ready":
+        raise ValidationError("Current workflow state is not draft_ready")
+
+    def _cleanup_draft_after_commit() -> None:
+        try:
+            delete_ai_draft(store.id)
+            delete_ai_draft_meta(store.id)
+        except Exception as exc:  # pragma: no cover
+            logger.warning(
+                "Draft cleanup after apply commit failed. store_id=%s, reason=%s",
+                store.id,
+                str(exc),
+            )
+
+    with transaction.atomic():
+        apply_current_ai_draft_store_core(
+            store_id=store.id,
+            user=user,
+            tenant_id=normalized_tenant_id,
+        )
+        categories_result = apply_current_ai_draft_categories(
+            store_id=store.id,
+            user=user,
+            tenant_id=normalized_tenant_id,
+        )
+        products_result = apply_current_ai_draft_products(
+            store_id=store.id,
+            user=user,
+            tenant_id=normalized_tenant_id,
+        )
+
+        store.status = "setup"
+        store.save(update_fields=["status", "updated_at"])
+
+        transaction.on_commit(_cleanup_draft_after_commit)
+
+    return {
+        "store_id": store.id,
+        "final_status": "setup",
+        "store_core_applied": True,
+        "categories": {
+            "created": categories_result.get("created_categories", []),
+            "skipped": categories_result.get("skipped_categories", []),
+        },
+        "products": {
+            "created": products_result.get("created_products", []),
+            "skipped": products_result.get("skipped_products", []),
+        },
+        "draft_cleanup_scheduled": True,
+    }

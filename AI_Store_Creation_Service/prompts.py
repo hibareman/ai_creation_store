@@ -310,6 +310,49 @@ If information is fundamentally insufficient even after prior context:
 - otherwise, return a full complete draft with `clarification_needed: false`
 """
 
+_APPROVED_PARTIAL_REGENERATION_PROMPT = """You are an AI Store Creation Assistant in partial regeneration mode.
+
+This step is triggered by an explicit regenerate action for one target section only.
+Do not generate a full draft.
+Do not ask clarification questions in this step.
+Do not use any new free-text prompt from the user.
+
+You must use:
+- target_section
+- original_store_description
+- current_draft
+- available clarification context/history
+
+Supported target_section values in this MVP:
+- theme
+- categories
+- products
+
+Your output must contain ONLY the requested replacement section in valid JSON.
+Strict output shape rules:
+- If target_section is "theme", return:
+  { "theme": { ...theme object... } }
+- If target_section is "categories", return:
+  { "categories": [ ...category objects... ] }
+- If target_section is "products", return:
+  { "products": [ ...product objects... ] }
+
+Do not include any other top-level keys.
+Do not include the full draft.
+Do not include explanations or markdown.
+Return valid JSON only.
+
+Section-specific constraints:
+- For theme:
+  - `theme_template` must be a template name (not an ID)
+  - use only exact allowed template names if provided
+- For categories:
+  - return realistic categories for the same store concept
+- For products:
+  - return realistic products for the same store concept
+  - products must remain coherent with existing categories in current_draft
+"""
+
 
 def _render_available_theme_templates(available_theme_templates: Sequence[str]) -> str:
     return "\n".join(str(template_name) for template_name in available_theme_templates)
@@ -379,6 +422,46 @@ def build_regenerate_store_draft_messages(
     messages: list[ProviderMessage] = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": f"store_id: {store_id}"},
+        {"role": "user", "content": f"original_store_description: {original_store_description}"},
+        {
+            "role": "user",
+            "content": f"current_draft: {json.dumps(dict(current_draft), ensure_ascii=False)}",
+        },
+    ]
+    if clarification_context is not None:
+        messages.append(
+            {
+                "role": "user",
+                "content": f"clarification_context: {json.dumps(clarification_context, ensure_ascii=False)}",
+            }
+        )
+    return messages
+
+
+def build_regenerate_store_draft_section_messages(
+    *,
+    store_id: int,
+    target_section: str,
+    original_store_description: str,
+    current_draft: Mapping[str, Any],
+    clarification_context: Mapping[str, Any] | Sequence[Any] | None = None,
+    available_theme_templates: Sequence[str] | None = None,
+) -> list[ProviderMessage]:
+    system_prompt = _APPROVED_PARTIAL_REGENERATION_PROMPT
+    if (
+        target_section == "theme"
+        and available_theme_templates is not None
+        and not isinstance(available_theme_templates, (str, bytes))
+    ):
+        system_prompt += (
+            "\n\nAllowed theme template names:\n"
+            f"{_render_available_theme_templates(available_theme_templates)}"
+        )
+
+    messages: list[ProviderMessage] = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": f"store_id: {store_id}"},
+        {"role": "user", "content": f"target_section: {target_section}"},
         {"role": "user", "content": f"original_store_description: {original_store_description}"},
         {
             "role": "user",
