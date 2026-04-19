@@ -29,6 +29,7 @@ It supports core commerce modules (auth, stores, categories, products, themes) a
 - Cache: Redis (adopted), LocMem fallback for tests/dev
 - AI Provider integration: OpenAI-style provider layer (config-driven)
 
+ feature/ai-store-creation
 ## 🏗️ Project Structure
 - `config/` - project settings and root URLs
 - `users/` - authentication, registration, activation, current user identity
@@ -48,11 +49,25 @@ It supports core commerce modules (auth, stores, categories, products, themes) a
 ## 🚀 Local Setup (Step-by-Step)
 
 ### 1) Clone repository
+
+Multi-Tenant E-commerce Backend API
+
+## Quick Start
+
+### Prerequisites
+- Python 3.12
+- PostgreSQL 13+
+- pip
+
+### Installation & Setup
+
+1. **Clone Repository**
+ main
 ```bash
 git clone <repo-url>
 cd ai_store_creation
-```
 
+ feature/ai-store-creation
 ### 2) Create and activate virtual environment
 ```bash
 python -m venv .venv
@@ -70,27 +85,72 @@ Windows PowerShell:
 
 ### 3) Install dependencies
 ```bash
-pip install -r requirements.txt
-```
 
+2. Create Virtual Environment
+
+
+
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\\Scripts\\activate
+
+3. Install Dependencies
+
+
+
+ main
+pip install -r requirements.txt
+
+ feature/ai-store-creation
 ### 4) Configure environment variables
 Create `.env` in project root.
 
 ### 5) Run migrations
 ```bash
-python manage.py migrate
-```
 
+4. Database Setup
+
+
+
+# Django reads DATABASE_URL automatically if provided
+export DATABASE_URL=postgresql://user:password@localhost:5432/ai_store_db
+# Windows PowerShell:
+# $env:DATABASE_URL="postgresql://user:password@localhost:5432/ai_store_db"
+
+# Or use DB_* fallback variables:
+# DB_ENGINE=django.db.backends.postgresql
+# DB_NAME=ai_store_db
+# DB_USER=postgres
+# DB_PASSWORD=1234
+# DB_HOST=localhost
+# DB_PORT=5433
+
+# Run migrations
+ main
+python manage.py migrate
+
+ feature/ai-store-creation
 ### 6) (Optional) Create regular Django admin user
 ```bash
-python manage.py createsuperuser
-```
 
+5. Create Superuser
+
+
+
+ main
+python manage.py createsuperuser
+
+ feature/ai-store-creation
 ### 7) Run backend server
 ```bash
-python manage.py runserver
-```
 
+6. Run Development Server
+
+
+
+ main
+python manage.py runserver
+
+ feature/ai-store-creation
 Backend default URL: `http://localhost:8000`
 
 ## 🔐 Environment Variables
@@ -136,6 +196,116 @@ Create/update the fixed backend-managed super admin account:
 ```bash
 python manage.py bootstrap_superadmin --password "StrongSuperAdmin123!"
 ```
+
+Server will be available at: http://localhost:8000
+
+
+---
+
+📚 API Documentation
+
+Access Documentation
+
+1. Swagger UI (Interactive):
+
+URL: http://localhost:8000/api/docs/
+
+Try requests directly in browser
+
+Parameter validation & syntax highlighting
+
+
+
+2. ReDoc (Clean View):
+
+URL: http://localhost:8000/api/redoc/
+
+Better for reading documentation
+
+Organized by endpoint groups
+
+
+
+3. OpenAPI Schema:
+
+URL: http://localhost:8000/api/schema/
+
+JSON format for API client generation
+
+
+
+
+Full Documentation
+
+Use the live OpenAPI docs:
+
+Swagger UI: http://localhost:8000/api/docs/
+
+ReDoc: http://localhost:8000/api/redoc/
+
+OpenAPI schema: http://localhost:8000/api/schema/
+
+
+
+---
+
+🏗️ Project Structure
+
+ai_store_creation/
+├── .github/
+│   └── workflows/
+│       └── backend-tests.yml     # CI/CD pipeline
+├── config/
+│   ├── settings.py              # Django settings + drf-spectacular config
+│   ├── urls.py                  # URL routing + docs endpoints
+│   ├── wsgi.py
+│   └── asgi.py
+├── users/
+│   ├── models.py                # User model with multi-tenant
+│   ├── serializers.py           # Register/Login serializers
+│   ├── views.py                 # Auth endpoints
+│   ├── services.py              # Auth business logic
+│   ├── permissions.py           # Tenant-based permissions
+│   └── tests/
+├── stores/
+│   ├── models.py                # Store, StoreSettings, StoreDomain
+│   ├── serializers.py           # Store serializers + OpenAPI docs
+│   ├── views.py                 # Store CRUD endpoints
+│   ├── services.py              # Store business logic
+│   ├── selectors.py             # Database queries
+│   └── tests/
+├── categories/
+│   ├── models.py                # Category model
+│   ├── serializers.py           # Category serializers
+│   ├── views.py                 # Category endpoints
+│   ├── services.py              # Business logic
+│   └── tests/
+├── products/
+│   ├── models.py                # Product, ProductImage, Inventory
+│   ├── serializers.py           # Product serializers with help_text
+│   ├── views.py                 # Product endpoints
+│   ├── services.py              # Business logic
+│   └── tests/
+├── themes/
+│   ├── models.py                # ThemeTemplate, StoreThemeConfig
+│   ├── serializers.py           # Theme serializers
+│   ├── selectors.py             # Theme read queries
+│   ├── services.py              # Theme business logic
+│   ├── views.py                 # Theme endpoints
+│   ├── urls.py                  # Theme routes
+│   ├── migrations/
+│   └── tests/
+├── utils/
+│   ├── exceptions.py            # Custom exceptions
+│   ├── errors.py                # Error utilities
+│   ├── middleware.py            # Custom middleware
+│   └── logging_config.py        # Logging setup
+├── tests_integration.py         # Multi-tenant isolation tests
+├── requirements.txt             # Python dependencies
+├── manage.py                    # Django management
+└── README.md                    # This file
+
+ main
 
 This command controls the privileged account:
 - Email: `superadmin@gmail.com`
@@ -227,13 +397,19 @@ Mounted via: `path("api/categories/", include("categories.urls"))`
 | POST | `/api/ai/stores/{store_id}/draft/regenerate/` | Bearer | 200 | `{}` | Full draft regeneration |
 | POST | `/api/ai/stores/{store_id}/draft/regenerate-section/` | Bearer | 200 | `target_section` (`theme`, `categories`, `products`) | Partial regeneration for one section |
 | POST | `/api/ai/stores/{store_id}/draft/apply/` | Bearer | 200 | `{}` | Apply draft to database and move store to `setup` |
-
+feature/ai-store-creation
 ## 🧪 Testing
 Run full test suite:
 ```bash
-python manage.py test
-```
 
+🧪 Testing
+
+Run All Tests
+
+ main
+python manage.py test
+
+ feature/ai-store-creation
 Run AI-focused tests:
 ```bash
 python manage.py test AI_Store_Creation_Service.tests --verbosity 2 --keepdb --noinput
@@ -283,3 +459,532 @@ python manage.py test users.tests stores.tests categories.tests products.tests t
 
 ## 📄 License
 - MIT License
+
+Current test suite passes.
+
+Run Specific App Tests
+
+python manage.py test stores
+python manage.py test users
+python manage.py test categories
+python manage.py test products
+python manage.py test themes
+ feature/increment-1-multi-tenant-backend
+```
+
+Run with Coverage
+ main
+
+coverage run --source='.' manage.py test
+coverage report
+coverage html  # Creates htmlcov/index.html
+
+Integration Tests
+
+Multi-tenant isolation is verified in:
+
+python manage.py test tests_integration
+
+
+---
+
+🚀 CI/CD Pipeline
+
+GitHub Actions Workflow
+
+File: .github/workflows/backend-tests.yml
+
+Triggers:
+
+Every push to main or develop branches
+
+Every pull request
+
+
+What It Does:
+
+1. Sets up Python 3.12
+
+
+2. Installs PostgreSQL service
+
+
+3. Installs dependencies
+
+
+4. Runs migrations
+
+
+5. Executes all tests
+
+
+6. Generates coverage reports
+
+
+7. Uploads artifacts
+
+
+
+Monitor:
+
+Go to GitHub Actions tab
+
+See real-time test results
+
+Download coverage reports
+
+
+
+---
+
+📊 Database Schema
+
+Core Models
+
+Users
+
+Authentication & authorization
+
+Multi-tenant isolation
+
+Email activation
+
+
+Stores
+
+Store instance per owner
+
+Belongs to tenant
+
+Has settings & domains
+
+
+StoreSettings
+
+Currency, language, timezone
+
+Per-store configuration
+
+
+StoreDomain
+
+Custom domains
+
+Primary domain selection
+
+
+Categories
+
+Product categorization
+
+Per-store isolation
+
+
+Products
+
+Product catalog
+
+SKU tracking
+
+Status management
+
+
+ProductImages
+
+Product gallery
+
+Media storage
+
+
+Inventory
+
+Stock tracking
+
+Quantity management
+
+
+Themes
+
+Shared ThemeTemplate records
+
+Per-store StoreThemeConfig
+
+Theme Foundation endpoints for listing templates and reading/updating the current store theme
+
+
+
+**Themes**
+- Shared `ThemeTemplate` records
+- Per-store `StoreThemeConfig`
+- Theme Foundation endpoints for listing templates and reading/updating the current store theme
+
+---
+
+## Theme Foundation API
+
+- `GET /api/stores/{store_id}/themes/templates/`
+  Returns the available theme templates for the authenticated store owner.
+
+- `GET /api/stores/{store_id}/theme/`
+  Returns the current theme configuration for the specified store.
+
+- `PATCH /api/stores/{store_id}/theme/`
+  Updates only the editable theme fields for the specified store:
+  `theme_template`, `primary_color`, `secondary_color`, `font_family`, `logo_url`, `banner_url`.
+
+---
+
+Theme Foundation API
+
+GET /api/stores/{store_id}/themes/templates/ Returns the available theme templates for the authenticated store owner.
+
+GET /api/stores/{store_id}/theme/ Returns the current theme configuration for the specified store.
+
+PATCH /api/stores/{store_id}/theme/ Updates only the editable theme fields for the specified store: theme_template, primary_color, secondary_color, font_family, logo_url, banner_url.
+
+
+
+---
+
+🔐 Security Features
+
+Authentication
+
+JWT Bearer tokens (SimpleJWT)
+
+Email activation required
+
+Secure password hashing
+
+
+Authorization
+
+Multi-tenant isolation
+
+Role-based access control
+
+Ownership verification
+
+Permission-based views
+
+
+Data Protection
+
+Tenant_id in all queries
+
+Cross-tenant access blocked
+
+Error messages don't leak data
+
+CSRF protection on POST/PUT/PATCH/DELETE
+
+
+Environment Variables
+
+DATABASE_URL=postgresql://user:pass@host:port/db
+SECRET_KEY=your-secret-key
+DEBUG=False
+ALLOWED_HOSTS=yourdomain.com
+
+
+---
+
+🛠️ Development
+
+Code Style
+
+PEP 8 compliance
+
+Functions < 30 lines
+
+Docstrings required for public functions
+
+Type hints (optional but recommended)
+
+
+Layered Architecture
+
+Views/Serializers: API interface
+
+Services: Business logic
+
+Selectors: Database queries
+
+Models: Data structures
+
+
+Adding Features
+
+1. Define model in app/models.py
+
+
+2. Create migrations: python manage.py makemigrations
+
+
+3. Write serializers in app/serializers.py
+
+
+4. Add help_text for OpenAPI docs
+
+
+5. Implement views in app/views.py
+
+
+6. Add business logic in app/services.py
+
+
+7. Write tests in app/tests/
+
+
+8. Update README + OpenAPI annotations (help_text, schema docs)
+
+
+
+
+---
+
+📝 Logging
+
+Logs are stored in logs/ directory with format:
+
+[TIMESTAMP] LEVEL LOGGER_NAME -> MESSAGE
+
+Log Levels
+
+DEBUG: Detailed information
+
+INFO: Confirmation of operations
+
+WARNING: Warning messages
+
+ERROR: Error messages (with stack trace)
+
+
+View Logs
+
+tail -f logs/*.log
+
+
+---
+
+🐛 Troubleshooting
+
+Database Connection Error
+
+Check:
+- PostgreSQL is running
+- DATABASE_URL is correct
+- Port 5433 is accessible
+
+Migration Error
+
+# Reset migrations (development only!)
+python manage.py migrate app_name zero
+python manage.py migrate
+
+Port Already in Use
+
+# Use different port
+python manage.py runserver 8001
+
+Tests Failing
+
+1. Run individually to isolate issue
+
+
+2. Check logs in logs/ directory
+
+
+3. Ensure database is migrated
+
+
+4. Check multi-tenant isolation in tests
+
+
+
+
+---
+
+📦 Dependencies
+
+Core
+
+Django 6.0.3
+
+Django REST Framework 3.17.1
+
+drf-spectacular 0.27.0 (API documentation)
+
+djangorestframework_simplejwt 5.5.1 (JWT auth)
+
+
+Database
+
+psycopg2-binary (PostgreSQL adapter)
+
+
+Development
+
+coverage (test coverage reporting)
+
+
+Testing
+
+Django TestCase
+
+DRF APITestCase
+
+
+Full list: See requirements.txt
+
+
+---
+
+🎯 API Endpoints Summary
+
+Endpoint	Method	Purpose
+
+/api/auth/register/	POST	User registration
+/api/auth/login/	POST	User login
+/api/stores/	GET/POST	List/create stores
+/api/stores/{id}/	PATCH	Update store
+/api/stores/{id}/delete/	DELETE	Delete store
+/api/stores/{id}/settings/	GET/PATCH	Store settings
+/api/stores/{id}/domains/	GET/POST	Domain management
+/api/stores/{id}/domains/{domain_id}/	GET/PATCH/DELETE	Domain detail
+/api/stores/slug/check/	POST	Check slug availability
+/api/stores/slug/suggest/	POST	Suggest slug candidates
+/api/stores/{id}/categories/	GET/POST	Category operations
+/api/stores/{id}/categories/{category_id}/	GET/PATCH/DELETE	Category details
+/api/categories/stores/{id}/categories/	GET/POST	Legacy-compatible category route
+/api/categories/stores/{id}/categories/{category_id}/	GET/PATCH/DELETE	Legacy-compatible category detail routeح
+/api/products/{store_id}/products/	GET/POST	Product operations
+/api/products/{store_id}/products/{product_id}/	GET/PATCH/DELETE	Product details
+/api/products/{store_id}/products/{product_id}/images/	GET/POST	Product images
+/api/products/{store_id}/products/{product_id}/images/{image_id}/	DELETE	Delete product image
+/api/products/{store_id}/products/{product_id}/inventory/	PUT/PATCH	Update inventory
+/api/stores/{store_id}/themes/templates/	GET	List available theme templates
+/api/stores/{store_id}/theme/	GET/PATCH	Read/update current store theme
+/api/docs/	GET	Swagger UI documentation
+/api/redoc/	GET	ReDoc documentation
+/api/schema/	GET	OpenAPI schema (JSON)
+
+
+
+---
+
+📞 Support & Contribution
+
+Reporting Issues
+
+1. Check GitHub Issues
+
+
+2. Check troubleshooting section
+
+
+3. Check logs in logs/ directory
+
+
+4. Create new issue with:
+
+Error message
+
+Steps to reproduce
+
+System info
+
+Logs
+
+
+
+
+Contributing
+
+1. Create feature branch: git checkout -b feature/name
+
+
+2. Make changes
+
+
+3. Run tests: python manage.py test
+
+
+4. Commit: git commit -m "description"
+
+
+5. Push: git push origin feature/name
+
+
+6. Create Pull Request
+
+
+
+
+---
+
+📄 License
+
+MIT License - See LICENSE file
+
+
+---
+
+Version History
+
+v1.0.0 (2024-04-08)
+
+Initial release
+
+Complete API endpoints
+
+Multi-tenant support
+
+API documentation
+
+CI/CD pipeline
+
+ feature/increment-1-multi-tenant-backend
+- v1.0.0 (2024-04-08)
+  - Initial release
+  - Complete API endpoints
+  - Multi-tenant support
+  - API documentation
+  - CI/CD pipeline
+  - 143 tests passing
+
+---
+
+## Auth Session Bootstrap Endpoints
+
+- `POST /api/auth/register/` is a **public endpoint** for new user self-registration (no login required).
+- `GET /api/auth/me/` is a **protected endpoint** and requires `Authorization: Bearer <access_token>`.
+
+### GET /api/auth/me/
+
+Returns the current authenticated user identity derived from the access token.
+
+Example response:
+
+```json
+{
+  "user_id": 1,
+  "username": "omarMas",
+  "email": "omarmas@gmail.com",
+  "role": "Store Owner",
+  "tenant_id": 1,
+  "is_active": true,
+  "display_name": "Omar Mas",
+  "created_at": "2026-04-14T22:56:42.259202Z",
+  "updated_at": "2026-04-14T22:56:42.259202Z"
+}
+```
+
+Notes:
+- `tenant_id` may be `null` for `Super Admin` when no tenant is associated.
+- This endpoint does **not** return `access` or `refresh`.
+- This endpoint does **not** return stores; stores are fetched separately via `GET /api/stores/`.
+
+Theme Foundation
+ main
+ main
