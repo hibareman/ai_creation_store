@@ -346,6 +346,50 @@ def detect_ai_response_mode(payload: Mapping[str, Any]) -> Literal["clarificatio
             "'clarification_questions' is not empty."
         )
 
+    if clarification_needed:
+        expected_keys = {"question_key", "question_text", "options"}
+        for index, question in enumerate(clarification_questions):
+            if not isinstance(question, Mapping):
+                raise AIDraftSchemaValidationError(
+                    f"Clarification question at index {index} must be an object."
+                )
+
+            question_keys = set(question.keys())
+            if question_keys != expected_keys:
+                raise AIDraftSchemaValidationError(
+                    f"Clarification question at index {index} must contain exactly: "
+                    "question_key, question_text, options."
+                )
+
+            question_key = question.get("question_key")
+            if not isinstance(question_key, str) or not question_key.strip():
+                raise AIDraftSchemaValidationError(
+                    f"Clarification question 'question_key' at index {index} must be a non-empty string."
+                )
+
+            question_text = question.get("question_text")
+            if not isinstance(question_text, str) or not question_text.strip():
+                raise AIDraftSchemaValidationError(
+                    f"Clarification question 'question_text' at index {index} must be a non-empty string."
+                )
+
+            options = question.get("options")
+            if not isinstance(options, list):
+                raise AIDraftSchemaValidationError(
+                    f"Clarification question 'options' at index {index} must be a list."
+                )
+
+            if len(options) < 2 or len(options) > 5:
+                raise AIDraftSchemaValidationError(
+                    f"Clarification question 'options' at index {index} must contain between 2 and 5 items."
+                )
+
+            for option_index, option in enumerate(options):
+                if not isinstance(option, str) or not option.strip():
+                    raise AIDraftSchemaValidationError(
+                        f"Clarification question option at index {index}:{option_index} must be a non-empty string."
+                    )
+
     return "clarification" if clarification_needed else "draft_ready"
 
 
@@ -353,9 +397,11 @@ def build_ai_fallback_payload(
     clarification_questions: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """
-    Build a minimal standardized fallback payload for unusable AI responses.
+    Build the official clarification-style fallback payload for unusable AI responses.
 
-    Fallback is clarification-oriented to keep the workflow recoverable.
+    Decision note:
+    - Fallback in AI Store Creation is clarification-style (not template-style).
+    - The payload intentionally requests clarification with structured MCQ objects.
     """
     questions = list(clarification_questions) if clarification_questions else [
         {

@@ -360,6 +360,8 @@ def _render_available_theme_templates(available_theme_templates: Sequence[str]) 
 
 def build_generate_store_draft_messages(
     *,
+    tenant_id: int,
+    store_id: int,
     user_store_description: str,
     available_theme_templates: Sequence[str],
 ) -> list[ProviderMessage]:
@@ -369,12 +371,15 @@ def build_generate_store_draft_messages(
     )
     return [
         {"role": "system", "content": prompt_text},
+        {"role": "user", "content": f"tenant_id: {tenant_id}"},
+        {"role": "user", "content": f"store_id: {store_id}"},
         {"role": "user", "content": str(user_store_description)},
     ]
 
 
 def build_clarify_store_draft_messages(
     *,
+    tenant_id: int,
     store_id: int,
     current_draft: Mapping[str, Any],
     prompt: str,
@@ -385,6 +390,7 @@ def build_clarify_store_draft_messages(
             "role": "system",
             "content": _APPROVED_CLARIFICATION_ROUND_PROMPT,
         },
+        {"role": "user", "content": f"tenant_id: {tenant_id}"},
         {"role": "user", "content": f"clarification_input: {prompt}"},
         {"role": "user", "content": f"store_id: {store_id}"},
         {
@@ -404,6 +410,7 @@ def build_clarify_store_draft_messages(
 
 def build_regenerate_store_draft_messages(
     *,
+    tenant_id: int,
     store_id: int,
     original_store_description: str,
     current_draft: Mapping[str, Any],
@@ -421,6 +428,7 @@ def build_regenerate_store_draft_messages(
 
     messages: list[ProviderMessage] = [
         {"role": "system", "content": system_prompt},
+        {"role": "user", "content": f"tenant_id: {tenant_id}"},
         {"role": "user", "content": f"store_id: {store_id}"},
         {"role": "user", "content": f"original_store_description: {original_store_description}"},
         {
@@ -440,6 +448,7 @@ def build_regenerate_store_draft_messages(
 
 def build_regenerate_store_draft_section_messages(
     *,
+    tenant_id: int,
     store_id: int,
     target_section: str,
     original_store_description: str,
@@ -460,6 +469,7 @@ def build_regenerate_store_draft_section_messages(
 
     messages: list[ProviderMessage] = [
         {"role": "system", "content": system_prompt},
+        {"role": "user", "content": f"tenant_id: {tenant_id}"},
         {"role": "user", "content": f"store_id: {store_id}"},
         {"role": "user", "content": f"target_section: {target_section}"},
         {"role": "user", "content": f"original_store_description: {original_store_description}"},

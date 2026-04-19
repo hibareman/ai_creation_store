@@ -1,487 +1,224 @@
 # AI Store Creation Backend
 
-Multi-Tenant E-commerce Backend API with AI-Powered Features
+Production-style backend built with **Django + DRF** for a multi-tenant e-commerce system, including AI-assisted store draft generation and apply workflow.
 
-## Quick Start
+## Implemented Features
+- JWT authentication and account activation flow.
+- Tenant isolation via middleware (`request.tenant_id`).
+- Store management: Store, StoreSettings, StoreDomain, slug helpers.
+- Category management with owner + tenant checks.
+- Product management with images and inventory.
+- Theme Foundation (template catalog + per-store theme config).
+- AI Store Creation workflow:
+  - start draft
+  - get current draft
+  - clarification rounds
+  - full regenerate
+  - partial regenerate (theme/categories/products)
+  - apply draft
+- Official fallback policy: **clarification-style fallback**.
+- Lightweight AI audit logging.
 
-### Prerequisites
-- Python 3.12
-- PostgreSQL 13+
-- pip
+---
 
-### Installation & Setup
+## Prerequisites
+- Python 3.12+
+- PostgreSQL
+- Redis (for temporary AI draft cache)
 
-1. **Clone Repository**
+---
+
+## Setup and Run (Ordered)
+
+### 1) Clone and create virtual environment
 ```bash
 git clone <repo-url>
 cd ai_store_creation
-```
-
-2. **Create Virtual Environment**
-```bash
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\\Scripts\\activate
 ```
 
-3. **Install Dependencies**
+Linux/macOS:
+```bash
+source .venv/bin/activate
+```
+
+Windows PowerShell:
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+### 2) Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-4. **Database Setup**
+### 3) Configure environment variables (`.env`)
+Create or update `.env` in project root:
+
+```env
+# Django
+SECRET_KEY=change-me
+DEBUG=True
+
+# Preferred DB config
+DATABASE_URL=postgresql://postgres:1234@localhost:5433/ai_store_db
+
+# Optional DATABASE_URL fallback
+DB_ENGINE=django.db.backends.postgresql
+DB_NAME=ai_store_db
+DB_USER=postgres
+DB_PASSWORD=1234
+DB_HOST=localhost
+DB_PORT=5433
+
+# Cache / Redis (AI draft temp storage)
+CACHE_BACKEND=redis
+REDIS_CACHE_URL=redis://127.0.0.1:6379/1
+
+# AI settings
+AI_API_KEY=
+AI_MODEL_NAME=gpt-5.2
+AI_TIMEOUT=30
+AI_DRAFT_TTL=3600
+AI_DRAFT_PREFIX=ai_draft
+```
+
+Notes:
+- Test mode uses local cache fallback automatically.
+- You can force local cache in development with `CACHE_BACKEND=locmem`.
+
+### 4) Run migrations
 ```bash
-# Django reads DATABASE_URL automatically if provided
-export DATABASE_URL=postgresql://user:password@localhost:5432/ai_store_db
-# Windows PowerShell:
-# $env:DATABASE_URL="postgresql://user:password@localhost:5432/ai_store_db"
-
-# Or use DB_* fallback variables:
-# DB_ENGINE=django.db.backends.postgresql
-# DB_NAME=ai_store_db
-# DB_USER=postgres
-# DB_PASSWORD=1234
-# DB_HOST=localhost
-# DB_PORT=5433
-
-# Run migrations
 python manage.py migrate
 ```
 
-5. **Create Superuser**
+### 5) Create admin user (recommended)
 ```bash
 python manage.py createsuperuser
 ```
 
-6. **Run Development Server**
+### 6) Start server
 ```bash
 python manage.py runserver
 ```
 
-Server will be available at: http://localhost:8000
+---
+
+## API Docs
+- Swagger UI: `GET /api/docs/`
+- ReDoc: `GET /api/redoc/`
+- OpenAPI schema: `GET /api/schema/`
 
 ---
 
-## 📚 API Documentation
-
-### Access Documentation
-
-1. **Swagger UI** (Interactive):
-   - URL: http://localhost:8000/api/docs/
-   - Try requests directly in browser
-   - Parameter validation & syntax highlighting
-
-2. **ReDoc** (Clean View):
-   - URL: http://localhost:8000/api/redoc/
-   - Better for reading documentation
-   - Organized by endpoint groups
-
-3. **OpenAPI Schema**:
-   - URL: http://localhost:8000/api/schema/
-   - JSON format for API client generation
-
-### Full Documentation
-
-Use the live OpenAPI docs:
-- Swagger UI: `http://localhost:8000/api/docs/`
-- ReDoc: `http://localhost:8000/api/redoc/`
-- OpenAPI schema: `http://localhost:8000/api/schema/`
+## Auth and Tenant Rules
+- Protected endpoints require `Authorization: Bearer <access_token>`.
+- `POST /api/auth/register/` is public.
+- Do **not** pass `tenant_id` from client body/query.
+- Tenant context is resolved by middleware from JWT and used server-side.
 
 ---
 
-## 🏗️ Project Structure
+## Endpoint Reference
 
-```
-ai_store_creation/
-├── .github/
-│   └── workflows/
-│       └── backend-tests.yml     # CI/CD pipeline
-├── config/
-│   ├── settings.py              # Django settings + drf-spectacular config
-│   ├── urls.py                  # URL routing + docs endpoints
-│   ├── wsgi.py
-│   └── asgi.py
-├── users/
-│   ├── models.py                # User model with multi-tenant
-│   ├── serializers.py           # Register/Login serializers
-│   ├── views.py                 # Auth endpoints
-│   ├── services.py              # Auth business logic
-│   ├── permissions.py           # Tenant-based permissions
-│   └── tests/
-├── stores/
-│   ├── models.py                # Store, StoreSettings, StoreDomain
-│   ├── serializers.py           # Store serializers + OpenAPI docs
-│   ├── views.py                 # Store CRUD endpoints
-│   ├── services.py              # Store business logic
-│   ├── selectors.py             # Database queries
-│   └── tests/
-├── categories/
-│   ├── models.py                # Category model
-│   ├── serializers.py           # Category serializers
-│   ├── views.py                 # Category endpoints
-│   ├── services.py              # Business logic
-│   └── tests/
-├── products/
-│   ├── models.py                # Product, ProductImage, Inventory
-│   ├── serializers.py           # Product serializers with help_text
-│   ├── views.py                 # Product endpoints
-│   ├── services.py              # Business logic
-│   └── tests/
-├── utils/
-│   ├── exceptions.py            # Custom exceptions
-│   ├── errors.py                # Error utilities
-│   ├── middleware.py            # Custom middleware
-│   └── logging_config.py        # Logging setup
-├── tests_integration.py         # Multi-tenant isolation tests
-├── requirements.txt             # Python dependencies
-├── manage.py                    # Django management
-└── README.md                    # This file
-```
+## 1) Auth (`/api/auth/`)
+
+| Method | Path | Auth | Request Body | Description |
+|---|---|---|---|---|
+| POST | `/api/auth/register/` | Public | `username`, `email`, `password`, `role?` (self-registration supports `Store Owner`) | Register user and send activation email |
+| POST | `/api/auth/login/` | Public | `email`, `password` | Login and return JWT tokens |
+| GET | `/api/auth/me/` | Bearer | - | Return current authenticated identity |
+| GET | `/api/auth/activate/{token}/` | Public | - | Activate account by UUID token |
+| POST | `/api/auth/token/` | Public | SimpleJWT payload | JWT pair endpoint (compatibility route) |
+| POST | `/api/auth/token/refresh/` | Public | `refresh` | Refresh access token |
 
 ---
 
-## 🧪 Testing
+## 2) Stores (`/api/stores/`)
 
-### Run All Tests
+| Method | Path | Auth | Request Body | Description |
+|---|---|---|---|---|
+| GET / POST | `/api/stores/` | Bearer | POST: `name` (required), `description?`, `slug?` | List user stores or create store |
+| PUT / PATCH | `/api/stores/{id}/` | Bearer | Store editable fields | Update store |
+| DELETE | `/api/stores/{id}/delete/` | Bearer | - | Delete store |
+| GET / PATCH | `/api/stores/{store_id}/settings/` | Bearer | PATCH: `currency?`, `language?`, `timezone?` | Read/update store settings |
+| POST | `/api/stores/slug/check/` | Bearer | `slug`, `store_id?` | Check slug availability |
+| POST | `/api/stores/slug/suggest/` | Bearer | `name`, `store_id?`, `limit?` | Suggest slug options |
+| GET / POST | `/api/stores/{store_id}/domains/` | Bearer | POST: `domain`, `is_primary?` | List/create store domains |
+| GET / PATCH / DELETE | `/api/stores/{store_id}/domains/{domain_id}/` | Bearer | PATCH: `domain?`, `is_primary?` | Retrieve/update/delete one domain |
+
+---
+
+## 3) Categories
+
+### Contract routes (primary)
+Prefix: `/api/`
+
+| Method | Path | Auth | Request Body | Description |
+|---|---|---|---|---|
+| GET / POST | `/api/stores/{store_id}/categories/` | Bearer | POST: `name`, `description?` | List/create categories for a store |
+| GET / PUT / PATCH / DELETE | `/api/stores/{store_id}/categories/{category_id}/` | Bearer | PUT/PATCH: `name?`, `description?` | Category detail/update/delete |
+
+### Legacy-compatible routes (temporary)
+Prefix: `/api/categories/`
+
+| Method | Path | Auth | Request Body | Description |
+|---|---|---|---|---|
+| GET / POST | `/api/categories/stores/{store_id}/categories/` | Bearer | POST: `name`, `description?` | Same behavior as primary route |
+| GET / PUT / PATCH / DELETE | `/api/categories/stores/{store_id}/categories/{category_id}/` | Bearer | PUT/PATCH: `name?`, `description?` | Same behavior as primary route |
+
+---
+
+## 4) Products (`/api/products/`)
+
+| Method | Path | Auth | Request Body | Description |
+|---|---|---|---|---|
+| GET / POST | `/api/products/{store_id}/products/` | Bearer | POST: `name`, `price`, `sku`, `category`, `description?`, `status?` | List/create products |
+| GET / PUT / PATCH / DELETE | `/api/products/{store_id}/products/{product_id}/` | Bearer | PUT/PATCH: product fields | Retrieve/update/delete product |
+| GET / POST | `/api/products/{store_id}/products/{product_id}/images/` | Bearer | POST: `image_file` or `image_url` | List/add product images |
+| DELETE | `/api/products/{store_id}/products/{product_id}/images/{image_id}/` | Bearer | - | Delete one image |
+| PUT / PATCH | `/api/products/{store_id}/products/{product_id}/inventory/` | Bearer | `stock_quantity` | Update inventory |
+
+---
+
+## 5) Themes (`/api/`)
+
+| Method | Path | Auth | Request Body | Description |
+|---|---|---|---|---|
+| GET | `/api/stores/{store_id}/themes/templates/` | Bearer | - | List available theme templates |
+| GET | `/api/stores/{store_id}/theme/` | Bearer | - | Get current store theme config |
+| PATCH | `/api/stores/{store_id}/theme/` | Bearer | `theme_template?`, `primary_color?`, `secondary_color?`, `font_family?`, `logo_url?`, `banner_url?` | Update store theme config |
+
+---
+
+## 6) AI Store Creation (`/api/ai/`)
+
+| Method | Path | Auth | Request Body | Description |
+|---|---|---|---|---|
+| POST | `/api/ai/stores/draft/start/` | Bearer | `name`, `user_store_description` | Create draft store and generate initial AI draft |
+| GET | `/api/ai/stores/{store_id}/draft/` | Bearer | - | Get current temporary draft state |
+| POST | `/api/ai/stores/{store_id}/draft/clarify/` | Bearer | `clarification_answers` (non-empty string/object/list) | Run one clarification round |
+| POST | `/api/ai/stores/{store_id}/draft/regenerate/` | Bearer | `{}` | Full draft regeneration |
+| POST | `/api/ai/stores/{store_id}/draft/regenerate-section/` | Bearer | `target_section` in `theme,categories,products` | Partial section regeneration |
+| POST | `/api/ai/stores/{store_id}/draft/apply/` | Bearer | `{}` | Apply draft to persistent models |
+
+AI notes:
+- Official fallback: **clarification-style fallback**.
+- Drafts are cached (Redis in adopted runtime mode).
+- Tenant and ownership checks are enforced on all store-scoped operations.
+
+---
+
+## Useful Test Commands
 ```bash
 python manage.py test
-```
-
-Current output (April 13, 2026): 143 tests, all pass
-
-### Run Specific App Tests
-```bash
-python manage.py test stores
-python manage.py test users
-python manage.py test categories
-python manage.py test products
-python manage.py test themes
-```
-
-### Run with Coverage
-```bash
-coverage run --source='.' manage.py test
-coverage report
-coverage html  # Creates htmlcov/index.html
-```
-
-### Integration Tests
-Multi-tenant isolation is verified in:
-```bash
-python manage.py test tests_integration
+python manage.py test AI_Store_Creation_Service.tests --verbosity 2 --keepdb --noinput
 ```
 
 ---
 
-## 🚀 CI/CD Pipeline
+## Quick Troubleshooting
+- DB connection issues: verify `DATABASE_URL` or `DB_*` values.
+- AI draft cache issues: verify Redis and `REDIS_CACHE_URL`.
+- Local dev fallback cache: set `CACHE_BACKEND=locmem` if needed.
 
-### GitHub Actions Workflow
-
-**File:** `.github/workflows/backend-tests.yml`
-
-**Triggers:**
-- Every push to `main` or `develop` branches
-- Every pull request
-
-**What It Does:**
-1. Sets up Python 3.12
-2. Installs PostgreSQL service
-3. Installs dependencies
-4. Runs migrations
-5. Executes all tests
-6. Generates coverage reports
-7. Uploads artifacts
-
-**Monitor:**
-- Go to GitHub Actions tab
-- See real-time test results
-- Download coverage reports
-
----
-
-## 📊 Database Schema
-
-### Core Models
-
-**Users**
-- Authentication & authorization
-- Multi-tenant isolation
-- Email activation
-
-**Stores**
-- Store instance per owner
-- Belongs to tenant
-- Has settings & domains
-
-**StoreSettings**
-- Currency, language, timezone
-- Per-store configuration
-
-**StoreDomain**
-- Custom domains
-- Primary domain selection
-
-**Categories**
-- Product categorization
-- Per-store isolation
-
-**Products**
-- Product catalog
-- SKU tracking
-- Status management
-
-**ProductImages**
-- Product gallery
-- Media storage
-
-**Inventory**
-- Stock tracking
-- Quantity management
-
-**Themes**
-- Shared `ThemeTemplate` records
-- Per-store `StoreThemeConfig`
-- Theme Foundation endpoints for listing templates and reading/updating the current store theme
-
----
-
-## Theme Foundation API
-
-- `GET /api/stores/{store_id}/themes/templates/`
-  Returns the available theme templates for the authenticated store owner.
-
-- `GET /api/stores/{store_id}/theme/`
-  Returns the current theme configuration for the specified store.
-
-- `PATCH /api/stores/{store_id}/theme/`
-  Updates only the editable theme fields for the specified store:
-  `theme_template`, `primary_color`, `secondary_color`, `font_family`, `logo_url`, `banner_url`.
-
----
-
-## 🔐 Security Features
-
-### Authentication
-- JWT Bearer tokens (SimpleJWT)
-- Email activation required
-- Secure password hashing
-
-### Authorization
-- Multi-tenant isolation
-- Role-based access control
-- Ownership verification
-- Permission-based views
-
-### Data Protection
-- Tenant_id in all queries
-- Cross-tenant access blocked
-- Error messages don't leak data
-- CSRF protection on POST/PUT/PATCH/DELETE
-
-### Environment Variables
-```bash
-DATABASE_URL=postgresql://user:pass@host:port/db
-SECRET_KEY=your-secret-key
-DEBUG=False (production)
-ALLOWED_HOSTS=yourdomain.com
-```
-
----
-
-## 🛠️ Development
-
-### Code Style
-- PEP 8 compliance
-- Functions < 30 lines
-- Docstrings required for public functions
-- Type hints (optional but recommended)
-
-### Layered Architecture
-- **Views/Serializers:** API interface
-- **Services:** Business logic
-- **Selectors:** Database queries
-- **Models:** Data structures
-
-### Adding Features
-
-1. Define model in `app/models.py`
-2. Create migrations: `python manage.py makemigrations`
-3. Write serializers in `app/serializers.py`
-4. Add help_text for OpenAPI docs
-5. Implement views in `app/views.py`
-6. Add business logic in `app/services.py`
-7. Write tests in `app/tests/`
-8. Update README + OpenAPI annotations (`help_text`, schema docs)
-
----
-
-## 📝 Logging
-
-Logs are stored in `logs/` directory with format:
-```
-[TIMESTAMP] LEVEL LOGGER_NAME -> MESSAGE
-```
-
-### Log Levels
-- DEBUG: Detailed information
-- INFO: Confirmation of operations
-- WARNING: Warning messages
-- ERROR: Error messages (with stack trace)
-
-### View Logs
-```bash
-tail -f logs/*.log
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Database Connection Error
-```
-Check:
-- PostgreSQL is running
-- DATABASE_URL is correct
-- Port 5433 is accessible
-```
-
-### Migration Error
-```bash
-# Reset migrations (development only!)
-python manage.py migrate app_name zero
-python manage.py migrate
-```
-
-### Port Already in Use
-```bash
-# Use different port
-python manage.py runserver 8001
-```
-
-### Tests Failing
-1. Run individually to isolate issue
-2. Check logs in `logs/` directory
-3. Ensure database is migrated
-4. Check multi-tenant isolation in test
-
----
-
-## 📦 Dependencies
-
-### Core
-- Django 6.0.3
-- Django REST Framework 3.17.1
-- drf-spectacular 0.27.0 (API documentation)
-- djangorestframework_simplejwt 5.5.1 (JWT auth)
-
-### Database
-- psycopg2-binary (PostgreSQL adapter)
-
-### Development
-- coverage (test coverage reporting)
-
-### Testing
-- Django TestCase
-- DRF APITestCase
-
-Full list: See `requirements.txt`
-
----
-
-## 🎯 API Endpoints Summary
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/auth/register/` | POST | User registration |
-| `/api/auth/login/` | POST | User login |
-| `/api/stores/` | GET/POST | List/create stores |
-| `/api/stores/{id}/` | PATCH | Update store |
-| `/api/stores/{id}/delete/` | DELETE | Delete store |
-| `/api/stores/{id}/settings/` | GET/PATCH | Store settings |
-| `/api/stores/{id}/domains/` | GET/POST | Domain management |
-| `/api/stores/{id}/domains/{domain_id}/` | GET/PATCH/DELETE | Domain detail |
-| `/api/stores/slug/check/` | POST | Check slug availability |
-| `/api/stores/slug/suggest/` | POST | Suggest slug candidates |
-| `/api/stores/{id}/categories/` | GET/POST | Category operations |
-| `/api/stores/{id}/categories/{category_id}/` | GET/PATCH/DELETE | Category details |
-| `/api/categories/stores/{id}/categories/` | GET/POST | Legacy-compatible category route |
-| `/api/categories/stores/{id}/categories/{category_id}/` | GET/PATCH/DELETE | Legacy-compatible category detail route |
-| `/api/products/{store_id}/products/` | GET/POST | Product operations |
-| `/api/products/{store_id}/products/{product_id}/` | GET/PATCH/DELETE | Product details |
-| `/api/products/{store_id}/products/{product_id}/images/` | GET/POST | Product images |
-| `/api/products/{store_id}/products/{product_id}/images/{image_id}/` | DELETE | Delete product image |
-| `/api/products/{store_id}/products/{product_id}/inventory/` | PUT/PATCH | Update inventory |
-| `/api/docs/` | GET | Swagger UI documentation |
-| `/api/redoc/` | GET | ReDoc documentation |
-| `/api/schema/` | GET | OpenAPI schema (JSON) |
-
----
-
-## 📞 Support & Contribution
-
-### Reporting Issues
-1. Check GitHub Issues
-2. Check troubleshooting section
-3. Check logs in `logs/` directory
-4. Create new issue with:
-   - Error message
-   - Steps to reproduce
-   - System info
-   - Logs
-
-### Contributing
-1. Create feature branch: `git checkout -b feature/name`
-2. Make changes
-3. Run tests: `python manage.py test`
-4. Commit: `git commit -m "description"`
-5. Push: `git push origin feature/name`
-6. Create Pull Request
-
----
-
-## 📄 License
-
-MIT License - See LICENSE file
-
----
-
-## Version History
-
-- v1.0.0 (2024-04-08)
-  - Initial release
-  - Complete API endpoints
-  - Multi-tenant support
-  - API documentation
-  - CI/CD pipeline
-  - 143 tests passing
-
----
-
-## Auth Session Bootstrap Endpoints
-
-- `POST /api/auth/register/` is a **public endpoint** for new user self-registration (no login required).
-- `GET /api/auth/me/` is a **protected endpoint** and requires `Authorization: Bearer <access_token>`.
-
-### GET /api/auth/me/
-
-Returns the current authenticated user identity derived from the access token.
-
-Example response:
-
-```json
-{
-  "user_id": 1,
-  "username": "omarMas",
-  "email": "omarmas@gmail.com",
-  "role": "Store Owner",
-  "tenant_id": 1,
-  "is_active": true,
-  "display_name": "Omar Mas",
-  "created_at": "2026-04-14T22:56:42.259202Z",
-  "updated_at": "2026-04-14T22:56:42.259202Z"
-}
-```
-
-Notes:
-- `tenant_id` may be `null` for `Super Admin` when no tenant is associated.
-- This endpoint does **not** return `access` or `refresh`.
-- This endpoint does **not** return stores; stores are fetched separately via `GET /api/stores/`.

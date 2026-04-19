@@ -3,6 +3,7 @@ Django settings for config project.
 """
 
 import os
+import sys
 from pathlib import Path
 from datetime import timedelta
 from urllib.parse import urlparse, unquote
@@ -250,3 +251,27 @@ AI_MODEL_NAME = os.getenv("AI_MODEL_NAME", "gpt-5.2")
 AI_TIMEOUT = int(os.getenv("AI_TIMEOUT", "30"))
 AI_DRAFT_TTL = int(os.getenv("AI_DRAFT_TTL", "3600"))
 AI_DRAFT_PREFIX = os.getenv("AI_DRAFT_PREFIX", "ai_draft")
+
+
+# Cache configuration for temporary AI drafts.
+# Redis is the adopted backend; local-memory fallback is allowed for tests/dev only.
+RUNNING_TESTS = "test" in sys.argv or bool(os.getenv("PYTEST_CURRENT_TEST"))
+CACHE_BACKEND = os.getenv("CACHE_BACKEND", "redis").strip().lower()
+REDIS_CACHE_URL = os.getenv("REDIS_CACHE_URL", "redis://127.0.0.1:6379/1")
+
+if RUNNING_TESTS or CACHE_BACKEND == "locmem":
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "ai-store-creation-local-cache",
+            "TIMEOUT": AI_DRAFT_TTL,
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_CACHE_URL,
+            "TIMEOUT": AI_DRAFT_TTL,
+        }
+    }

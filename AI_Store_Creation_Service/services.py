@@ -18,6 +18,7 @@ from products.models import Inventory, Product, ProductImage
 from stores.models import Store
 from themes.models import StoreThemeConfig
 
+from .models import AIStoreAuditLog
 from .draft_store import (
     delete_ai_draft,
     delete_ai_draft_meta,
@@ -49,6 +50,47 @@ from .validators import (
 
 logger = logging.getLogger(__name__)
 _ALLOWED_PARTIAL_TARGET_SECTIONS = {"theme", "categories", "products"}
+
+
+def _safe_int_or_none(value: Any) -> int | None:
+    try:
+        if value is None:
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _write_ai_audit_log(
+    *,
+    tenant_id: Any,
+    store_id: Any,
+    actor_id: Any,
+    action: str,
+    status: str,
+    message: str = "",
+) -> None:
+    """
+    Write a lightweight AI audit row.
+
+    Logging is intentionally non-critical and must never break the main flow.
+    """
+    try:
+        AIStoreAuditLog.objects.create(
+            tenant_id=_safe_int_or_none(tenant_id),
+            store_id=_safe_int_or_none(store_id),
+            actor_id=_safe_int_or_none(actor_id),
+            action=action,
+            status=status,
+            message=(message or "")[:500],
+        )
+    except Exception as exc:  # pragma: no cover
+        logger.warning(
+            "Non-critical AI audit logging failure. action=%s, status=%s, reason=%s",
+            action,
+            status,
+            str(exc),
+        )
 
 
 def _ensure_theme_template_is_available(
@@ -173,7 +215,7 @@ def generate_initial_store_draft(
     4) parse provider raw response
     5) run structural validators and mode detection
     6) save resulting draft + metadata to temporary storage
-    7) on parsing/validation failure, save standardized fallback payload
+    7) on parsing/validation failure, save standardized clarification-style fallback payload
     """
     if not user or not getattr(user, "is_authenticated", False):
         raise ValidationError("Authentication required")
@@ -188,8 +230,25 @@ def generate_initial_store_draft(
     if not store:
         raise ValidationError("Store not found or access denied")
 
+    _write_ai_audit_log(
+        tenant_id=store.tenant_id,
+        store_id=store.id,
+        actor_id=getattr(user, "id", None),
+        action="start_draft",
+        status="requested",
+        message="Initial AI draft generation requested.",
+    )
+
     available_theme_templates = get_available_theme_template_names()
     if not available_theme_templates:
+        _write_ai_audit_log(
+            tenant_id=store.tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="start_draft",
+            status="failed",
+            message="No available theme templates found.",
+        )
         raise ValidationError("No available theme templates found")
 
     normalized_description = user_store_description.strip()
@@ -206,6 +265,7 @@ def generate_initial_store_draft(
     try:
         provider = get_ai_provider_client()
         raw_response = provider.generate_store_draft(
+            tenant_id=store.tenant_id,
             store_id=store.id,
             user_store_description=normalized_description,
             available_theme_templates=available_theme_templates,
@@ -240,10 +300,18 @@ def generate_initial_store_draft(
                 "original_user_store_description": normalized_description,
             },
         )
+        _write_ai_audit_log(
+            tenant_id=store.tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="start_draft",
+            status="completed",
+            message=f"Initial draft completed with mode '{mode}'.",
+        )
         return payload
     except (AIProviderParsingError, AIDraftSchemaValidationError, Exception) as exc:
         logger.warning(
-            "Initial AI draft generation failed; saving standardized fallback. "
+            "Initial AI draft generation failed; saving standardized clarification-style fallback. "
             "store_id=%s, reason=%s",
             store.id,
             str(exc),
@@ -260,6 +328,14 @@ def generate_initial_store_draft(
                 "reason": str(exc),
                 "original_user_store_description": normalized_description,
             },
+        )
+        _write_ai_audit_log(
+            tenant_id=store.tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="start_draft",
+            status="failed",
+            message=str(exc),
         )
         return fallback_payload
 
@@ -334,20 +410,61 @@ def process_clarification_round(
     if not store:
         raise ValidationError("Store not found or access denied")
 
+    _write_ai_audit_log(
+        tenant_id=normalized_tenant_id,
+        store_id=store.id,
+        actor_id=getattr(user, "id", None),
+        action="clarification_round",
+        status="requested",
+        message="Clarification round requested.",
+    )
+
     current_draft = get_ai_draft(store.id)
     if current_draft is None:
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="clarification_round",
+            status="failed",
+            message="No temporary AI draft found for this store.",
+        )
         raise ValidationError("No temporary AI draft found for this store")
 
     draft_meta = get_ai_draft_meta(store.id) or {}
     current_status = draft_meta.get("status")
     if current_status != "needs_clarification":
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="clarification_round",
+            status="failed",
+            message="Current workflow state does not require clarification.",
+        )
         raise ValidationError("Current workflow state does not require clarification")
 
     if not current_draft.get("clarification_needed", False):
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="clarification_round",
+            status="failed",
+            message="Current draft is not in clarification mode.",
+        )
         raise ValidationError("Current draft is not in clarification mode")
 
     original_description = draft_meta.get("original_user_store_description")
     if not isinstance(original_description, str) or not original_description.strip():
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="clarification_round",
+            status="failed",
+            message="Original user store description missing from metadata.",
+        )
         raise ValidationError("Original user store description is missing from draft metadata")
 
     raw_round_count = draft_meta.get("clarification_round_count", 0)
@@ -376,18 +493,50 @@ def process_clarification_round(
                 ),
             },
         )
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="clarification_round",
+            status="failed",
+            message="Clarification round limit reached.",
+        )
         return fallback_payload
     if clarification_answers is None:
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="clarification_round",
+            status="failed",
+            message="clarification_answers is required.",
+        )
         raise ValidationError("clarification_answers is required")
 
     if isinstance(clarification_answers, str):
         clarification_input = clarification_answers.strip()
     else:
         if clarification_answers in ({}, [], ()):
+            _write_ai_audit_log(
+                tenant_id=normalized_tenant_id,
+                store_id=store.id,
+                actor_id=getattr(user, "id", None),
+                action="clarification_round",
+                status="failed",
+                message="clarification_answers is required.",
+            )
             raise ValidationError("clarification_answers is required")
         clarification_input = json.dumps(clarification_answers, ensure_ascii=False)
 
     if not clarification_input or clarification_input in {"null", "{}", "[]", '""'}:
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="clarification_round",
+            status="failed",
+            message="clarification_answers is required.",
+        )
         raise ValidationError("clarification_answers is required")
 
     existing_history = (
@@ -420,6 +569,7 @@ def process_clarification_round(
     try:
         provider = get_ai_provider_client()
         raw_response = provider.clarify_store_draft(
+            tenant_id=normalized_tenant_id,
             store_id=store.id,
             current_draft=current_draft,
             prompt=clarification_input,
@@ -464,6 +614,14 @@ def process_clarification_round(
                     "clarification_history": updated_history,
                 },
             )
+            _write_ai_audit_log(
+                tenant_id=normalized_tenant_id,
+                store_id=store.id,
+                actor_id=getattr(user, "id", None),
+                action="clarification_round",
+                status="completed",
+                message="Clarification round completed with draft_ready mode.",
+            )
             return payload
 
         if new_round_count >= 3:
@@ -483,6 +641,14 @@ def process_clarification_round(
                     "clarification_history": updated_history,
                 },
             )
+            _write_ai_audit_log(
+                tenant_id=normalized_tenant_id,
+                store_id=store.id,
+                actor_id=getattr(user, "id", None),
+                action="clarification_round",
+                status="failed",
+                message="Clarification round limit reached.",
+            )
             return fallback_payload
 
         save_ai_draft(store.id, payload)
@@ -499,11 +665,19 @@ def process_clarification_round(
                 "clarification_history": updated_history,
             },
         )
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="clarification_round",
+            status="completed",
+            message="Clarification round completed with clarification mode.",
+        )
         return payload
 
     except (AIProviderParsingError, AIDraftSchemaValidationError, Exception) as exc:
         logger.warning(
-            "Clarification round failed; saving standardized fallback. "
+            "Clarification round failed; saving standardized clarification-style fallback. "
             "store_id=%s, reason=%s",
             store.id,
             str(exc),
@@ -523,6 +697,14 @@ def process_clarification_round(
                 "latest_clarification_input": clarification_input,
                 "clarification_history": updated_history,
             },
+        )
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="clarification_round",
+            status="failed",
+            message=str(exc),
         )
         return fallback_payload
 
@@ -561,18 +743,51 @@ def regenerate_store_draft(
     if not store:
         raise ValidationError("Store not found or access denied")
 
+    _write_ai_audit_log(
+        tenant_id=normalized_tenant_id,
+        store_id=store.id,
+        actor_id=getattr(user, "id", None),
+        action="full_regenerate",
+        status="requested",
+        message="Full regeneration requested.",
+    )
+
     current_draft = get_ai_draft(store.id)
     if current_draft is None:
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="full_regenerate",
+            status="failed",
+            message="No temporary AI draft found for this store.",
+        )
         raise ValidationError("No temporary AI draft found for this store")
 
     draft_meta = get_ai_draft_meta(store.id) or {}
     original_description = draft_meta.get("original_user_store_description")
     if not isinstance(original_description, str) or not original_description.strip():
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="full_regenerate",
+            status="failed",
+            message="Original user store description missing from metadata.",
+        )
         raise ValidationError("Original user store description is missing from draft metadata")
     normalized_description = original_description.strip()
 
     available_theme_templates = get_available_theme_template_names()
     if not available_theme_templates:
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="full_regenerate",
+            status="failed",
+            message="No available theme templates found.",
+        )
         raise ValidationError("No available theme templates found")
 
     clarification_history = (
@@ -608,6 +823,7 @@ def regenerate_store_draft(
     try:
         provider = get_ai_provider_client()
         raw_response = provider.regenerate_store_draft(
+            tenant_id=normalized_tenant_id,
             store_id=store.id,
             original_store_description=normalized_description,
             current_draft=current_draft,
@@ -643,6 +859,14 @@ def regenerate_store_draft(
                     "clarification_history": clarification_history,
                 },
             )
+            _write_ai_audit_log(
+                tenant_id=normalized_tenant_id,
+                store_id=store.id,
+                actor_id=getattr(user, "id", None),
+                action="full_regenerate",
+                status="completed",
+                message="Full regeneration completed with draft_ready mode.",
+            )
             return payload
 
         save_ai_draft(store.id, payload)
@@ -659,11 +883,19 @@ def regenerate_store_draft(
                 "clarification_history": clarification_history,
             },
         )
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="full_regenerate",
+            status="completed",
+            message="Full regeneration completed with clarification mode.",
+        )
         return payload
 
     except (AIProviderParsingError, AIDraftSchemaValidationError, Exception) as exc:
         logger.warning(
-            "Full draft regeneration failed; saving standardized fallback. "
+            "Full draft regeneration failed; saving standardized clarification-style fallback. "
             "store_id=%s, reason=%s",
             store.id,
             str(exc),
@@ -683,6 +915,14 @@ def regenerate_store_draft(
                 "latest_clarification_input": latest_clarification_input,
                 "clarification_history": clarification_history,
             },
+        )
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="full_regenerate",
+            status="failed",
+            message=str(exc),
         )
         return fallback_payload
 
@@ -735,13 +975,38 @@ def regenerate_store_draft_section(
     if not store:
         raise ValidationError("Store not found or access denied")
 
+    _write_ai_audit_log(
+        tenant_id=normalized_tenant_id,
+        store_id=store.id,
+        actor_id=getattr(user, "id", None),
+        action="partial_regenerate",
+        status="requested",
+        message=f"Partial regeneration requested for section '{normalized_target_section}'.",
+    )
+
     current_draft = get_ai_draft(store.id)
     if current_draft is None:
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="partial_regenerate",
+            status="failed",
+            message="No temporary AI draft found for this store.",
+        )
         raise ValidationError("No temporary AI draft found for this store")
 
     draft_meta = get_ai_draft_meta(store.id) or {}
     original_description = draft_meta.get("original_user_store_description")
     if not isinstance(original_description, str) or not original_description.strip():
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="partial_regenerate",
+            status="failed",
+            message="Original user store description missing from metadata.",
+        )
         raise ValidationError("Original user store description is missing from draft metadata")
     normalized_description = original_description.strip()
 
@@ -764,6 +1029,14 @@ def regenerate_store_draft_section(
 
     current_status = draft_meta.get("status")
     if current_status != "draft_ready":
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="partial_regenerate",
+            status="failed",
+            message="Partial regeneration requires draft_ready workflow state.",
+        )
         raise ValidationError(
             "Partial regeneration is allowed only when current workflow state is draft_ready"
         )
@@ -775,11 +1048,20 @@ def regenerate_store_draft_section(
     if normalized_target_section == "theme":
         available_theme_templates = get_available_theme_template_names()
         if not available_theme_templates:
+            _write_ai_audit_log(
+                tenant_id=normalized_tenant_id,
+                store_id=store.id,
+                actor_id=getattr(user, "id", None),
+                action="partial_regenerate",
+                status="failed",
+                message="No available theme templates found.",
+            )
             raise ValidationError("No available theme templates found")
 
     try:
         provider = get_ai_provider_client()
         raw_response = provider.regenerate_store_draft_section(
+            tenant_id=normalized_tenant_id,
             store_id=store.id,
             target_section=normalized_target_section,
             original_store_description=normalized_description,
@@ -832,6 +1114,14 @@ def regenerate_store_draft_section(
                 "last_partial_regeneration_target_section": normalized_target_section,
             },
         )
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="partial_regenerate",
+            status="completed",
+            message=f"Partial regeneration completed for section '{normalized_target_section}'.",
+        )
         return updated_draft
 
     except (AIProviderParsingError, AIDraftSchemaValidationError, Exception) as exc:
@@ -856,6 +1146,14 @@ def regenerate_store_draft_section(
                 "last_partial_regeneration_target_section": normalized_target_section,
                 "last_partial_regeneration_error": str(exc),
             },
+        )
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="partial_regenerate",
+            status="failed",
+            message=str(exc),
         )
         raise ValidationError(
             f"Partial regeneration failed for section '{normalized_target_section}'."
@@ -1263,12 +1561,37 @@ def apply_current_ai_draft_to_store(
     if not store:
         raise ValidationError("Store not found or access denied")
 
+    _write_ai_audit_log(
+        tenant_id=normalized_tenant_id,
+        store_id=store.id,
+        actor_id=getattr(user, "id", None),
+        action="apply_draft",
+        status="requested",
+        message="Apply current AI draft requested.",
+    )
+
     current_draft = get_ai_draft(store.id)
     if current_draft is None:
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="apply_draft",
+            status="failed",
+            message="No temporary AI draft found for this store.",
+        )
         raise ValidationError("No temporary AI draft found for this store")
 
     draft_meta = get_ai_draft_meta(store.id) or {}
     if draft_meta.get("status") != "draft_ready":
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="apply_draft",
+            status="failed",
+            message="Current workflow state is not draft_ready.",
+        )
         raise ValidationError("Current workflow state is not draft_ready")
 
     def _cleanup_draft_after_commit() -> None:
@@ -1282,28 +1605,47 @@ def apply_current_ai_draft_to_store(
                 str(exc),
             )
 
-    with transaction.atomic():
-        apply_current_ai_draft_store_core(
-            store_id=store.id,
-            user=user,
-            tenant_id=normalized_tenant_id,
-        )
-        categories_result = apply_current_ai_draft_categories(
-            store_id=store.id,
-            user=user,
-            tenant_id=normalized_tenant_id,
-        )
-        products_result = apply_current_ai_draft_products(
-            store_id=store.id,
-            user=user,
-            tenant_id=normalized_tenant_id,
-        )
+    try:
+        with transaction.atomic():
+            apply_current_ai_draft_store_core(
+                store_id=store.id,
+                user=user,
+                tenant_id=normalized_tenant_id,
+            )
+            categories_result = apply_current_ai_draft_categories(
+                store_id=store.id,
+                user=user,
+                tenant_id=normalized_tenant_id,
+            )
+            products_result = apply_current_ai_draft_products(
+                store_id=store.id,
+                user=user,
+                tenant_id=normalized_tenant_id,
+            )
 
-        store.status = "setup"
-        store.save(update_fields=["status", "updated_at"])
+            store.status = "setup"
+            store.save(update_fields=["status", "updated_at"])
 
-        transaction.on_commit(_cleanup_draft_after_commit)
+            transaction.on_commit(_cleanup_draft_after_commit)
+    except Exception as exc:
+        _write_ai_audit_log(
+            tenant_id=normalized_tenant_id,
+            store_id=store.id,
+            actor_id=getattr(user, "id", None),
+            action="apply_draft",
+            status="failed",
+            message=str(exc),
+        )
+        raise
 
+    _write_ai_audit_log(
+        tenant_id=normalized_tenant_id,
+        store_id=store.id,
+        actor_id=getattr(user, "id", None),
+        action="apply_draft",
+        status="completed",
+        message="Current AI draft applied successfully.",
+    )
     return {
         "store_id": store.id,
         "final_status": "setup",

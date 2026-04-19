@@ -41,6 +41,7 @@ class AIProviderContract(ABC):
     def generate_store_draft(
         self,
         *,
+        tenant_id: int,
         store_id: int,
         user_store_description: str,
         available_theme_templates: Sequence[str],
@@ -55,6 +56,7 @@ class AIProviderContract(ABC):
     def clarify_store_draft(
         self,
         *,
+        tenant_id: int,
         store_id: int,
         current_draft: Mapping[str, Any],
         prompt: str,
@@ -70,6 +72,7 @@ class AIProviderContract(ABC):
     def regenerate_store_draft(
         self,
         *,
+        tenant_id: int,
         store_id: int,
         original_store_description: str,
         current_draft: Mapping[str, Any],
@@ -86,6 +89,7 @@ class AIProviderContract(ABC):
     def regenerate_store_draft_section(
         self,
         *,
+        tenant_id: int,
         store_id: int,
         target_section: str,
         original_store_description: str,
@@ -154,6 +158,7 @@ class OpenAIProviderClient(AIProviderContract):
     def generate_store_draft(
         self,
         *,
+        tenant_id: int,
         store_id: int,
         user_store_description: str,
         available_theme_templates: Sequence[str],
@@ -164,6 +169,8 @@ class OpenAIProviderClient(AIProviderContract):
         `store_id` remains part of the contract for workflow anchoring.
         """
         messages = build_generate_store_draft_messages(
+            tenant_id=tenant_id,
+            store_id=store_id,
             user_store_description=user_store_description,
             available_theme_templates=available_theme_templates,
         )
@@ -172,12 +179,14 @@ class OpenAIProviderClient(AIProviderContract):
     def clarify_store_draft(
         self,
         *,
+        tenant_id: int,
         store_id: int,
         current_draft: Mapping[str, Any],
         prompt: str,
         context: Mapping[str, Any] | None = None,
     ) -> ProviderRawResponse:
         messages = build_clarify_store_draft_messages(
+            tenant_id=tenant_id,
             store_id=store_id,
             current_draft=current_draft,
             prompt=prompt,
@@ -188,6 +197,7 @@ class OpenAIProviderClient(AIProviderContract):
     def regenerate_store_draft(
         self,
         *,
+        tenant_id: int,
         store_id: int,
         original_store_description: str,
         current_draft: Mapping[str, Any],
@@ -201,6 +211,7 @@ class OpenAIProviderClient(AIProviderContract):
         and optional available template names.
         """
         messages = build_regenerate_store_draft_messages(
+            tenant_id=tenant_id,
             store_id=store_id,
             original_store_description=original_store_description,
             current_draft=current_draft,
@@ -212,6 +223,7 @@ class OpenAIProviderClient(AIProviderContract):
     def regenerate_store_draft_section(
         self,
         *,
+        tenant_id: int,
         store_id: int,
         target_section: str,
         original_store_description: str,
@@ -223,6 +235,7 @@ class OpenAIProviderClient(AIProviderContract):
         Execute official partial-regeneration flow for one target section.
         """
         messages = build_regenerate_store_draft_section_messages(
+            tenant_id=tenant_id,
             store_id=store_id,
             target_section=target_section,
             original_store_description=original_store_description,
