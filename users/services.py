@@ -101,3 +101,53 @@ Support Team"""
     except Exception as e:
         logger.error(f"Failed to send email: {str(e)}")
         raise
+
+
+def _build_unique_username(base_username: str) -> str:
+    candidate = base_username
+    counter = 1
+    while User.objects.filter(username=candidate).exists():
+        candidate = f"{base_username}{counter}"
+        counter += 1
+    return candidate
+
+
+def create_or_update_superadmin_account(
+    *,
+    email: str = "superadmin@gmail.com",
+    password: str,
+) -> tuple[User, bool]:
+    """
+    Backend-controlled Super Admin bootstrap/update path.
+
+    This path is intentionally separate from public registration.
+    """
+    if not isinstance(password, str) or len(password.strip()) < 8:
+        raise ValueError("Super Admin password must be at least 8 characters.")
+
+    normalized_email = email.strip().lower()
+    user = User.objects.filter(email=normalized_email).first()
+    created = user is None
+
+    if created:
+        user = User(
+            username=_build_unique_username("superadmin"),
+            email=normalized_email,
+        )
+
+    user.role = "Super Admin"
+    user.is_active = True
+    user.is_staff = True
+    user.is_superuser = True
+    user.tenant_id = None
+    user.activation_token = None
+    user.set_password(password.strip())
+    user.save()
+
+    logger.info(
+        "Backend Super Admin account %s: email=%s, user_id=%s",
+        "created" if created else "updated",
+        user.email,
+        user.id,
+    )
+    return user, created

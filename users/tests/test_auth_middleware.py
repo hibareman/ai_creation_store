@@ -41,6 +41,20 @@ class AuthActivationTests(TestCase):
         self.assertEqual(resp.status_code, 403)
         self.assertIn('Email not verified', resp.data.get('detail', ''))
 
+    def test_login_invalid_credentials_returns_401(self):
+        user = User.objects.create(username='wrongpass', email='wrongpass@example.com', is_active=True)
+        user.set_password('CorrectPass123!')
+        user.save()
+
+        resp = self.client.post(
+            '/api/auth/login/',
+            {'email': 'wrongpass@example.com', 'password': 'WrongPass123!'},
+            format='json',
+        )
+
+        self.assertEqual(resp.status_code, 401)
+        self.assertIn('Invalid credentials', str(resp.data.get('detail', '')))
+
     def test_activation_link_activates_and_returns_tokens(self):
         # register user via service to ensure activation token semantics
         user = services.register_user(username='carol', email='carol@example.com', password='pwxyz')

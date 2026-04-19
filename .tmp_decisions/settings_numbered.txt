@@ -1,0 +1,252 @@
+    1: """
+    2: Django settings for config project.
+    3: """
+    4: 
+    5: import os
+    6: from pathlib import Path
+    7: from datetime import timedelta
+    8: from urllib.parse import urlparse, unquote
+    9: 
+   10: BASE_DIR = Path(__file__).resolve().parent.parent
+   11: 
+   12: SECRET_KEY = os.getenv(
+   13:     "SECRET_KEY",
+   14:     "django-insecure-%guzx%8oun1^^b*h+05ig*blhk*$9&szs22_^b1x!n*%-q)f72",
+   15: )
+   16: 
+   17: DEBUG = os.getenv("DEBUG", "True").lower() == "true"
+   18: 
+   19: ALLOWED_HOSTS = ['*', 'testserver', 'localhost', '127.0.0.1']
+   20: 
+   21: AUTH_USER_MODEL = "users.User"
+   22: 
+   23: 
+   24: INSTALLED_APPS = [
+   25:     'django.contrib.admin',
+   26:     'django.contrib.auth',
+   27:     'django.contrib.contenttypes',
+   28:     'django.contrib.sessions',
+   29:     'django.contrib.messages',
+   30:     'django.contrib.staticfiles',
+   31: 
+   32:     'rest_framework',
+   33:     'drf_spectacular',
+   34: 
+   35:     'users',
+   36:     'stores',
+   37:     'categories',
+   38:     'products',
+   39:     'themes',
+   40:     'AI_Store_Creation_Service',
+   41: ]
+   42: 
+   43: 
+   44: MIDDLEWARE = [
+   45:     'django.middleware.security.SecurityMiddleware',
+   46:     'django.contrib.sessions.middleware.SessionMiddleware',
+   47:     'users.middleware.JWTTenantMiddleware',
+   48:     'django.middleware.common.CommonMiddleware',
+   49:     'django.middleware.csrf.CsrfViewMiddleware',
+   50:     'django.contrib.auth.middleware.AuthenticationMiddleware',
+   51:     'django.contrib.messages.middleware.MessageMiddleware',
+   52:     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+   53:     # Custom middleware for error handling and request context
+   54:     'utils.middleware.RequestContextMiddleware',
+   55:     'utils.middleware.ExceptionHandlerMiddleware',
+   56: ]
+   57: 
+   58: 
+   59: ROOT_URLCONF = 'config.urls'
+   60: 
+   61: 
+   62: TEMPLATES = [
+   63:     {
+   64:         'BACKEND': 'django.template.backends.django.DjangoTemplates',
+   65:         'DIRS': [],
+   66:         'APP_DIRS': True,
+   67:         'OPTIONS': {
+   68:             'context_processors': [
+   69:                 'django.template.context_processors.request',
+   70:                 'django.contrib.auth.context_processors.auth',
+   71:                 'django.contrib.messages.context_processors.messages',
+   72:             ],
+   73:         },
+   74:     },
+   75: ]
+   76: 
+   77: 
+   78: WSGI_APPLICATION = 'config.wsgi.application'
+   79: 
+   80: 
+   81: def _database_config_from_url(database_url: str):
+   82:     parsed = urlparse(database_url)
+   83:     scheme = (parsed.scheme or "").lower()
+   84: 
+   85:     if scheme in ("postgres", "postgresql"):
+   86:         return {
+   87:             "ENGINE": "django.db.backends.postgresql",
+   88:             "NAME": (parsed.path or "").lstrip("/"),
+   89:             "USER": unquote(parsed.username or ""),
+   90:             "PASSWORD": unquote(parsed.password or ""),
+   91:             "HOST": parsed.hostname or "",
+   92:             "PORT": str(parsed.port or ""),
+   93:         }
+   94: 
+   95:     if scheme in ("sqlite", "sqlite3"):
+   96:         db_path = (parsed.path or "").lstrip("/") or "db.sqlite3"
+   97:         return {
+   98:             "ENGINE": "django.db.backends.sqlite3",
+   99:             "NAME": str(BASE_DIR / db_path),
+  100:         }
+  101: 
+  102:     raise ValueError(f"Unsupported DATABASE_URL scheme: {scheme}")
+  103: 
+  104: 
+  105: DATABASE_URL = os.getenv("DATABASE_URL")
+  106: if DATABASE_URL:
+  107:     DATABASES = {
+  108:         "default": _database_config_from_url(DATABASE_URL)
+  109:     }
+  110: else:
+  111:     DATABASES = {
+  112:         "default": {
+  113:             "ENGINE": os.getenv("DB_ENGINE", "django.db.backends.postgresql"),
+  114:             "NAME": os.getenv("DB_NAME", "ai_store_db"),
+  115:             "USER": os.getenv("DB_USER", "postgres"),
+  116:             "PASSWORD": os.getenv("DB_PASSWORD", "1234"),
+  117:             "HOST": os.getenv("DB_HOST", "localhost"),
+  118:             "PORT": os.getenv("DB_PORT", "5433"),
+  119:         }
+  120:     }
+  121: 
+  122: 
+  123: REST_FRAMEWORK = {
+  124:     "DEFAULT_AUTHENTICATION_CLASSES": (
+  125:         "rest_framework_simplejwt.authentication.JWTAuthentication",
+  126:     ),
+  127:     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+  128: }
+  129: 
+  130: # drf-spectacular Configuration
+  131: SPECTACULAR_SETTINGS = {
+  132:     "TITLE": "AI Store Backend API",
+  133:     "DESCRIPTION": """
+  134:     Multi-Tenant E-commerce Backend API with AI-Powered Features
+  135:     
+  136:     **Authentication:**
+  137:     - JWT Bearer Token (SimplJWT)
+  138:     - Email/Password login
+  139:     - Email activation required
+  140:     
+  141:     **Features:**
+  142:     - Multi-tenant isolation (tenant_id per user)
+  143:     - Store management (CRUD, domains, settings)
+  144:     - Product catalog with categories
+  145:     - Inventory management
+  146:     - Image gallery
+  147:     
+  148:     **API Endpoints:**
+  149:     - `/api/auth/` - User authentication
+  150:     - `/api/auth/me/` - Protected current-user identity endpoint (Bearer token required)
+  151:     - `/api/auth/register/` - Public self-registration endpoint (no authentication required)
+  152:     - `/api/stores/` - Store management
+  153:     - `/api/` - Products and Categories
+  154:     - `/api/docs/` - Swagger UI (this page)
+  155:     - `/api/redoc/` - ReDoc documentation
+  156:     - `/api/schema/` - OpenAPI schema (JSON)
+  157:     """,
+  158:     "VERSION": "1.0.0",
+  159:     "CONTACT": {
+  160:         "name": "Support Team",
+  161:         "email": "support@example.com",
+  162:     },
+  163:     "LICENSE": {
+  164:         "name": "MIT",
+  165:     },
+  166:     "SERVERS": [
+  167:         {
+  168:             "url": "http://localhost:8000",
+  169:             "description": "Development Server",
+  170:         },
+  171:         {
+  172:             "url": "https://api.example.com",
+  173:             "description": "Production Server",
+  174:         },
+  175:     ],
+  176:     "SCHEMA_PATH_PREFIX": "/api/",
+  177:     "AUTHENTICATION_CLASSES": [
+  178:         "rest_framework_simplejwt.authentication.JWTAuthentication",
+  179:     ],
+  180:     "SECURITY_SCHEMES": {
+  181:         "Bearer": {
+  182:             "type": "http",
+  183:             "scheme": "bearer",
+  184:             "bearerFormat": "JWT",
+  185:             "description": "JWT Bearer token for API authentication",
+  186:         }
+  187:     },
+  188:     "SECURITY": [
+  189:         {
+  190:             "Bearer": []
+  191:         }
+  192:     ],
+  193:     "PRELOAD_ENUM_CHOICES": True,
+  194:     "ENUM_GENERATE_CHOICES": True,
+  195:     "TAGS_SORT_ALPHABETICALLY": False,
+  196:     "X_IGNORE_AUTODISCOVERY": False,
+  197: }
+  198: 
+  199: 
+  200: SIMPLE_JWT = {
+  201:     "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
+  202:     "AUTH_HEADER_TYPES": ("Bearer",),
+  203: }
+  204: 
+  205: 
+  206: AUTH_PASSWORD_VALIDATORS = [
+  207:     {
+  208:         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+  209:     },
+  210:     {
+  211:         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+  212:     },
+  213:     {
+  214:         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+  215:     },
+  216:     {
+  217:         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+  218:     },
+  219: ]
+  220: 
+  221: 
+  222: LANGUAGE_CODE = 'en-us'
+  223: 
+  224: TIME_ZONE = 'UTC'
+  225: 
+  226: USE_I18N = True
+  227: 
+  228: USE_TZ = True
+  229: 
+  230: 
+  231: STATIC_URL = 'static/'
+  232: MEDIA_URL = '/media/'
+  233: MEDIA_ROOT = BASE_DIR / 'media'
+  234: 
+  235: # Email backend for development (console)
+  236: EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+  237: DEFAULT_FROM_EMAIL = 'noreply@example.com'
+  238: 
+  239: # Logging configuration
+  240: LOGGING_CONFIG = 'logging.config.dictConfig'
+  241: 
+  242: from utils.logging_config import LOGGING_CONFIG as CUSTOM_LOGGING  # noqa
+  243: 
+  244: LOGGING = CUSTOM_LOGGING
+  245: 
+  246: 
+  247: # AI Store Creation configuration (foundation only)
+  248: AI_API_KEY = os.getenv("AI_API_KEY", "")
+  249: AI_MODEL_NAME = os.getenv("AI_MODEL_NAME", "gpt-5.2")
+  250: AI_TIMEOUT = int(os.getenv("AI_TIMEOUT", "30"))
+  251: AI_DRAFT_TTL = int(os.getenv("AI_DRAFT_TTL", "3600"))
+  252: AI_DRAFT_PREFIX = os.getenv("AI_DRAFT_PREFIX", "ai_draft")

@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'corsheaders',
     'rest_framework',
     'drf_spectacular',
 
@@ -44,6 +45,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'users.middleware.JWTTenantMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -119,6 +121,15 @@ else:
             "PORT": os.getenv("DB_PORT", "5433"),
         }
     }
+
+
+CORS_ALLOW_ALL_ORIGINS = os.getenv("CORS_ALLOW_ALL_ORIGINS", "False").lower() == "true"
+if not CORS_ALLOW_ALL_ORIGINS:
+    _cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
+    CORS_ALLOWED_ORIGINS = [
+        origin.strip() for origin in _cors_origins.split(",") if origin.strip()
+    ]
+CORS_ALLOW_CREDENTIALS = os.getenv("CORS_ALLOW_CREDENTIALS", "True").lower() == "true"
 
 
 REST_FRAMEWORK = {

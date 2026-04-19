@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.exceptions import AuthenticationFailed
 from .models import User
 from django.contrib.auth import get_user_model
 
@@ -13,7 +14,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     - username: Unique username (required, max 150 characters)
     - email: Unique email address (required)
     - password: User password (write_only, required)
-    - role: User role - Admin, Store Owner, or Customer (optional)
+    - role: User role (self-registration supports Store Owner only)
     
     **Features:**
     - Password hashing: Passwords are automatically hashed using Django's secure function
@@ -42,7 +43,7 @@ class RegisterSerializer(serializers.ModelSerializer):
                 "required": True,
             },
             "role": {
-                "help_text": "User role: Admin, Store Owner, or Customer",
+                "help_text": "User role (public registration supports Store Owner only)",
                 "required": False,
             },
         }
@@ -105,10 +106,10 @@ class LoginSerializer(serializers.Serializer):
         try:
             user = UserModel.objects.get(email=data["email"])
         except UserModel.DoesNotExist:
-            raise serializers.ValidationError("Invalid credentials")
+            raise AuthenticationFailed("Invalid credentials")
 
         if not user.check_password(data["password"]):
-            raise serializers.ValidationError("Invalid credentials")
+            raise AuthenticationFailed("Invalid credentials")
 
         data["user"] = user
         return data

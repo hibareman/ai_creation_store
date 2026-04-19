@@ -1,39 +1,60 @@
-# AI Store Creation Backend
+# 🛍️ AI-Assisted Multi-Tenant E-Commerce Store Builder (Backend)
 
-Production-style backend built with **Django + DRF** for a multi-tenant e-commerce system, including AI-assisted store draft generation and apply workflow.
+## 📌 Overview
+This project is a production-style backend built with Django + DRF for a multi-tenant e-commerce system.  
+It supports core commerce modules (auth, stores, categories, products, themes) and an AI-assisted store setup workflow that generates and applies a draft store configuration.
 
-## Implemented Features
-- JWT authentication and account activation flow.
-- Tenant isolation via middleware (`request.tenant_id`).
-- Store management: Store, StoreSettings, StoreDomain, slug helpers.
-- Category management with owner + tenant checks.
-- Product management with images and inventory.
-- Theme Foundation (template catalog + per-store theme config).
+## ✨ Core Features
+- Multi-tenant isolation via trusted middleware context (`request.tenant_id`).
+- JWT authentication + email activation flow.
+- Role-aware access control.
+- Store management (store, settings, custom domains, slug tools).
+- Category and product management (including product images and inventory).
+- Theme foundation (template catalog + per-store theme config).
 - AI Store Creation workflow:
   - start draft
-  - get current draft
+  - current draft retrieval
   - clarification rounds
   - full regenerate
-  - partial regenerate (theme/categories/products)
-  - apply draft
-- Official fallback policy: **clarification-style fallback**.
+  - partial regenerate (`theme`, `categories`, `products`)
+  - confirm/apply
+- Redis-backed temporary AI draft cache with TTL.
 - Lightweight AI audit logging.
 
----
+## 🧰 Tech Stack
+- Backend: Django, Django REST Framework
+- API docs: drf-spectacular (Swagger/ReDoc/OpenAPI)
+- Auth: JWT (SimpleJWT)
+- Database: PostgreSQL (SQLite only optional fallback via `DATABASE_URL`)
+- Cache: Redis (adopted), LocMem fallback for tests/dev
+- AI Provider integration: OpenAI-style provider layer (config-driven)
 
-## Prerequisites
+## 🏗️ Project Structure
+- `config/` - project settings and root URLs
+- `users/` - authentication, registration, activation, current user identity
+- `stores/` - store core, settings, domains, slug helpers
+- `categories/` - store categories with tenant/owner checks
+- `products/` - products, images, inventory
+- `themes/` - templates + store theme config
+- `AI_Store_Creation_Service/` - AI workflow (draft generation, clarification, regeneration, apply)
+
+## ✅ Prerequisites
 - Python 3.12+
 - PostgreSQL
-- Redis (for temporary AI draft cache)
+- Redis
+- Git
+- (Optional for frontend app) Node.js 18+
 
----
+## 🚀 Local Setup (Step-by-Step)
 
-## Setup and Run (Ordered)
-
-### 1) Clone and create virtual environment
+### 1) Clone repository
 ```bash
 git clone <repo-url>
 cd ai_store_creation
+```
+
+### 2) Create and activate virtual environment
+```bash
 python -m venv .venv
 ```
 
@@ -47,178 +68,197 @@ Windows PowerShell:
 .venv\Scripts\Activate.ps1
 ```
 
-### 2) Install dependencies
+### 3) Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3) Configure environment variables (`.env`)
-Create or update `.env` in project root:
+### 4) Configure environment variables
+Create `.env` in project root.
 
-```env
-# Django
-SECRET_KEY=change-me
-DEBUG=True
-
-# Preferred DB config
-DATABASE_URL=postgresql://postgres:1234@localhost:5433/ai_store_db
-
-# Optional DATABASE_URL fallback
-DB_ENGINE=django.db.backends.postgresql
-DB_NAME=ai_store_db
-DB_USER=postgres
-DB_PASSWORD=1234
-DB_HOST=localhost
-DB_PORT=5433
-
-# Cache / Redis (AI draft temp storage)
-CACHE_BACKEND=redis
-REDIS_CACHE_URL=redis://127.0.0.1:6379/1
-
-# AI settings
-AI_API_KEY=
-AI_MODEL_NAME=gpt-5.2
-AI_TIMEOUT=30
-AI_DRAFT_TTL=3600
-AI_DRAFT_PREFIX=ai_draft
-```
-
-Notes:
-- Test mode uses local cache fallback automatically.
-- You can force local cache in development with `CACHE_BACKEND=locmem`.
-
-### 4) Run migrations
+### 5) Run migrations
 ```bash
 python manage.py migrate
 ```
 
-### 5) Create admin user (recommended)
+### 6) (Optional) Create regular Django admin user
 ```bash
 python manage.py createsuperuser
 ```
 
-### 6) Start server
+### 7) Run backend server
 ```bash
 python manage.py runserver
 ```
 
----
+Backend default URL: `http://localhost:8000`
 
-## API Docs
-- Swagger UI: `GET /api/docs/`
-- ReDoc: `GET /api/redoc/`
-- OpenAPI schema: `GET /api/schema/`
+## 🔐 Environment Variables
+Use these in `.env` (do not commit secrets):
 
----
+| Variable | Required | Purpose | Example |
+|---|---|---|---|
+| `SECRET_KEY` | Yes | Django secret key | `change-me` |
+| `DEBUG` | Yes | Debug mode | `True` |
+| `ALLOWED_HOSTS` | Optional (project currently permissive) | Allowed hosts policy | `localhost,127.0.0.1` |
+| `DATABASE_URL` | Recommended | Main DB connection URL | `postgresql://postgres:1234@localhost:5433/ai_store_db` |
+| `DB_ENGINE` | Optional fallback | DB engine when `DATABASE_URL` absent | `django.db.backends.postgresql` |
+| `DB_NAME` | Optional fallback | DB name | `ai_store_db` |
+| `DB_USER` | Optional fallback | DB user | `postgres` |
+| `DB_PASSWORD` | Optional fallback | DB password | `1234` |
+| `DB_HOST` | Optional fallback | DB host | `localhost` |
+| `DB_PORT` | Optional fallback | DB port | `5433` |
+| `CACHE_BACKEND` | Recommended | Cache backend selector (`redis` / `locmem`) | `redis` |
+| `REDIS_CACHE_URL` | Yes for Redis mode | Redis cache URL | `redis://127.0.0.1:6379/1` |
+| `CORS_ALLOWED_ORIGINS` | Yes (for frontend integration) | Allowed frontend origins (comma-separated) | `http://localhost:3000` |
+| `CORS_ALLOW_CREDENTIALS` | Optional | CORS credentials support | `True` |
+| `CORS_ALLOW_ALL_ORIGINS` | Optional (dev only) | Allow all origins | `False` |
+| `AI_API_KEY` | For real AI calls | Provider API key | `<secret>` |
+| `AI_MODEL_NAME` | Yes | Model name | `gpt-5.2` |
+| `AI_TIMEOUT` | Yes | Provider timeout in seconds | `30` |
+| `AI_DRAFT_TTL` | Yes | Temporary draft cache TTL | `3600` |
+| `AI_DRAFT_PREFIX` | Yes | AI draft cache key prefix | `ai_draft` |
 
-## Auth and Tenant Rules
-- Protected endpoints require `Authorization: Bearer <access_token>`.
-- `POST /api/auth/register/` is public.
-- Do **not** pass `tenant_id` from client body/query.
-- Tenant context is resolved by middleware from JWT and used server-side.
+## 👤 Authentication & Roles
+- Public registration is available only for `Store Owner`.
+- `Super Admin` cannot self-register.
+- Super Admin creation is backend-controlled only.
+- Protected endpoints require:
+  - `Authorization: Bearer <access_token>`
+- `tenant_id` is resolved server-side by middleware; clients must not send trusted tenant context in request body/query.
 
----
+## 🛡️ Backend-Controlled Super Admin
+Create/update the fixed backend-managed super admin account:
 
-## Endpoint Reference
+```bash
+python manage.py bootstrap_superadmin --password "StrongSuperAdmin123!"
+```
 
-## 1) Auth (`/api/auth/`)
+This command controls the privileged account:
+- Email: `superadmin@gmail.com`
 
-| Method | Path | Auth | Request Body | Description |
+## 📚 API Documentation Endpoints
+- `GET /api/schema/` - OpenAPI schema
+- `GET /api/docs/` - Swagger UI
+- `GET /api/redoc/` - ReDoc
+
+## 🔗 Complete Endpoint Reference
+
+### 🧑‍💼 Admin
+| Method | Endpoint | Auth | Success | Description |
 |---|---|---|---|---|
-| POST | `/api/auth/register/` | Public | `username`, `email`, `password`, `role?` (self-registration supports `Store Owner`) | Register user and send activation email |
-| POST | `/api/auth/login/` | Public | `email`, `password` | Login and return JWT tokens |
-| GET | `/api/auth/me/` | Bearer | - | Return current authenticated identity |
-| GET | `/api/auth/activate/{token}/` | Public | - | Activate account by UUID token |
-| POST | `/api/auth/token/` | Public | SimpleJWT payload | JWT pair endpoint (compatibility route) |
-| POST | `/api/auth/token/refresh/` | Public | `refresh` | Refresh access token |
+| GET | `/admin/` | Session | 200 | Django admin panel |
 
----
+### 🔑 Authentication (`/api/auth/`)
+| Method | Endpoint | Auth | Success | Request Body (main fields) | Description |
+|---|---|---|---|---|---|
+| POST | `/api/auth/register/` | Public | 201 | `username`, `email`, `password`, `role` (`Store Owner` only) | Register account and send activation email |
+| POST | `/api/auth/login/` | Public | 200 | `email`, `password` | Login and return JWT tokens |
+| GET | `/api/auth/me/` | Bearer | 200 | - | Get current authenticated identity |
+| GET | `/api/auth/activate/{token}/` | Public | 200 | - | Activate account by UUID token |
+| POST | `/api/auth/token/` | Public | 200 | SimpleJWT default payload | Obtain token pair (compatibility route) |
+| POST | `/api/auth/token/refresh/` | Public | 200 | `refresh` | Refresh access token |
 
-## 2) Stores (`/api/stores/`)
+### 🏬 Stores (`/api/stores/`)
+| Method | Endpoint | Auth | Success | Request Body (main fields) | Description |
+|---|---|---|---|---|---|
+| GET | `/api/stores/` | Bearer | 200 | - | List stores owned by current user |
+| POST | `/api/stores/` | Bearer | 201 | `name`, `description?`, `slug?` | Create store |
+| PUT/PATCH | `/api/stores/{id}/` | Bearer | 200 | Store editable fields | Update store |
+| DELETE | `/api/stores/{id}/delete/` | Bearer | 204 | - | Delete store |
+| GET | `/api/stores/{store_id}/settings/` | Bearer | 200 | - | Get store settings |
+| PATCH | `/api/stores/{store_id}/settings/` | Bearer | 200 | `currency?`, `language?`, `timezone?` | Update store settings |
+| POST | `/api/stores/slug/check/` | Bearer | 200 | `slug`, `store_id?` | Check slug availability |
+| POST | `/api/stores/slug/suggest/` | Bearer | 200 | `name`, `store_id?`, `limit?` | Suggest slugs |
+| GET | `/api/stores/{store_id}/domains/` | Bearer | 200 | - | List store domains |
+| POST | `/api/stores/{store_id}/domains/` | Bearer | 201 | `domain`, `is_primary?` | Add domain |
+| GET | `/api/stores/{store_id}/domains/{domain_id}/` | Bearer | 200 | - | Get domain details |
+| PATCH | `/api/stores/{store_id}/domains/{domain_id}/` | Bearer | 200 | `domain?`, `is_primary?` | Update domain |
+| DELETE | `/api/stores/{store_id}/domains/{domain_id}/` | Bearer | 204 | - | Delete domain |
 
-| Method | Path | Auth | Request Body | Description |
+### 🗂️ Categories (Primary Contract Routes)
+Mounted via: `path("api/", include("categories.urls"))`
+
+| Method | Endpoint | Auth | Success | Request Body (main fields) | Description |
+|---|---|---|---|---|---|
+| GET | `/api/stores/{store_id}/categories/` | Bearer | 200 | - | List categories for store |
+| POST | `/api/stores/{store_id}/categories/` | Bearer | 201 | `name`, `description?` | Create category |
+| GET | `/api/stores/{store_id}/categories/{category_id}/` | Bearer | 200 | - | Get category |
+| PUT/PATCH | `/api/stores/{store_id}/categories/{category_id}/` | Bearer | 200 | `name?`, `description?` | Update category |
+| DELETE | `/api/stores/{store_id}/categories/{category_id}/` | Bearer | 204 | - | Delete category |
+
+### 🧩 Categories (Legacy-Compatible Prefix)
+Mounted via: `path("api/categories/", include("categories.urls"))`
+
+| Method | Endpoint | Auth | Success | Description |
 |---|---|---|---|---|
-| GET / POST | `/api/stores/` | Bearer | POST: `name` (required), `description?`, `slug?` | List user stores or create store |
-| PUT / PATCH | `/api/stores/{id}/` | Bearer | Store editable fields | Update store |
-| DELETE | `/api/stores/{id}/delete/` | Bearer | - | Delete store |
-| GET / PATCH | `/api/stores/{store_id}/settings/` | Bearer | PATCH: `currency?`, `language?`, `timezone?` | Read/update store settings |
-| POST | `/api/stores/slug/check/` | Bearer | `slug`, `store_id?` | Check slug availability |
-| POST | `/api/stores/slug/suggest/` | Bearer | `name`, `store_id?`, `limit?` | Suggest slug options |
-| GET / POST | `/api/stores/{store_id}/domains/` | Bearer | POST: `domain`, `is_primary?` | List/create store domains |
-| GET / PATCH / DELETE | `/api/stores/{store_id}/domains/{domain_id}/` | Bearer | PATCH: `domain?`, `is_primary?` | Retrieve/update/delete one domain |
+| GET/POST | `/api/categories/stores/{store_id}/categories/` | Bearer | 200/201 | Same behavior as primary contract route |
+| GET/PUT/PATCH/DELETE | `/api/categories/stores/{store_id}/categories/{category_id}/` | Bearer | 200/204 | Same behavior as primary contract route |
 
----
+### 📦 Products (`/api/products/`)
+| Method | Endpoint | Auth | Success | Request Body (main fields) | Description |
+|---|---|---|---|---|---|
+| GET | `/api/products/{store_id}/products/` | Bearer | 200 | - | List products |
+| POST | `/api/products/{store_id}/products/` | Bearer | 201 | `name`, `description`, `price`, `sku`, `category`, `status?` | Create product |
+| GET | `/api/products/{store_id}/products/{product_id}/` | Bearer | 200 | - | Get product |
+| PUT/PATCH | `/api/products/{store_id}/products/{product_id}/` | Bearer | 200 | Product editable fields | Update product |
+| DELETE | `/api/products/{store_id}/products/{product_id}/` | Bearer | 204 | - | Delete product |
+| GET | `/api/products/{store_id}/products/{product_id}/images/` | Bearer | 200 | - | List product images |
+| POST | `/api/products/{store_id}/products/{product_id}/images/` | Bearer | 201 | `image_file` or `image_url` | Add product image |
+| DELETE | `/api/products/{store_id}/products/{product_id}/images/{image_id}/` | Bearer | 204 | - | Delete product image |
+| PUT/PATCH | `/api/products/{store_id}/products/{product_id}/inventory/` | Bearer | 200 | `stock_quantity` | Update inventory |
 
-## 3) Categories
+### 🎨 Themes (Mounted under `/api/`)
+| Method | Endpoint | Auth | Success | Request Body (main fields) | Description |
+|---|---|---|---|---|---|
+| GET | `/api/stores/{store_id}/themes/templates/` | Bearer | 200 | - | List available theme templates |
+| GET | `/api/stores/{store_id}/theme/` | Bearer | 200 | - | Get current store theme config |
+| PATCH | `/api/stores/{store_id}/theme/` | Bearer | 200 | `theme_template?`, `primary_color?`, `secondary_color?`, `font_family?`, `logo_url?`, `banner_url?` | Update store theme config |
 
-### Contract routes (primary)
-Prefix: `/api/`
+### 🤖 AI Store Creation (`/api/ai/`)
+| Method | Endpoint | Auth | Success | Request Body (main fields) | Description |
+|---|---|---|---|---|---|
+| POST | `/api/ai/stores/draft/start/` | Bearer | 201 | `name`, `user_store_description` | Create draft store + generate initial AI draft |
+| GET | `/api/ai/stores/{store_id}/draft/` | Bearer | 200 | - | Get current temporary draft state |
+| POST | `/api/ai/stores/{store_id}/draft/clarify/` | Bearer | 200 | `clarification_answers` | Submit one clarification round |
+| POST | `/api/ai/stores/{store_id}/draft/regenerate/` | Bearer | 200 | `{}` | Full draft regeneration |
+| POST | `/api/ai/stores/{store_id}/draft/regenerate-section/` | Bearer | 200 | `target_section` (`theme`, `categories`, `products`) | Partial regeneration for one section |
+| POST | `/api/ai/stores/{store_id}/draft/apply/` | Bearer | 200 | `{}` | Apply draft to database and move store to `setup` |
 
-| Method | Path | Auth | Request Body | Description |
-|---|---|---|---|---|
-| GET / POST | `/api/stores/{store_id}/categories/` | Bearer | POST: `name`, `description?` | List/create categories for a store |
-| GET / PUT / PATCH / DELETE | `/api/stores/{store_id}/categories/{category_id}/` | Bearer | PUT/PATCH: `name?`, `description?` | Category detail/update/delete |
-
-### Legacy-compatible routes (temporary)
-Prefix: `/api/categories/`
-
-| Method | Path | Auth | Request Body | Description |
-|---|---|---|---|---|
-| GET / POST | `/api/categories/stores/{store_id}/categories/` | Bearer | POST: `name`, `description?` | Same behavior as primary route |
-| GET / PUT / PATCH / DELETE | `/api/categories/stores/{store_id}/categories/{category_id}/` | Bearer | PUT/PATCH: `name?`, `description?` | Same behavior as primary route |
-
----
-
-## 4) Products (`/api/products/`)
-
-| Method | Path | Auth | Request Body | Description |
-|---|---|---|---|---|
-| GET / POST | `/api/products/{store_id}/products/` | Bearer | POST: `name`, `price`, `sku`, `category`, `description?`, `status?` | List/create products |
-| GET / PUT / PATCH / DELETE | `/api/products/{store_id}/products/{product_id}/` | Bearer | PUT/PATCH: product fields | Retrieve/update/delete product |
-| GET / POST | `/api/products/{store_id}/products/{product_id}/images/` | Bearer | POST: `image_file` or `image_url` | List/add product images |
-| DELETE | `/api/products/{store_id}/products/{product_id}/images/{image_id}/` | Bearer | - | Delete one image |
-| PUT / PATCH | `/api/products/{store_id}/products/{product_id}/inventory/` | Bearer | `stock_quantity` | Update inventory |
-
----
-
-## 5) Themes (`/api/`)
-
-| Method | Path | Auth | Request Body | Description |
-|---|---|---|---|---|
-| GET | `/api/stores/{store_id}/themes/templates/` | Bearer | - | List available theme templates |
-| GET | `/api/stores/{store_id}/theme/` | Bearer | - | Get current store theme config |
-| PATCH | `/api/stores/{store_id}/theme/` | Bearer | `theme_template?`, `primary_color?`, `secondary_color?`, `font_family?`, `logo_url?`, `banner_url?` | Update store theme config |
-
----
-
-## 6) AI Store Creation (`/api/ai/`)
-
-| Method | Path | Auth | Request Body | Description |
-|---|---|---|---|---|
-| POST | `/api/ai/stores/draft/start/` | Bearer | `name`, `user_store_description` | Create draft store and generate initial AI draft |
-| GET | `/api/ai/stores/{store_id}/draft/` | Bearer | - | Get current temporary draft state |
-| POST | `/api/ai/stores/{store_id}/draft/clarify/` | Bearer | `clarification_answers` (non-empty string/object/list) | Run one clarification round |
-| POST | `/api/ai/stores/{store_id}/draft/regenerate/` | Bearer | `{}` | Full draft regeneration |
-| POST | `/api/ai/stores/{store_id}/draft/regenerate-section/` | Bearer | `target_section` in `theme,categories,products` | Partial section regeneration |
-| POST | `/api/ai/stores/{store_id}/draft/apply/` | Bearer | `{}` | Apply draft to persistent models |
-
-AI notes:
-- Official fallback: **clarification-style fallback**.
-- Drafts are cached (Redis in adopted runtime mode).
-- Tenant and ownership checks are enforced on all store-scoped operations.
-
----
-
-## Useful Test Commands
+## 🧪 Testing
+Run full test suite:
 ```bash
 python manage.py test
+```
+
+Run AI-focused tests:
+```bash
 python manage.py test AI_Store_Creation_Service.tests --verbosity 2 --keepdb --noinput
 ```
 
----
+Run selected module tests:
+```bash
+python manage.py test users.tests stores.tests categories.tests products.tests themes.tests --verbosity 2 --keepdb --noinput
+```
 
-## Quick Troubleshooting
-- DB connection issues: verify `DATABASE_URL` or `DB_*` values.
-- AI draft cache issues: verify Redis and `REDIS_CACHE_URL`.
-- Local dev fallback cache: set `CACHE_BACKEND=locmem` if needed.
+## 🔁 Git Workflow (Recommended)
+- Branch naming: `feature/<scope>`
+- Commit style: `feat(scope): message`, `fix(scope): message`
+- Open PR with:
+  - summary
+  - test evidence
+  - scope boundaries
 
+## 🚢 Deployment Notes
+- Production requires:
+  - PostgreSQL
+  - Redis
+  - secure secret management (`SECRET_KEY`, `AI_API_KEY`, DB creds)
+  - restrictive `ALLOWED_HOSTS` and CORS policy
+- Do not use `DEBUG=True` in production.
+
+## 👥 Team / Authors
+- Project team: add names here as needed.
+
+## 📄 License
+- Add project license here (if applicable).

@@ -1,0 +1,185 @@
+﻿ظ†ط¹ظ…طŒ ط£طµط¨ط­ ط¹ظ†ط¯ظٹ ظ…ط§ ظٹظƒظپظٹ ظ„طھط­ط¯ظٹط¯ AI draft JSONط¨ط´ظƒظ„ ط¹ظ…ظ„ظٹ ظˆظ…ط·ط§ط¨ظ‚ ظ„ظ„ظ†ط¸ط§ظ… ط§ظ„ط­ط§ظ„ظٹ.
+ط§ظ„ظ…ظ‡ظ…ط© ط§ظ„ط®ط§ظ…ط³ط© â€” AI Draft JSON Schema ط§ظ„ظ…ط¹طھظ…ط¯
+ط§ظ„ظ‚ط±ط§ط±
+ط§ظ„ظ€ AI ط³ظٹظˆظ„ط¯ Draft JSON ظ…ط¤ظ‚طھ ظٹط­طھظˆظٹ ظپظ‚ط· ط¹ظ„ظ‰ ط§ظ„ط¨ظٹط§ظ†ط§طھ ط§ظ„طھظٹ ظٹظ…ظƒظ† طھط·ط¨ظٹظ‚ظ‡ط§ ظ„ط§ط­ظ‚ظ‹ط§ ط¹ظ„ظ‰ ط§ظ„ط¬ط¯ط§ظˆظ„ ط§ظ„ط­ظ‚ظٹظ‚ظٹط© ط¹ظ†ط¯ Confirm / Apply.
+ط§ظ„ط­ظ‚ظˆظ„ ط§ظ„طھظٹ ظ„ط§ ظٹط¬ط¨ ط£ظ† ظٹظˆظ„ط¯ظ‡ط§ ط§ظ„ظ€ AI
+ظ„ط£ظ†ظ‡ط§ system-controlled ط£ظˆ طھظڈط´طھظ‚ ظ…ظ† ط§ظ„ظ†ط¸ط§ظ…:
+store_id
+owner
+tenant_id
+slug
+status
+created_at
+updated_at
+ط£ظٹ IDs ط¯ط§ط®ظ„ظٹط© ظ„ظ„ط¬ط¯ط§ظˆظ„
+theme_template_idظ…ط¨ط§ط´ط±ط©
+ط§ظ„ظ€ Schema ط§ظ„ظ…ط¹طھظ…ط¯
+{
+"store": {
+"name": "string",
+"description": "string"
+},
+"store_settings": {
+"currency": "string",
+"language": "string",
+"timezone": "string"
+},
+"theme": {
+"theme_template": "string",
+"primary_color": "string",
+"secondary_color": "string",
+"font_family": "string",
+"logo_url": "string",
+"banner_url": "string"
+},
+"categories": [
+{
+"name": "string"
+}
+],
+"products": [
+{
+"name": "string",
+"description": "string",
+"price": 0,
+"sku": "string",
+"category_name": "string",
+"stock_quantity": 0,
+"image_url": "string"
+}
+],
+"clarification_needed": false,
+"clarification_questions": []
+}
+ط´ط±ط­ ظƒظ„ ظ‚ط³ظ…
+1) store
+ظٹظ…ط«ظ„ ط§ظ„ط¨ظٹط§ظ†ط§طھ ط§ظ„طھظٹ ط³طھظڈط³ظ†ط¯ ط¥ظ„ظ‰ ط¬ط¯ظˆظ„ Store:
+name
+description
+2) store_settings
+ظٹظ…ط«ظ„ ط§ظ„ط¨ظٹط§ظ†ط§طھ ط§ظ„طھظٹ ط³طھظڈط³ظ†ط¯ ط¥ظ„ظ‰ StoreSettings:
+currency
+language
+timezone
+3) theme
+ظٹظ…ط«ظ„ ط§ظ„ط¨ظٹط§ظ†ط§طھ ط§ظ„طھظٹ ط³طھظڈط³ظ†ط¯ ط¥ظ„ظ‰ StoreThemeConfig:
+theme_template: ط§ط³ظ… ط§ظ„ظ‚ط§ظ„ط¨ ظˆظ„ظٹط³ IDظˆط§ظ„ط¨ط§ظƒ ظ„ط§ط­ظ‚ظ‹ط§ ظٹظ‚ظˆظ… ط¨ط¹ظ…ظ„ mapping ط¥ظ„ظ‰ ThemeTemplate
+primary_color
+secondary_color
+font_family
+logo_url
+banner_url
+4) categories
+ظٹظ…ط«ظ„ ط§ظ„ظپط¦ط§طھ ط§ظ„طھظٹ ط³طھظڈظ†ط´ط£ ظپظٹ ط¬ط¯ظˆظ„ Category:
+ظپظ‚ط· name
+5) products
+ظٹظ…ط«ظ„ ط§ظ„ظ…ظ†طھط¬ط§طھ ط§ظ„ط£ظˆظ„ظٹط© ط§ظ„طھظٹ ط³طھظڈظ†ط´ط£ ظپظٹ Productط«ظ… Inventory:
+name
+description
+price
+sku
+category_nameظˆظ„ظٹط³ category ID ظ„ط£ظ† ط§ظ„ظپط¦ط§طھ ظ†ظپط³ظ‡ط§ ط³طھظڈظ†ط´ط£ ط¨ط¹ط¯
+stock_quantity
+image_url
+6) clarification_needed
+ظ‚ظٹظ…ط© ظ…ظ†ط·ظ‚ظٹط©:
+trueط¥ط°ط§ ظƒط§ظ† ط§ظ„ظˆطµظپ ط؛ظٹط± ظƒط§ظپظچ
+falseط¥ط°ط§ ظƒط§ظ† ط§ظ„ظ€ draft ط¬ط§ظ‡ط²ظ‹ط§
+7) clarification_questions
+ظ‚ط§ط¦ظ…ط© ط£ط³ط¦ظ„ط©/ط®ظٹط§ط±ط§طھ طھظˆط¶ظٹط­ظٹط© ط¥ط°ط§ ط§ط­طھط¬ظ†ط§ clarification
+ط§ظ„ظ‚ظٹظˆط¯ ط§ظ„ظ…ط¹طھظ…ط¯ط© ط¹ظ„ظ‰ ط§ظ„ظ€ Draft
+Store
+name: ظ…ظ† 3 ط¥ظ„ظ‰ 255 ط­ط±ظپظ‹ط§
+description: ظ†طµ ظ…ط¹ظ‚ظˆظ„ ظˆط؛ظٹط± ظپط§ط±ط؛
+Store Settings
+currency: ISO code ظ…ط«ظ„ USD
+language: ظ…ط«ظ„ enط£ظˆ ar
+timezone: ظ…ط«ظ„ UTCط£ظˆ Europe/Amsterdam
+Theme
+theme_template: ظٹط¬ط¨ ط£ظ† ظٹط·ط§ط¨ظ‚ ط§ط³ظ… ظ‚ط§ظ„ط¨ ظ…ظˆط¬ظˆط¯ ظپظٹ ط§ظ„ظ†ط¸ط§ظ…
+primary_color / secondary_color: ظ‚ظٹظ… ط£ظ„ظˆط§ظ† طµط§ظ„ط­ط©
+font_family: ظ†طµ ط؛ظٹط± ظپط§ط±ط؛
+Categories
+ظ…ظ† ط§ظ„ط£ظپط¶ظ„ 2 ط¥ظ„ظ‰ 5 ظپط¦ط§طھ
+ظƒظ„ ظپط¦ط© ظٹط¬ط¨ ط£ظ† طھظ…ظ„ظƒ nameطµط§ظ„ط­ظ‹ط§ ظˆط؛ظٹط± ظپط§ط±ط؛
+Products
+ط¥ط¬ط¨ط§ط±ظٹ: 2 ط¥ظ„ظ‰ 4 ظ…ظ†طھط¬ط§طھ ط£ظˆظ„ظٹط©
+price > 0
+stock_quantity >= 0
+category_nameظٹط¬ط¨ ط£ظ† ظٹط·ط§ط¨ظ‚ ط¥ط­ط¯ظ‰ ط§ظ„ظپط¦ط§طھ ط§ظ„ظ…ظˆظ„ط¯ط©
+skuظٹط¬ط¨ ط£ظ† ظٹظƒظˆظ† ظپط±ظٹط¯ظ‹ط§ ط¯ط§ط®ظ„ ظ†ظپط³ draft
+ظ…ط«ط§ظ„ Draft JSON ظ†ظ‡ط§ط¦ظٹ
+{
+"store": {
+"name": "Urban Wave",
+"description": "A modern youth fashion store focused on dark-toned streetwear, casual essentials, and trendy accessories."
+},
+"store_settings": {
+"currency": "USD",
+"language": "en",
+"timezone": "UTC"
+},
+"theme": {
+"theme_template": "Modern",
+"primary_color": "#111111",
+"secondary_color": "#FBB03B",
+"font_family": "Poppins",
+"logo_url": "",
+"banner_url": ""
+},
+"categories": [
+{
+"name": "T-Shirts"
+},
+{
+"name": "Hoodies"
+},
+{
+"name": "Accessories"
+}
+],
+"products": [
+{
+"name": "Black Oversized T-Shirt",
+"description": "A dark oversized t-shirt with a modern streetwear look.",
+"price": 29.99,
+"sku": "UW-TS-001",
+"category_name": "T-Shirts",
+"stock_quantity": 20,
+"image_url": ""
+},
+{
+"name": "Urban Shadow Hoodie",
+"description": "A premium dark hoodie designed for casual youth style.",
+"price": 49.99,
+"sku": "UW-HD-001",
+"category_name": "Hoodies",
+"stock_quantity": 15,
+"image_url": ""
+},
+{
+"name": "Minimal Street Cap",
+"description": "A sleek dark cap that complements modern casual outfits.",
+"price": 19.99,
+"sku": "UW-AC-001",
+"category_name": "Accessories",
+"stock_quantity": 25,
+"image_url": ""
+}
+],
+"clarification_needed": false,
+"clarification_questions": []
+}
+ط§ظ„ظ†طھظٹط¬ط© ط§ظ„ظ…ط¹طھظ…ط¯ط©
+ط§ظ„ظ€ AI ظٹظˆظ„ط¯ ظ‡ط°ط§ ط§ظ„ظ€ draft ظپظ‚ط·
+ط§ظ„ط¨ط§ظƒ ظٹطھط­ظ‚ظ‚ ظ…ظ†ظ‡
+ط§ظ„ط¨ط§ظƒ ظٹط®ط²ظ†ظ‡ ظ…ط¤ظ‚طھظ‹ط§
+ط¹ظ†ط¯ Confirm / Applyظپظ‚ط· ظٹطھظ… طھط­ظˆظٹظ„ظ‡ ط¥ظ„ظ‰:
+Store
+StoreSettings
+StoreThemeConfig
+Category
+Product
+Inventory
+ظˆط¨ط°ظ„ظƒ طھط¹طھط¨ط± ط§ظ„ظ…ظ‡ظ…ط© ط§ظ„ط®ط§ظ…ط³ط© ظ…ط­ط³ظˆظ…ط© طھطµظ…ظٹظ…ظٹظ‹ط§.
+ط£ط±ط³ظ„ ظ„ظٹ ط§ظ„ط¢ظ† ط¥ط°ط§ ط£ط±ط¯طھ ط£ظ† ط£ط­ظˆظ‘ظ„ ظ‡ط°ظ‡ ط§ظ„ظ…ظ‡ظ…ط© ط¥ظ„ظ‰ ظˆط«ظٹظ‚ط© ظ…ط®طھطµط±ط© ط¬ط¯ظ‹ط§ ظ„ظ„ط­ظپط¸ ط£ظˆ ط¥ظ„ظ‰ Prompt طھظ†ظپظٹط° ظ…ط¨ط§ط´ط± ظ„ظ„ظ€ AI agent.

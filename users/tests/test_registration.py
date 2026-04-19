@@ -11,6 +11,24 @@ class RegistrationTenantSecurityTests(TestCase):
     def setUp(self):
         self.client = APIClient()
 
+    def test_store_owner_can_self_register(self):
+        payload = {
+            "username": "owner1",
+            "email": "owner1@example.com",
+            "password": "StrongPass123!",
+            "role": "Store Owner",
+        }
+
+        response = self.client.post("/api/auth/register/", payload, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        self.assertIn("detail", response.data)
+        user = User.objects.get(email="owner1@example.com")
+        self.assertEqual(user.role, "Store Owner")
+        self.assertFalse(user.is_superuser)
+        self.assertFalse(user.is_staff)
+        self.assertEqual(len(mail.outbox), 1)
+
     def test_register_rejects_client_supplied_tenant_id(self):
         payload = {
             "username": "mallory",

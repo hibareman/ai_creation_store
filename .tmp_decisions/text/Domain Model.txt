@@ -1,0 +1,309 @@
+﻿Domain Model
+The Domain Model represents the fundamental business entities of the AI-Assisted Multi-Tenant E-Commerce Platform and the relationships between them.It provides a conceptual view of the system structure before transforming the design into a database schema.
+The system domain is divided into the following logical areas:
+Platform Domain
+Store Customization Domain
+Catalog Domain
+Order Domain
+Billing Domain
+AI Integration Domain
+This separation improves clarity and reflects the major functional components of the platform.
+1. Platform Domain
+The Platform Domain manages the platform users and the stores created within the system.
+model
+Attributes
+Relationships
+User
+Represents a platform user who owns or manages a store.
+id
+email
+password_hash
+role (Super Admin, Store Owner,visitor)
+created_at
+updated_at
+A User can own/manage one or more Stores(1:M).
+Store (Tenant)
+Represents an individual online store created on the platform.
+Id
+owner_id
+description
+name
+slug (Unique per store)
+status (active/inactive)
+created_at
+updated_at
+A Store is owned by a User(1:M).
+A Store has one StoreSettings (1:1).
+A Store contains Categories (1:M).
+A Store contains Products (1:M).
+A Store contains Customers (1:M).
+A Store contains StoreThemeConfig (1:1).
+A Store contains StoreDomains (1:M).
+StoreSettings
+Represents the configuration settings of a store.
+id
+store_id
+currency
+language
+timezone
+created_at
+updated_at
+Each Store has exactly one StoreSettingsentity (1:1).
+StoreDomain
+Represents the domain used to access a store.
+id
+store_id
+domain
+is_primary
+created_at
+updated_at
+A Store can have one or more StoreDomains.
+Each StoreDomain belongs to a Store(1:M).
+2. Store Customization Domain
+This domain manages the visual customization and theme configuration of the store.
+model
+Attributes
+Relationships
+ThemeTemplate
+Represents a predefined theme template available on the platform.
+id
+name
+description
+created_at
+updated_at
+A ThemeTemplate can be used by multiple stores(1:M).
+StoreThemeConfig
+Represents the theme configuration applied to a specific store.
+id
+store_id
+theme_id
+primary_color
+secondary_color
+font_family
+logo_url
+banner_url
+created_at
+updated_at
+A Store has one StoreThemeConfig(1:1).
+StoreThemeConfig references a ThemeTemplate.
+3. Catalog Domain
+The Catalog Domain manages the products offered by each store.
+model
+Attributes
+Relationships
+Category
+Represents a product category used to organize products.
+id
+store_id
+name
+created_at
+updated_at
+A Store can have multiple Categories(1:M).
+A Category can contain multiple Products(1:M).
+Product
+Represents a product offered in a store.
+id
+store_id
+category_id
+name
+description
+price
+sku (Unique per store)
+status (active/inactive)
+created_at
+updated_at
+A Product belongs to a Store(M:1).
+A Product belongs to a Category(M:1).
+A Product can have multiple ProductImages(1:M).
+A Product has one Inventory record(1:1).
+ProductImage
+Represents an image associated with a product.
+id
+product_id
+image_url
+created_at
+updated_at
+A Product can have multiple ProductImages(M:1).
+Inventory
+Represents the stock level of a product.
+id
+product_id
+stock_quantity
+created_at
+updated_at
+Each Product has one Inventory record(1:1).
+4. Order Domain
+The Order Domain manages customer purchases within a store.
+model
+Attributes
+Relationships
+Customer
+Represents a customer who purchases products from a store.
+id
+store_id
+email
+name
+created_at
+updated_at
+A Store can have multiple Customers(1:M).
+A Customer can place multiple Orders(1:M).
+A Customer can have multiple Addresses(1:M).
+Address
+Represents a shipping address for a customer.
+id
+customer_id
+country
+city
+street
+postal_code
+created_at
+updated_at
+A Customer can have multiple Addresses(M:1).
+Order
+Represents a purchase transaction made by a customer.
+id
+store_id
+customer_id
+status (pending, confirmed, shipped, delivered, canceled)
+total_price
+created_at
+updated_at
+An Order belongs to a customer(M:1).
+An Order belongs to a Store(M:1).
+An Order contains multiple OrderItems(1:M).
+An Order can have a Payment record(M:1).
+OrderItem
+Represents a product included within an order.
+id
+order_id
+product_id
+product_name
+product_price
+quantity
+created_at
+updated_at
+An Order contains multiple OrderItems(1:M).
+Each OrderItem references a Product(M:1).
+5. Billing Domain (Mock Billing)
+This domain manages simulated billing operations used for demonstration purposes in the system.
+model
+Attributes
+Relationships
+Payment
+Represents a simulated payment transaction associated with an order.
+id
+order_id
+amount
+status
+payment_method
+created_at
+updated_at
+Each Payment is associated with one Order (1:1).
+Payment belongs to an Order (1:1).
+6. AI Integration Domain
+This domain manages the interaction between the platform and the AI service used for store generation.
+model
+Attributes
+Relationships
+AIRequest
+Represents a request sent by the user to the AI system.
+id
+user_id
+prompt
+status (pending, processed, failed)
+created_at
+updated_at
+An AIRequest is initiated by a User(M:1).
+AIResponse
+Represents the response
+generated by the AI system.
+id
+request_id
+generated_json
+created_at
+updated_at
+Each AIResponse corresponds to one AIRequest(1:1)
+GeneratedStoreConfig
+Represents the configuration generated by the AI to create the initial store structure.
+Id
+response_id
+store_id
+theme_config
+categories_config
+products_config
+created_at
+updated_at
+GeneratedStoreConfig is associated with a Store (1:1).
+GeneratedStoreConfig is created based on an AIResponse (1:1).
+AI Generated Store Data Structure
+The AI service generates a structured configuration that represents the initial setup of a new store.This configuration is returned as a JSON object and is later processed by the system to create the corresponding database entities such as the store, categories, products, and theme configuration.
+The generated data typically includes the following elements:
+1. Store Information
+Basic information required to create the store.
+store_name
+store_description
+2. Theme Configuration
+Defines the visual style that will be applied to the store.
+theme_config
+Attributes may include:
+theme_template
+primary_color
+secondary_color
+font_family
+3. Categories Configuration
+Defines the initial set of product categories for the store.
+categories_config
+4. Products Configuration
+Defines the initial set of products generated by the AI system.
+products_config
+Attributes may include:
+name
+description
+price
+category
+Example of Complete AI Generated Configuration
+{
+"store_name": "Tech World",
+"store_description": "Modern electronics and gadgets store",
+"theme_config": {
+"theme_template": "modern",
+"primary_color": "#1E3A8A",
+"secondary_color": "#F59E0B",
+"font_family": "Inter"
+},
+"categories_config": [
+{â€œname": "Smartphonesâ€‌},
+{â€œname": "Laptopsâ€‌},
+{â€œname": "Accessoriesâ€‌}
+],
+"products_config": [
+{
+"name": "iPhone 14",
+"description": "Latest Apple smartphone",
+"price": 999,
+"category": "Smartphones"
+}
+]
+}
+This structured configuration is stored and later used by the platform to automatically create the initial store structure.
+Multi-Tenant Data Isolation
+Since the system supports multiple stores, all store-related entities contain the attribute:
+store_id
+This ensures proper isolation between tenant data within the shared database.
+Entities that include store_id include:
+Category
+Product
+Customer
+Order
+StoreThemeConfig
+StoreSettings
+StoreDomain
+Conclusion
+The presented Domain Model provides a comprehensive conceptual representation of the platform.It captures the essential entities required to support:
+Multi-tenant store management
+Product catalog management
+Customer ordering processes
+Store customization through themes
+Simulated billing operations
+AI-assisted store creation
+This model forms the foundation for the next phase of the system design, which is the Database Schema Design and ER Diagram development.

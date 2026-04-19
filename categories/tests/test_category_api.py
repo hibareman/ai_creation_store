@@ -109,6 +109,20 @@ class CategoryApiTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['name'], 'Electronics')
 
+    def test_store_not_found_returns_404(self):
+        response = self.client.get(
+            '/api/stores/999999/categories/',
+            HTTP_AUTHORIZATION=self.auth_header_a,
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_category_not_found_in_accessible_store_returns_404(self):
+        response = self.client.get(
+            f'/api/stores/{self.store_a.id}/categories/999999/',
+            HTTP_AUTHORIZATION=self.auth_header_a,
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_update_category_success(self):
         payload = {
             'name': 'Consumer Electronics',

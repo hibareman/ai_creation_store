@@ -1,9 +1,10 @@
 import logging
 from rest_framework import generics, status
 from rest_framework.response import Response
-from rest_framework.exceptions import ValidationError, PermissionDenied
+from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ObjectDoesNotExist
+from django.http import Http404
 
 from stores.models import Store
 from users.permissions import TenantAuthenticated
@@ -25,12 +26,12 @@ class CategoryStoreAccessMixin:
 
         try:
             store = get_object_or_404(Store, id=store_id)
-        except Exception:
+        except Http404:
             logger.warning(
                 f"Store not found. User: {self.request.user.id}, "
                 f"store_id: {store_id}, tenant_id: {self.request.tenant_id}"
             )
-            raise PermissionDenied("Store not found or access denied")
+            raise NotFound("Store not found")
 
         # Multi-tenant check: FIRST validate tenant_id
         if store.tenant_id != self.request.tenant_id:
@@ -162,7 +163,7 @@ class CategoryRetrieveUpdateDestroyView(CategoryStoreAccessMixin, generics.Retri
             category = selectors.get_category_by_id(category_id, store)
             return category
         except ObjectDoesNotExist:
-            raise PermissionDenied("Category not found or access denied")
+            raise NotFound("Category not found")
     
     def put(self, request, *args, **kwargs):
         """
