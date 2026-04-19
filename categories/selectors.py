@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Count, Q
 from .models import Category
 
 
@@ -22,7 +23,15 @@ def get_store_categories(store):
     return Category.objects.filter(
         store=store,
         tenant_id=store.tenant_id
-    ).select_related('store').order_by('created_at')
+    ).select_related('store').annotate(
+        product_count=Count(
+            'products',
+            filter=Q(
+                products__store_id=store.id,
+                products__tenant_id=store.tenant_id,
+            ),
+        )
+    ).order_by('created_at')
 
 
 def get_category_by_id(category_id, store):
@@ -78,9 +87,9 @@ def get_category_by_name(store, name):
 def check_category_has_products(category):
     """
     Check if a category has linked products.
-    
-    This is a structural check - actual product relationship
-    will be implemented when Product model is created.
+
+    Uses the real Product relation while enforcing same-store and same-tenant
+    scope for safety.
     
     Args:
         category: Category instance
@@ -88,6 +97,14 @@ def check_category_has_products(category):
     Returns:
         Boolean: True if category has products, False otherwise
     """
-    # Placeholder for future products relationship
-    # When products are added: return category.products.exists()
-    return False
+    if not category:
+        return False
+
+    # Local import avoids hard coupling at module import time.
+    from products.models import Product
+
+    return Product.objects.filter(
+        category=category,
+        store_id=category.store_id,
+        tenant_id=category.tenant_id,
+    ).exists()

@@ -1,3 +1,4 @@
+# test file for themes
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -46,8 +47,19 @@ class ThemeApiTests(TestCase):
             tenant_id=100,
         )
 
-        self.modern_template = ThemeTemplate.objects.get(name="Modern")
-        self.minimal_template = ThemeTemplate.objects.get(name="Minimal")
+        # Create theme templates first (since they don't exist by default)
+        self.modern_template = ThemeTemplate.objects.create(
+            name="Modern",
+            description="Modern template with clean design"
+        )
+        self.minimal_template = ThemeTemplate.objects.create(
+            name="Minimal",
+            description="Minimal template with simple design"
+        )
+        self.classic_template = ThemeTemplate.objects.create(
+            name="Classic",
+            description="Classic template with traditional design"
+        )
 
         self.theme_config = StoreThemeConfig.objects.create(
             store=self.store,
@@ -69,6 +81,10 @@ class ThemeApiTests(TestCase):
         refresh = RefreshToken.for_user(user)
         return f"Bearer {str(refresh.access_token)}"
 
+    @staticmethod
+    def _payload(response):
+        return response.json()
+
     def test_store_owner_can_retrieve_theme_template_list(self):
         response = self.client.get(
             f"/api/stores/{self.store.id}/themes/templates/",
@@ -76,7 +92,8 @@ class ThemeApiTests(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        names = [item["name"] for item in response.data]
+        data = self._payload(response)
+        names = [item["name"] for item in data]
         self.assertIn("Modern", names)
         self.assertIn("Minimal", names)
         self.assertIn("Classic", names)
@@ -88,10 +105,11 @@ class ThemeApiTests(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["id"], self.theme_config.id)
-        self.assertEqual(response.data["store"], self.store.id)
-        self.assertEqual(response.data["theme_template"]["id"], self.modern_template.id)
-        self.assertEqual(response.data["primary_color"], "#111111")
+        data = self._payload(response)
+        self.assertEqual(data["id"], self.theme_config.id)
+        self.assertEqual(data["store"], self.store.id)
+        self.assertEqual(data["theme_template"]["id"], self.modern_template.id)
+        self.assertEqual(data["primary_color"], "#111111")
 
     def test_store_owner_can_update_editable_theme_fields(self):
         payload = {
@@ -178,3 +196,80 @@ class ThemeApiTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.theme_config.refresh_from_db()
         self.assertEqual(self.theme_config.theme_template_id, self.modern_template.id)
+
+    def test_store_without_theme_config_returns_404(self):
+        # Create a new store without theme config
+        new_store = Store.objects.create(
+            owner=self.owner,
+            name="New Store Without Theme",
+            tenant_id=100,
+        )
+
+        response = self.client.get(
+            f"/api/stores/{new_store.id}/theme/",
+            HTTP_AUTHORIZATION=self.owner_auth_header,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_create_theme_config_for_store_without_config(self):
+        # Create a new store without theme config
+        new_store = Store.objects.create(
+            owner=self.owner,
+            name="New Store For Creation",
+            tenant_id=100,
+        )
+
+        payload = {
+            "theme_template": self.minimal_template.id,
+            "primary_color": "#333333",
+            "secondary_color": "#444444",
+            "font_family": "Roboto",
+            "logo_url": "https://example.com/logo2.png",
+            "banner_url": "https://example.com/banner2.png",
+        }
+
+        response = self.client.patch(
+            f"/api/stores/{new_store.id}/theme/",
+            payload,
+            format="json",
+            HTTP_AUTHORIZATION=self.owner_auth_header,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = self._payload(response)
+        self.assertEqual(data["store"], new_store.id)
+        self.assertEqual(data["theme_template"]["id"], self.minimal_template.id)
+        self.assertEqual(data["primary_color"], "#333333")
+        self.assertEqual(data["secondary_color"], "#444444")
+        self.assertEqual(data["font_family"], "Roboto")
+        self.assertEqual(data["logo_url"], "https://example.com/logo2.png")
+        self.assertEqual(data["banner_url"], "https://example.com/banner2.png")
+
+    def test_partial_update_theme_config(self):
+        response = self.client.patch(
+            f"/api/stores/{self.store.id}/theme/",
+            {"primary_color": "#ff0000", "font_family": "Arial"},
+            format="json",
+            HTTP_AUTHORIZATION=self.owner_auth_header,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = self._payload(response)
+        self.assertEqual(data["primary_color"], "#ff0000")
+        self.assertEqual(data["font_family"], "Arial")
+        self.assertEqual(data["secondary_color"], "#222222")  # unchanged
+        self.assertEqual(data["theme_template"]["id"], self.modern_template.id)  # unchanged
+
+    def test_empty_strings_for_logo_and_banner_are_accepted(self):
+        response = self.client.patch(
+            f"/api/stores/{self.store.id}/theme/",
+            {"logo_url": "", "banner_url": ""},
+            format="json",
+            HTTP_AUTHORIZATION=self.owner_auth_header,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = self._payload(response)
+        self.assertEqual(data["logo_url"], "")
+        self.assertEqual(data["banner_url"], "")

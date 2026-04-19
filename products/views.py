@@ -116,13 +116,36 @@ class ProductListCreateView(ProductStoreAccessMixin, generics.ListCreateAPIView)
                 store=store,
                 name=serializer.validated_data['name'],
                 price=serializer.validated_data['price'],
-                sku=serializer.validated_data['sku'],
+                sku=serializer.validated_data.get('sku'),
                 description=serializer.validated_data.get('description', ''),
                 category=serializer.validated_data.get('category'),
                 status=serializer.validated_data.get('status', 'active')
             )
+
+            stock_quantity = serializer.validated_data.get('stock', 0)
+            if stock_quantity:
+                services.update_inventory(
+                    user=request.user,
+                    store=store,
+                    product=product,
+                    stock_quantity=stock_quantity
+                )
+
+            image_url = serializer.validated_data.get('image_url')
+            if image_url:
+                services.add_product_image(
+                    user=request.user,
+                    store=store,
+                    product=product,
+                    image_url=image_url,
+                )
             
-            response_serializer = ProductDetailSerializer(product)
+            product = selectors.get_product_by_id(
+                product_id=product.id,
+                store_id=store.id,
+                tenant_id=store.tenant_id,
+            )
+            response_serializer = ProductListSerializer(product)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         
         except ValidationError as e:
@@ -171,10 +194,11 @@ class ProductDetailView(ProductStoreAccessMixin, generics.RetrieveUpdateDestroyA
         
         MULTI-TENANT: Verifies ownership in service layer
         """
+        partial = kwargs.pop('partial', False)
         product = self.get_object()
         store = self.get_store()
         
-        serializer = self.get_serializer(data=request.data, partial=True)
+        serializer = self.get_serializer(data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         
         try:

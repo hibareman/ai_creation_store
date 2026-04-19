@@ -3,11 +3,13 @@ Django settings for config project.
 """
 
 import os
+import sys
 from pathlib import Path
 from datetime import timedelta
 from urllib.parse import urlparse, unquote
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 SECRET_KEY = os.getenv(
     "SECRET_KEY",
@@ -29,6 +31,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'corsheaders',
     'rest_framework',
     'drf_spectacular',
 
@@ -37,11 +40,13 @@ INSTALLED_APPS = [
     'categories',
     'products',
     'themes',
+    'AI_Store_Creation_Service',
 ]
 
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'users.middleware.JWTTenantMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -117,6 +122,15 @@ else:
             "PORT": os.getenv("DB_PORT", "5433"),
         }
     }
+
+
+CORS_ALLOW_ALL_ORIGINS = os.getenv("CORS_ALLOW_ALL_ORIGINS", "False").lower() == "true"
+if not CORS_ALLOW_ALL_ORIGINS:
+    _cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
+    CORS_ALLOWED_ORIGINS = [
+        origin.strip() for origin in _cors_origins.split(",") if origin.strip()
+    ]
+CORS_ALLOW_CREDENTIALS = os.getenv("CORS_ALLOW_CREDENTIALS", "True").lower() == "true"
 
 
 REST_FRAMEWORK = {
@@ -241,3 +255,38 @@ LOGGING_CONFIG = 'logging.config.dictConfig'
 from utils.logging_config import LOGGING_CONFIG as CUSTOM_LOGGING  # noqa
 
 LOGGING = CUSTOM_LOGGING
+
+
+# AI Store Creation configuration (foundation only)
+AI_API_KEY = os.getenv("AI_API_KEY", "")
+AI_MODEL_NAME = os.getenv("AI_MODEL_NAME", "gpt-5.2")
+AI_TIMEOUT = int(os.getenv("AI_TIMEOUT", "120"))
+AI_API_URL = os.getenv("AI_API_URL", "https://api.openai.com/v1/chat/completions")
+AI_HTTP_REFERER = os.getenv("AI_HTTP_REFERER", "")
+AI_APP_TITLE = os.getenv("AI_APP_TITLE", "")
+AI_DRAFT_TTL = int(os.getenv("AI_DRAFT_TTL", "3600"))
+AI_DRAFT_PREFIX = os.getenv("AI_DRAFT_PREFIX", "ai_draft")
+
+
+# Cache configuration for temporary AI drafts.
+# Redis is the adopted backend; local-memory fallback is allowed for tests/dev only.
+RUNNING_TESTS = "test" in sys.argv or bool(os.getenv("PYTEST_CURRENT_TEST"))
+CACHE_BACKEND = os.getenv("CACHE_BACKEND", "redis").strip().lower()
+REDIS_CACHE_URL = os.getenv("REDIS_CACHE_URL", "redis://127.0.0.1:6379/1")
+
+if RUNNING_TESTS or CACHE_BACKEND == "locmem":
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "ai-store-creation-local-cache",
+            "TIMEOUT": AI_DRAFT_TTL,
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_CACHE_URL,
+            "TIMEOUT": AI_DRAFT_TTL,
+        }
+    }

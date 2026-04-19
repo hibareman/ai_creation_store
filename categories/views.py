@@ -1,9 +1,11 @@
 import logging
 from rest_framework import generics, status
 from rest_framework.response import Response
-from rest_framework.exceptions import ValidationError, PermissionDenied
+from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.http import Http404
 
 from stores.models import Store
 from users.permissions import TenantAuthenticated
@@ -25,12 +27,12 @@ class CategoryStoreAccessMixin:
 
         try:
             store = get_object_or_404(Store, id=store_id)
-        except Exception:
+        except Http404:
             logger.warning(
                 f"Store not found. User: {self.request.user.id}, "
                 f"store_id: {store_id}, tenant_id: {self.request.tenant_id}"
             )
-            raise PermissionDenied("Store not found or access denied")
+            raise NotFound("Store not found")
 
         # Multi-tenant check: FIRST validate tenant_id
         if store.tenant_id != self.request.tenant_id:
@@ -115,7 +117,7 @@ class CategoryListCreateView(CategoryStoreAccessMixin, generics.ListCreateAPIVie
                 CategorySerializer(category).data,
                 status=status.HTTP_201_CREATED
             )
-        except ValidationError as e:
+        except (ValidationError, DjangoValidationError) as e:
             logger.warning(f"Category creation validation error: {str(e)}, user_id={request.user.id}, store_id={store.id}")
             return Response(
                 {"error": str(e.message) if hasattr(e, 'message') else str(e)},
@@ -162,7 +164,7 @@ class CategoryRetrieveUpdateDestroyView(CategoryStoreAccessMixin, generics.Retri
             category = selectors.get_category_by_id(category_id, store)
             return category
         except ObjectDoesNotExist:
-            raise PermissionDenied("Category not found or access denied")
+            raise NotFound("Category not found")
     
     def put(self, request, *args, **kwargs):
         """
@@ -193,7 +195,7 @@ class CategoryRetrieveUpdateDestroyView(CategoryStoreAccessMixin, generics.Retri
                 CategorySerializer(updated_category).data,
                 status=status.HTTP_200_OK
             )
-        except ValidationError as e:
+        except (ValidationError, DjangoValidationError) as e:
             return Response(
                 {"error": str(e.message) if hasattr(e, 'message') else str(e)},
                 status=status.HTTP_400_BAD_REQUEST
@@ -227,7 +229,7 @@ class CategoryRetrieveUpdateDestroyView(CategoryStoreAccessMixin, generics.Retri
                 CategorySerializer(updated_category).data,
                 status=status.HTTP_200_OK
             )
-        except ValidationError as e:
+        except (ValidationError, DjangoValidationError) as e:
             return Response(
                 {"error": str(e.message) if hasattr(e, 'message') else str(e)},
                 status=status.HTTP_400_BAD_REQUEST
@@ -244,7 +246,7 @@ class CategoryRetrieveUpdateDestroyView(CategoryStoreAccessMixin, generics.Retri
         try:
             services.delete_category(category, user=request.user)
             return Response(status=status.HTTP_204_NO_CONTENT)
-        except ValidationError as e:
+        except (ValidationError, DjangoValidationError) as e:
             return Response(
                 {"error": str(e.message) if hasattr(e, 'message') else str(e)},
                 status=status.HTTP_409_CONFLICT

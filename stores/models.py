@@ -4,6 +4,7 @@ from django.utils.text import slugify
 
 class Store(models.Model):
     STATUS_CHOICES = (
+        ("draft", "Draft"),
         ("setup", "Setup"),
         ("active", "Active"),
         ("inactive", "Inactive"),

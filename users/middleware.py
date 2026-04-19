@@ -19,7 +19,6 @@ class JWTTenantMiddleware(MiddlewareMixin):
         super().__init__(get_response)
 
     def process_request(self, request):
-
         auth_header = request.META.get('HTTP_AUTHORIZATION', None)
 
         if not auth_header:
@@ -28,31 +27,33 @@ class JWTTenantMiddleware(MiddlewareMixin):
             existing_user = getattr(request, 'user', None)
             if existing_user and getattr(existing_user, 'is_authenticated', False):
                 request.tenant_id = getattr(existing_user, 'tenant_id', None)
-            # Never trust tenant context from client-supplied headers.
+
             return
 
         try:
             token_str = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
 
             validated_token = UntypedToken(token_str)
-
             jwt_auth = JWTAuthentication()
-
             user = jwt_auth.get_user(validated_token)
 
             if not user.is_active:
-                return JsonResponse({'detail': 'User inactive or deleted.'}, status=403)
+                return JsonResponse(
+                    {"detail": "User inactive or deleted."},
+                    status=403
+                )
 
             request.user = user
-
             request.tenant_id = getattr(user, 'tenant_id', None)
 
-            # السماح لـ Super Admin بدون tenant_id
             if request.tenant_id is None and getattr(user, 'role', None) != 'Super Admin':
-                return JsonResponse({'detail': 'tenant_id missing in token/user.'}, status=403)
+                return JsonResponse(
+                    {"detail": "tenant_id missing in token/user."},
+                    status=403
+                )
 
         except (InvalidToken, TokenError):
-            return JsonResponse({'detail': 'Invalid token.'}, status=401)
+            return JsonResponse({"detail": "Invalid token."}, status=401)
 
         except Exception:
-            return JsonResponse({'detail': 'Authentication failed.'}, status=401)
+            return JsonResponse({"detail": "Authentication failed."}, status=401)
