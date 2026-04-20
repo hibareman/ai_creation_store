@@ -115,7 +115,7 @@ Use these in `.env` (do not commit secrets):
 | `CORS_ALLOW_ALL_ORIGINS` | Optional (dev only) | Allow all origins | `False` |
 | `AI_API_KEY` | For real AI calls | Provider API key | `<secret>` |
 | `AI_API_URL` | Optional | OpenAI-compatible chat completions URL | `https://api.openai.com/v1/chat/completions` |
-| `AI_MODEL_NAME` | Yes | Model name | `gpt-5.2` |
+| `AI_MODEL_NAME` | Yes | Model name | `gpt-4o-mini` |
 | `AI_HTTP_REFERER` | Optional (recommended for OpenRouter) | App/site URL sent as provider header | `http://localhost:8000` |
 | `AI_APP_TITLE` | Optional (recommended for OpenRouter) | App title sent as provider header | `AI Store Backend` |
 | `AI_TIMEOUT` | Yes | Provider timeout in seconds | `30` |
@@ -282,4 +282,4 @@ python manage.py test users.tests stores.tests categories.tests products.tests t
 - Project team: add names here as needed.
 
 ## 📄 License
-- Add project license here (if applicable).
+- MIT License
