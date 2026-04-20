@@ -23,10 +23,30 @@ class CategorySerializer(serializers.ModelSerializer):
     - Description: Optional, cleaned whitespace
     """
     
+    store_id = serializers.IntegerField(read_only=True)
+    image_url = serializers.SerializerMethodField()
+    product_count = serializers.SerializerMethodField()
+
     class Meta:
         model = Category
-        fields = ['id', 'name', 'description', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = [
+            'id',
+            'store_id',
+            'name',
+            'description',
+            'image_url',
+            'product_count',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id',
+            'store_id',
+            'image_url',
+            'product_count',
+            'created_at',
+            'updated_at',
+        ]
         extra_kwargs = {
             'name': {
                 'help_text': 'Category name (must be unique per store)',
@@ -37,6 +57,26 @@ class CategorySerializer(serializers.ModelSerializer):
                 'required': False,
             },
         }
+
+    def get_image_url(self, obj):
+        """
+        Placeholder field for frontend contract compatibility.
+        Category currently does not store an image, so this returns null.
+        """
+        return None
+
+    def get_product_count(self, obj):
+        """
+        Return linked products count.
+        Uses annotated value when available to avoid extra queries.
+        """
+        annotated_count = getattr(obj, 'product_count', None)
+        if annotated_count is not None:
+            try:
+                return int(annotated_count)
+            except (TypeError, ValueError):
+                pass
+        return obj.products.count()
     
     def validate_name(self, value):
         """

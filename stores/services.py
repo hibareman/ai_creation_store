@@ -86,7 +86,7 @@ def suggest_slugs(name, limit=5, store_id=None):
 
 def update_store(store, **kwargs):
     """
-    Update store fields. Allowed fields: name, description, status
+    Update store fields. Allowed fields: name, slug, description, status
     
     Args:
         store: Store instance to update
@@ -102,7 +102,7 @@ def update_store(store, **kwargs):
         # Track which fields are being updated
         updated_fields = []
         
-        for field in ['name', 'description', 'status']:
+        for field in ['name', 'slug', 'description', 'status']:
             if field in kwargs:
                 old_value = getattr(store, field)
                 new_value = kwargs[field]
@@ -228,14 +228,15 @@ def add_domain(store, domain, is_primary=False):
         raise
 
 
-def update_domain(store, domain, is_primary=False):
+def update_domain(store, domain, is_primary=False, new_domain=None):
     """
     Update a domain for a store.
     
     Args:
         store: Store instance
-        domain: Domain name to update
+        domain: Current domain name to update
         is_primary: Whether to set this as primary domain
+        new_domain: Optional new domain value (if changing domain string)
     
     Returns:
         Updated StoreDomain instance
@@ -246,8 +247,11 @@ def update_domain(store, domain, is_primary=False):
     """
     try:
         domain_obj = StoreDomain.objects.get(store=store, domain=domain)
-        
+
+        target_domain = new_domain if new_domain is not None else domain
         old_primary = domain_obj.is_primary
+        if domain_obj.domain != target_domain:
+            domain_obj.domain = target_domain
         domain_obj.is_primary = is_primary
         
         # If making this domain primary, unset other primary domains
@@ -256,7 +260,10 @@ def update_domain(store, domain, is_primary=False):
         
         domain_obj.save()
         
-        logger.info(f"Domain '{domain}' updated in store '{store.name}' (id: {store.id}), is_primary={is_primary}")
+        logger.info(
+            f"Domain '{domain}' updated to '{domain_obj.domain}' in store '{store.name}' "
+            f"(id: {store.id}), is_primary={is_primary}"
+        )
         return domain_obj
     
     except StoreDomain.DoesNotExist:

@@ -9,6 +9,7 @@ from datetime import timedelta
 from urllib.parse import urlparse, unquote
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 SECRET_KEY = os.getenv(
     "SECRET_KEY",
@@ -259,7 +260,10 @@ LOGGING = CUSTOM_LOGGING
 # AI Store Creation configuration (foundation only)
 AI_API_KEY = os.getenv("AI_API_KEY", "")
 AI_MODEL_NAME = os.getenv("AI_MODEL_NAME", "gpt-5.2")
-AI_TIMEOUT = int(os.getenv("AI_TIMEOUT", "30"))
+AI_TIMEOUT = int(os.getenv("AI_TIMEOUT", "120"))
+AI_API_URL = os.getenv("AI_API_URL", "https://api.openai.com/v1/chat/completions")
+AI_HTTP_REFERER = os.getenv("AI_HTTP_REFERER", "")
+AI_APP_TITLE = os.getenv("AI_APP_TITLE", "")
 AI_DRAFT_TTL = int(os.getenv("AI_DRAFT_TTL", "3600"))
 AI_DRAFT_PREFIX = os.getenv("AI_DRAFT_PREFIX", "ai_draft")
 

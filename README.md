@@ -114,7 +114,10 @@ Use these in `.env` (do not commit secrets):
 | `CORS_ALLOW_CREDENTIALS` | Optional | CORS credentials support | `True` |
 | `CORS_ALLOW_ALL_ORIGINS` | Optional (dev only) | Allow all origins | `False` |
 | `AI_API_KEY` | For real AI calls | Provider API key | `<secret>` |
+| `AI_API_URL` | Optional | OpenAI-compatible chat completions URL | `https://api.openai.com/v1/chat/completions` |
 | `AI_MODEL_NAME` | Yes | Model name | `gpt-5.2` |
+| `AI_HTTP_REFERER` | Optional (recommended for OpenRouter) | App/site URL sent as provider header | `http://localhost:8000` |
+| `AI_APP_TITLE` | Optional (recommended for OpenRouter) | App title sent as provider header | `AI Store Backend` |
 | `AI_TIMEOUT` | Yes | Provider timeout in seconds | `30` |
 | `AI_DRAFT_TTL` | Yes | Temporary draft cache TTL | `3600` |
 | `AI_DRAFT_PREFIX` | Yes | AI draft cache key prefix | `ai_draft` |
@@ -234,6 +237,24 @@ python manage.py test
 Run AI-focused tests:
 ```bash
 python manage.py test AI_Store_Creation_Service.tests --verbosity 2 --keepdb --noinput
+```
+
+Run optional live-provider integration test (real API call, disabled by default):
+
+Linux/macOS:
+```bash
+export RUN_LIVE_AI_TESTS=1
+export AI_API_URL="https://openrouter.ai/api/v1/chat/completions"
+export AI_MODEL_NAME="openai/gpt-4o-mini"
+python manage.py test AI_Store_Creation_Service.tests_live_provider -v 2
+```
+
+Windows PowerShell:
+```powershell
+$env:RUN_LIVE_AI_TESTS="1"
+$env:AI_API_URL="https://openrouter.ai/api/v1/chat/completions"
+$env:AI_MODEL_NAME="openai/gpt-4o-mini"
+python manage.py test AI_Store_Creation_Service.tests_live_provider -v 2
 ```
 
 Run selected module tests:

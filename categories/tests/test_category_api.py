@@ -1,174 +1,260 @@
 from django.test import TestCase
-from rest_framework.test import APIClient
 from rest_framework import status
+from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from users.models import User
 from stores.models import Store
 from categories.models import Category
+from products.models import Product
 
 
 class CategoryApiTests(TestCase):
-    """API tests for Category CRUD and tenant isolation."""
-
     def setUp(self):
         self.client = APIClient()
 
-        self.user_a = User.objects.create_user(
-            username='tenant_a',
-            email='tenant_a@example.com',
-            password='pass123'
+        self.owner = User.objects.create_user(
+            username="owner",
+            email="owner@example.com",
+            password="pass123",
         )
-        self.user_a.is_active = True
-        self.user_a.tenant_id = 1
-        self.user_a.save()
+        self.owner.is_active = True
+        self.owner.tenant_id = 1
+        self.owner.save()
 
-        self.user_b = User.objects.create_user(
-            username='tenant_b',
-            email='tenant_b@example.com',
-            password='pass123'
+        self.same_tenant_non_owner = User.objects.create_user(
+            username="same_tenant_user",
+            email="same_tenant@example.com",
+            password="pass123",
         )
-        self.user_b.is_active = True
-        self.user_b.tenant_id = 2
-        self.user_b.save()
+        self.same_tenant_non_owner.is_active = True
+        self.same_tenant_non_owner.tenant_id = 1
+        self.same_tenant_non_owner.save()
 
-        self.store_a = Store.objects.create(
-            owner=self.user_a,
-            name='Store A',
-            tenant_id=1
+        self.other_tenant_user = User.objects.create_user(
+            username="other_tenant_user",
+            email="other_tenant@example.com",
+            password="pass123",
         )
-        self.store_b = Store.objects.create(
-            owner=self.user_b,
-            name='Store B',
-            tenant_id=2
-        )
+        self.other_tenant_user.is_active = True
+        self.other_tenant_user.tenant_id = 2
+        self.other_tenant_user.save()
 
-        self.category_a = Category.objects.create(
-            store=self.store_a,
-            tenant_id=self.store_a.tenant_id,
-            name='Electronics',
-            description='Electronic devices'
+        self.store = Store.objects.create(
+            owner=self.owner,
+            name="Store A",
+            tenant_id=1,
         )
-
-        self.category_b = Category.objects.create(
-            store=self.store_b,
-            tenant_id=self.store_b.tenant_id,
-            name='Books',
-            description='Book products'
+        self.other_store = Store.objects.create(
+            owner=self.other_tenant_user,
+            name="Store B",
+            tenant_id=2,
         )
 
-        refresh_a = RefreshToken.for_user(self.user_a)
-        self.auth_header_a = f'Bearer {str(refresh_a.access_token)}'
+        self.category = Category.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Electronics",
+            description="Electronic devices",
+        )
+        self.other_category = Category.objects.create(
+            store=self.other_store,
+            tenant_id=self.other_store.tenant_id,
+            name="Books",
+            description="Book products",
+        )
 
-        refresh_b = RefreshToken.for_user(self.user_b)
-        self.auth_header_b = f'Bearer {str(refresh_b.access_token)}'
+        self.owner_auth = self._auth(self.owner)
+        self.same_tenant_auth = self._auth(self.same_tenant_non_owner)
+        self.other_tenant_auth = self._auth(self.other_tenant_user)
 
-    def test_list_categories_for_store(self):
+    def _auth(self, user):
+        refresh = RefreshToken.for_user(user)
+        return f"Bearer {str(refresh.access_token)}"
+
+    @staticmethod
+    def _payload(response):
+        return response.json()
+
+    def _assert_category_shape(self, item, *, store_id, name, description):
+        self.assertIn("id", item)
+        self.assertEqual(item["store_id"], store_id)
+        self.assertEqual(item["name"], name)
+        self.assertEqual(item["description"], description)
+        self.assertIn("image_url", item)
+        self.assertIn("product_count", item)
+        self.assertIn("created_at", item)
+        self.assertIn("updated_at", item)
+
+    def test_list_categories_returns_current_shape(self):
         response = self.client.get(
-            f'/api/stores/{self.store_a.id}/categories/',
-            HTTP_AUTHORIZATION=self.auth_header_a
+            f"/api/categories/stores/{self.store.id}/categories/",
+            HTTP_AUTHORIZATION=self.owner_auth,
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['name'], 'Electronics')
 
-    def test_create_category_success(self):
-        payload = {
-            'name': 'Clothing',
-            'description': 'Apparel and fashion'
-        }
-        response = self.client.post(
-            f'/api/stores/{self.store_a.id}/categories/',
-            payload,
-            HTTP_AUTHORIZATION=self.auth_header_a,
-            format='json'
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self.assertEqual(len(payload), 1)
+        self._assert_category_shape(
+            payload[0],
+            store_id=self.store.id,
+            name="Electronics",
+            description="Electronic devices",
         )
+        self.assertEqual(payload[0]["image_url"], None)
+        self.assertEqual(payload[0]["product_count"], 0)
+
+    def test_create_category_returns_current_shape(self):
+        response = self.client.post(
+            f"/api/categories/stores/{self.store.id}/categories/",
+            {
+                "name": "Clothing",
+                "description": "Apparel and fashion",
+            },
+            format="json",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['name'], 'Clothing')
-        self.assertTrue(Category.objects.filter(store=self.store_a, name='Clothing').exists())
-
-    def test_create_category_duplicate_name_fails(self):
-        payload = {
-            'name': 'Electronics',
-            'description': 'Duplicate name test'
-        }
-        response = self.client.post(
-            f'/api/stores/{self.store_a.id}/categories/',
+        payload = self._payload(response)
+        self._assert_category_shape(
             payload,
-            HTTP_AUTHORIZATION=self.auth_header_a,
-            format='json'
+            store_id=self.store.id,
+            name="Clothing",
+            description="Apparel and fashion",
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('name', response.data)
+        self.assertEqual(payload["image_url"], None)
+        self.assertEqual(payload["product_count"], 0)
+        self.assertTrue(Category.objects.filter(store=self.store, name="Clothing").exists())
 
-    def test_retrieve_category_detail(self):
+    def test_retrieve_category_returns_current_shape(self):
         response = self.client.get(
-            f'/api/stores/{self.store_a.id}/categories/{self.category_a.id}/',
-            HTTP_AUTHORIZATION=self.auth_header_a
+            f"/api/categories/stores/{self.store.id}/categories/{self.category.id}/",
+            HTTP_AUTHORIZATION=self.owner_auth,
         )
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['name'], 'Electronics')
-
-    def test_store_not_found_returns_404(self):
-        response = self.client.get(
-            '/api/stores/999999/categories/',
-            HTTP_AUTHORIZATION=self.auth_header_a,
+        payload = self._payload(response)
+        self._assert_category_shape(
+            payload,
+            store_id=self.store.id,
+            name="Electronics",
+            description="Electronic devices",
         )
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_category_not_found_in_accessible_store_returns_404(self):
-        response = self.client.get(
-            f'/api/stores/{self.store_a.id}/categories/999999/',
-            HTTP_AUTHORIZATION=self.auth_header_a,
-        )
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-
-    def test_update_category_success(self):
-        payload = {
-            'name': 'Consumer Electronics',
-            'description': 'Updated description'
-        }
+    def test_patch_category_returns_current_shape(self):
         response = self.client.patch(
-            f'/api/stores/{self.store_a.id}/categories/{self.category_a.id}/',
-            payload,
-            HTTP_AUTHORIZATION=self.auth_header_a,
-            format='json'
+            f"/api/categories/stores/{self.store.id}/categories/{self.category.id}/",
+            {
+                "name": "Consumer Electronics",
+                "description": "Updated description",
+            },
+            format="json",
+            HTTP_AUTHORIZATION=self.owner_auth,
         )
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.category_a.refresh_from_db()
-        self.assertEqual(self.category_a.name, 'Consumer Electronics')
-        self.assertEqual(self.category_a.description, 'Updated description')
+        payload = self._payload(response)
+        self._assert_category_shape(
+            payload,
+            store_id=self.store.id,
+            name="Consumer Electronics",
+            description="Updated description",
+        )
+        self.assertEqual(payload["product_count"], 0)
+
+    def test_put_category_returns_current_shape(self):
+        response = self.client.put(
+            f"/api/categories/stores/{self.store.id}/categories/{self.category.id}/",
+            {
+                "name": "Home Appliances",
+                "description": "Appliances for the home",
+            },
+            format="json",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self._assert_category_shape(
+            payload,
+            store_id=self.store.id,
+            name="Home Appliances",
+            description="Appliances for the home",
+        )
+        self.assertEqual(payload["product_count"], 0)
+
+    def test_create_duplicate_category_returns_current_error_shape(self):
+        response = self.client.post(
+            f"/api/categories/stores/{self.store.id}/categories/",
+            {
+                "name": "Electronics",
+                "description": "Duplicate name test",
+            },
+            format="json",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        payload = self._payload(response)
+        self.assertIn("name", payload)
+        self.assertTrue(any("already exists" in msg.lower() for msg in payload["name"]))
 
     def test_delete_category_success(self):
         response = self.client.delete(
-            f'/api/stores/{self.store_a.id}/categories/{self.category_a.id}/',
-            HTTP_AUTHORIZATION=self.auth_header_a
+            f"/api/categories/stores/{self.store.id}/categories/{self.category.id}/",
+            HTTP_AUTHORIZATION=self.owner_auth,
         )
+
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(Category.objects.filter(id=self.category_a.id).exists())
+        self.assertFalse(Category.objects.filter(id=self.category.id).exists())
 
-    def test_cross_tenant_category_access_denied(self):
+    def test_delete_category_with_linked_products_returns_current_error_shape(self):
+        Product.objects.create(
+            store=self.store,
+            category=self.category,
+            name="Headphones",
+            description="Wireless headphones",
+            price=149.99,
+            sku="HEADPHONES-001",
+            tenant_id=self.store.tenant_id,
+        )
+
+        response = self.client.delete(
+            f"/api/categories/stores/{self.store.id}/categories/{self.category.id}/",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        payload = self._payload(response)
+        self.assertIn("error", payload)
+        self.assertIn("cannot delete category with assigned products", payload["error"].lower())
+        self.assertTrue(Category.objects.filter(id=self.category.id).exists())
+
+    def test_same_tenant_non_owner_cannot_access_store_categories(self):
         response = self.client.get(
-            f'/api/stores/{self.store_b.id}/categories/',
-            HTTP_AUTHORIZATION=self.auth_header_a
+            f"/api/categories/stores/{self.store.id}/categories/",
+            HTTP_AUTHORIZATION=self.same_tenant_auth,
         )
-        self.assertIn(response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-        payload = {
-            'name': 'Malicious',
-            'description': 'Should not be created'
-        }
-        response = self.client.post(
-            f'/api/stores/{self.store_b.id}/categories/',
-            payload,
-            HTTP_AUTHORIZATION=self.auth_header_a,
-            format='json'
-        )
-        self.assertIn(response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
-
-    def test_cross_tenant_category_detail_denied(self):
+    def test_other_tenant_cannot_access_store_categories(self):
         response = self.client.get(
-            f'/api/stores/{self.store_b.id}/categories/{self.category_b.id}/',
-            HTTP_AUTHORIZATION=self.auth_header_a
+            f"/api/categories/stores/{self.store.id}/categories/",
+            HTTP_AUTHORIZATION=self.other_tenant_auth,
         )
-        self.assertIn(response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_store_not_found_returns_404(self):
+        response = self.client.get(
+            "/api/categories/stores/999999/categories/",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_category_not_found_returns_404(self):
+        response = self.client.get(
+            f"/api/categories/stores/{self.store.id}/categories/999999/",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

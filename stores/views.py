@@ -13,6 +13,7 @@ from .serializers import (
 )
 from .services import (
     create_store,
+    update_store,
     update_store_settings,
     add_domain,
     update_domain,
@@ -108,6 +109,21 @@ class UpdateStoreView(generics.UpdateAPIView):
         
         logger.debug(f"User {self.request.user.id} updating store {store.id}")
         return store
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        store = self.get_object()
+
+        serializer = self.get_serializer(store, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            updated_store = update_store(store=store, **serializer.validated_data)
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        response_serializer = self.get_serializer(updated_store)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 # Delete store
 class DestroyStoreView(generics.DestroyAPIView):
@@ -282,11 +298,17 @@ class RetrieveUpdateDestroyStoreDomainView(StoreAccessMixin, generics.RetrieveUp
         store = self._get_store_or_not_found(store_id)
         self._enforce_store_access(self.request, store)
         domain_obj = self.get_object()
-        
+
+        new_domain = serializer.validated_data.get('domain', domain_obj.domain)
         is_primary = serializer.validated_data.get('is_primary', domain_obj.is_primary)
-        
+
         # Use service to update (handles primary domain logic)
-        updated_domain = update_domain(store, domain_obj.domain, is_primary)
+        updated_domain = update_domain(
+            store,
+            domain_obj.domain,
+            is_primary,
+            new_domain=new_domain,
+        )
         serializer.instance = updated_domain
     
     def perform_destroy(self, instance):

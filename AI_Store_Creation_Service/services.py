@@ -44,6 +44,8 @@ from .validators import (
     validate_basic_draft_schema,
     validate_categories_section,
     validate_products_section,
+    validate_store_section,
+    validate_store_settings_section,
     validate_theme_section,
 )
 
@@ -105,6 +107,31 @@ def _ensure_theme_template_is_available(
         raise AIDraftSchemaValidationError(
             "Theme field 'theme_template' must match an available ThemeTemplate name."
         )
+
+
+def _build_recoverable_fallback_metadata(
+    *,
+    reason: str,
+    original_user_store_description: str,
+    clarification_round_count: int | None = None,
+    latest_clarification_input: str | None = None,
+    clarification_history: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "status": "needs_clarification",
+        "current_step": "analyzing_description",
+        "mode": "clarification",
+        "is_fallback": True,
+        "reason": reason,
+        "original_user_store_description": original_user_store_description,
+    }
+    if clarification_round_count is not None:
+        metadata["clarification_round_count"] = clarification_round_count
+    if latest_clarification_input is not None:
+        metadata["latest_clarification_input"] = latest_clarification_input
+    if clarification_history is not None:
+        metadata["clarification_history"] = clarification_history
+    return metadata
 
 
 def _extract_partial_section_replacement(
@@ -276,6 +303,8 @@ def generate_initial_store_draft(
         mode = detect_ai_response_mode(payload)
 
         if mode == "draft_ready":
+            validate_store_section(payload["store"])
+            validate_store_settings_section(payload["store_settings"])
             validate_theme_section(payload["theme"])
             _ensure_theme_template_is_available(
                 payload["theme"],
@@ -320,14 +349,10 @@ def generate_initial_store_draft(
         save_ai_draft(store.id, fallback_payload)
         save_ai_draft_meta(
             store.id,
-            {
-                "status": "failed",
-                "current_step": "analyzing_description",
-                "mode": "clarification",
-                "is_fallback": True,
-                "reason": str(exc),
-                "original_user_store_description": normalized_description,
-            },
+            _build_recoverable_fallback_metadata(
+                reason=str(exc),
+                original_user_store_description=normalized_description,
+            ),
         )
         _write_ai_audit_log(
             tenant_id=store.tenant_id,
@@ -591,6 +616,8 @@ def process_clarification_round(
             available_theme_templates = get_available_theme_template_names()
             if not available_theme_templates:
                 raise AIDraftSchemaValidationError("No available theme templates found")
+            validate_store_section(payload["store"])
+            validate_store_settings_section(payload["store_settings"])
             validate_theme_section(payload["theme"])
             _ensure_theme_template_is_available(
                 payload["theme"],
@@ -686,17 +713,13 @@ def process_clarification_round(
         save_ai_draft(store.id, fallback_payload)
         save_ai_draft_meta(
             store.id,
-            {
-                "status": "failed",
-                "current_step": "analyzing_description",
-                "mode": "clarification",
-                "is_fallback": True,
-                "reason": str(exc),
-                "clarification_round_count": clarification_round_count,
-                "original_user_store_description": original_description,
-                "latest_clarification_input": clarification_input,
-                "clarification_history": updated_history,
-            },
+            _build_recoverable_fallback_metadata(
+                reason=str(exc),
+                original_user_store_description=original_description,
+                clarification_round_count=clarification_round_count,
+                latest_clarification_input=clarification_input,
+                clarification_history=updated_history,
+            ),
         )
         _write_ai_audit_log(
             tenant_id=normalized_tenant_id,
@@ -836,6 +859,8 @@ def regenerate_store_draft(
         mode = detect_ai_response_mode(payload)
 
         if mode == "draft_ready":
+            validate_store_section(payload["store"])
+            validate_store_settings_section(payload["store_settings"])
             validate_theme_section(payload["theme"])
             _ensure_theme_template_is_available(
                 payload["theme"],
@@ -904,17 +929,13 @@ def regenerate_store_draft(
         save_ai_draft(store.id, fallback_payload)
         save_ai_draft_meta(
             store.id,
-            {
-                "status": "failed",
-                "current_step": "analyzing_description",
-                "mode": "clarification",
-                "is_fallback": True,
-                "reason": str(exc),
-                "original_user_store_description": normalized_description,
-                "clarification_round_count": clarification_round_count,
-                "latest_clarification_input": latest_clarification_input,
-                "clarification_history": clarification_history,
-            },
+            _build_recoverable_fallback_metadata(
+                reason=str(exc),
+                original_user_store_description=normalized_description,
+                clarification_round_count=clarification_round_count,
+                latest_clarification_input=latest_clarification_input,
+                clarification_history=clarification_history,
+            ),
         )
         _write_ai_audit_log(
             tenant_id=normalized_tenant_id,
@@ -1209,16 +1230,10 @@ def apply_current_ai_draft_store_core(
         if mode != "draft_ready":
             raise AIDraftSchemaValidationError("Current draft payload is not draft_ready")
 
-        store_section = current_draft.get("store")
-        if not isinstance(store_section, dict):
-            raise AIDraftSchemaValidationError("Draft field 'store' must be an object.")
-
-        store_name = store_section.get("name")
-        store_description = store_section.get("description")
-        if not isinstance(store_name, str) or not store_name.strip():
-            raise AIDraftSchemaValidationError("Draft field 'store.name' must be a non-empty string.")
-        if not isinstance(store_description, str):
-            raise AIDraftSchemaValidationError("Draft field 'store.description' must be a string.")
+        store_section = validate_store_section(current_draft["store"])
+        validate_store_settings_section(current_draft["store_settings"])
+        store_name = store_section["name"]
+        store_description = store_section["description"]
 
         theme_data = validate_theme_section(current_draft["theme"])
         validated_categories = validate_categories_section(current_draft["categories"])

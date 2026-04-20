@@ -1,16 +1,15 @@
 """
-Error response utilities and formatters.
-أدوات تنسيق استجابات الأخطاء.
+Error response utilities and plain-response formatters.
 """
-import uuid
-from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from rest_framework.response import Response
 from rest_framework import status
 
+from utils.response_format import error_payload, success_payload
+
 
 class ErrorResponse:
-    """منسق استجابات الأخطاء الموحدة"""
+    """Plain error response formatter."""
 
     @staticmethod
     def format_error(
@@ -22,30 +21,21 @@ class ErrorResponse:
         errors: Dict = None
     ) -> Dict[str, Any]:
         """
-        تنسيق استجابة خطأ موحدة.
-        
-        Args:
-            error_code: كود الخطأ (مثل: VALIDATION_ERROR)
-            message: رسالة الخطأ
-            status_code: HTTP status code
-            details: تفاصيل إضافية
-            request_id: معرّف الطلب
-            errors: قاموس الأخطاء التفصيلية (مثل validation errors)
-        
-        Returns:
-            قاموس استجابة الخطأ
+        Return plain error payload without envelope.
+        Keep useful details when available.
         """
-        return {
-            'success': False,
-            'error': {
-                'code': error_code,
-                'message': message,
-                'details': details or {},
-                'errors': errors or {},
-                'request_id': request_id or str(uuid.uuid4()),
-                'timestamp': datetime.utcnow().isoformat(),
-            }
-        }
+        payload = {"detail": message}
+
+        if errors:
+            payload["errors"] = errors
+
+        if details:
+            payload["details"] = details
+
+        if error_code:
+            payload["code"] = error_code
+
+        return payload
 
     @staticmethod
     def response(
@@ -56,12 +46,6 @@ class ErrorResponse:
         request_id: str = None,
         errors: Dict = None
     ) -> Response:
-        """
-        إنشاء DRF Response للخطأ.
-        
-        Returns:
-            DRF Response object مع status code مناسب
-        """
         data = ErrorResponse.format_error(
             error_code=error_code,
             message=message,
@@ -78,7 +62,6 @@ class ErrorResponse:
         field_errors: Dict[str, List[str]] = None,
         request_id: str = None
     ) -> Response:
-        """استجابة خطأ التحقق من الصحة"""
         return ErrorResponse.response(
             error_code='VALIDATION_ERROR',
             message=message,
@@ -93,12 +76,11 @@ class ErrorResponse:
         resource_id: Any = None,
         request_id: str = None
     ) -> Response:
-        """استجابة الموارد غير الموجودة"""
         message = f"{resource_type}"
         if resource_id:
             message += f" {resource_id}"
         message += " not found"
-        
+
         return ErrorResponse.response(
             error_code='NOT_FOUND',
             message=message,
@@ -113,12 +95,11 @@ class ErrorResponse:
         resource: str = None,
         request_id: str = None
     ) -> Response:
-        """استجابة الوصول المرفوض"""
         return ErrorResponse.response(
             error_code='PERMISSION_DENIED',
             message=message or 'You do not have permission to access this resource',
             status_code=status.HTTP_403_FORBIDDEN,
-            details={'resource': resource},
+            details={'resource': resource} if resource else None,
             request_id=request_id
         )
 
@@ -129,7 +110,6 @@ class ErrorResponse:
         details: Dict = None,
         request_id: str = None
     ) -> Response:
-        """استجابة التعارض (مثل: slug مأخوز، منتج موجود بالفعل)"""
         return ErrorResponse.response(
             error_code=error_code,
             message=message,
@@ -144,7 +124,6 @@ class ErrorResponse:
         request_id: str = None,
         error_details: Dict = None
     ) -> Response:
-        """استجابة خطأ الخادم الداخلي"""
         return ErrorResponse.response(
             error_code='INTERNAL_SERVER_ERROR',
             message=message or 'An unexpected error occurred',
@@ -155,7 +134,7 @@ class ErrorResponse:
 
 
 class SuccessResponse:
-    """منسق استجابات النجاح الموحدة"""
+    """Plain success response formatter."""
 
     @staticmethod
     def format_success(
@@ -163,33 +142,22 @@ class SuccessResponse:
         message: str = None,
         request_id: str = None,
         extra_fields: Dict = None
-    ) -> Dict[str, Any]:
+    ) -> Any:
         """
-        تنسيق استجابة نجاح موحدة.
-        
-        Args:
-            data: بيانات الاستجابة
-            message: رسالة نجاح اختيارية
-            request_id: معرّف الطلب
-            extra_fields: حقول إضافية
-        
-        Returns:
-            قاموس استجابة النجاح
+        Return plain success data without envelope.
+        Merge extra_fields into dict payloads when relevant.
         """
-        response = {
-            'success': True,
-            'data': data,
-            'request_id': request_id or str(uuid.uuid4()),
-            'timestamp': datetime.utcnow().isoformat(),
-        }
-        
-        if message:
-            response['message'] = message
-        
+        payload = data
+
         if extra_fields:
-            response.update(extra_fields)
-        
-        return response
+            if payload is None:
+                payload = extra_fields
+            elif isinstance(payload, dict):
+                merged = dict(payload)
+                merged.update(extra_fields)
+                payload = merged
+
+        return payload
 
     @staticmethod
     def response(
@@ -199,12 +167,6 @@ class SuccessResponse:
         request_id: str = None,
         extra_fields: Dict = None
     ) -> Response:
-        """
-        إنشاء DRF Response للنجاح.
-        
-        Returns:
-            DRF Response object مع status code مناسب
-        """
         data_dict = SuccessResponse.format_success(
             data=data,
             message=message,
@@ -219,7 +181,6 @@ class SuccessResponse:
         message: str = 'Resource created successfully',
         request_id: str = None
     ) -> Response:
-        """استجابة الإنشاء الناجح (201)"""
         return SuccessResponse.response(
             data=data,
             message=message,
@@ -233,7 +194,6 @@ class SuccessResponse:
         message: str = 'Resource updated successfully',
         request_id: str = None
     ) -> Response:
-        """استجابة التحديث الناجح (200)"""
         return SuccessResponse.response(
             data=data,
             message=message,
@@ -246,13 +206,7 @@ class SuccessResponse:
         message: str = 'Resource deleted successfully',
         request_id: str = None
     ) -> Response:
-        """استجابة الحذف الناجح (204)"""
-        return SuccessResponse.response(
-            data=None,
-            message=message,
-            status_code=status.HTTP_204_NO_CONTENT,
-            request_id=request_id
-        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @staticmethod
     def list(
@@ -262,21 +216,20 @@ class SuccessResponse:
         page_size: int = None,
         request_id: str = None
     ) -> Response:
-        """استجابة قائمة البيانات"""
         extra_fields = {}
-        
+
         if total_count is not None:
             extra_fields['total_count'] = total_count
-        
+
         if page is not None:
             extra_fields['page'] = page
-        
+
         if page_size is not None:
             extra_fields['page_size'] = page_size
-        
+
         return SuccessResponse.response(
             data=data,
             status_code=status.HTTP_200_OK,
             request_id=request_id,
-            extra_fields=extra_fields
+            extra_fields=extra_fields if isinstance(data, dict) else None
         )

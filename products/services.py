@@ -8,6 +8,7 @@ MULTI-TENANT RULES STRICTLY ENFORCED:
 """
 
 import logging
+import re
 from decimal import Decimal
 from django.core.exceptions import ValidationError
 from rest_framework.exceptions import PermissionDenied
@@ -22,6 +23,24 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # PRODUCT SERVICE FUNCTIONS
 # ============================================================================
+
+def _normalize_sku_seed(name: str) -> str:
+    base = re.sub(r'[^A-Z0-9]+', '-', (name or '').upper()).strip('-')
+    return base or 'ITEM'
+
+
+def _generate_unique_sku(store: Store, name: str) -> str:
+    base = _normalize_sku_seed(name)[:100]
+    candidate = base
+    counter = 1
+
+    while Product.objects.filter(store_id=store.id, sku=candidate).exists():
+        suffix = f"-{counter:03d}"
+        max_base_length = 100 - len(suffix)
+        candidate = f"{base[:max_base_length]}{suffix}"
+        counter += 1
+
+    return candidate
 
 def _validate_store_authorization(user, store: Store):
     """
@@ -49,7 +68,7 @@ def create_product(
     store: Store,
     name: str,
     price: Decimal,
-    sku: str,
+    sku: str | None = None,
     description: str = '',
     category: Category = None,
     status: str = 'active'
@@ -69,10 +88,16 @@ def create_product(
     if price <= 0:
         raise ValidationError("Price must be greater than 0")
 
-    if not sku or not sku.strip():
-        raise ValidationError("SKU is required")
+    if sku and sku.strip():
+        sku = sku.strip().upper()
+    else:
+        sku = _generate_unique_sku(store=store, name=name)
 
-    sku = sku.strip().upper()
+    allowed_statuses = {choice for choice, _label in Product.STATUS_CHOICES}
+    if status not in allowed_statuses:
+        raise ValidationError(
+            f"Invalid status '{status}'. Allowed values: {', '.join(sorted(allowed_statuses))}"
+        )
 
     if Product.objects.filter(store_id=store.id, sku=sku).exists():
         raise ValidationError(f"SKU '{sku}' already exists in this store")
@@ -155,8 +180,12 @@ def update_product(
                 raise ValidationError(f"SKU '{sku}' already exists in this store")
             product.sku = sku
         elif field == 'status' and value:
-            if value in ['active', 'inactive']:
+            if value in ['active', 'draft', 'out_of_stock']:
                 product.status = value
+            else:
+                raise ValidationError(
+                    "Invalid status. Allowed values: active, draft, out_of_stock"
+                )
         elif field == 'category':
             if value and (value.store_id != store.id or value.tenant_id != store.tenant_id):
                 raise ValidationError("Category does not belong to this store")

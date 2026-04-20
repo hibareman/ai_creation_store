@@ -117,6 +117,9 @@ class OpenAIProviderClient(AIProviderContract):
         self.api_key = settings.AI_API_KEY
         self.model_name = settings.AI_MODEL_NAME
         self.timeout = settings.AI_TIMEOUT
+        self.api_url = getattr(settings, "AI_API_URL", self.API_URL)
+        self.http_referer = getattr(settings, "AI_HTTP_REFERER", "")
+        self.app_title = getattr(settings, "AI_APP_TITLE", "")
 
     def _build_headers(self) -> dict[str, str]:
         if not self.api_key:
@@ -126,7 +129,11 @@ class OpenAIProviderClient(AIProviderContract):
         return {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-        }
+        } | (
+            {"HTTP-Referer": self.http_referer.strip()} if self.http_referer else {}
+        ) | (
+            {"X-Title": self.app_title.strip()} if self.app_title else {}
+        )
 
     def _call_chat_completions(self, messages: list[dict[str, str]]) -> ProviderRawResponse:
         payload = {
@@ -137,7 +144,7 @@ class OpenAIProviderClient(AIProviderContract):
         }
 
         request = Request(
-            url=self.API_URL,
+            url=self.api_url,
             data=json.dumps(payload).encode("utf-8"),
             headers=self._build_headers(),
             method="POST",

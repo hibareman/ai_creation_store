@@ -26,7 +26,8 @@ class Product(models.Model):
     
     STATUS_CHOICES = (
         ("active", "Active"),
-        ("inactive", "Inactive"),
+        ("draft", "Draft"),
+        ("out_of_stock", "Out of Stock"),
     )
     
     # Basic product information
@@ -53,7 +54,7 @@ class Product(models.Model):
         max_length=20,
         choices=STATUS_CHOICES,
         default="active",
-        help_text="Product status (active/inactive)"
+        help_text="Product status (active/draft/out_of_stock)"
     )
     
     # Foreign Keys

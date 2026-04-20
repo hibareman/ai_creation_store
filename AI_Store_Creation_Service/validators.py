@@ -83,6 +83,49 @@ def validate_basic_draft_schema(payload: Mapping[str, Any]) -> dict[str, Any]:
     return dict(payload)
 
 
+def validate_store_section(store_data: Mapping[str, Any]) -> dict[str, Any]:
+    """
+    Validate draft `store` section at a practical level for draft-ready payloads.
+    """
+    if not isinstance(store_data, Mapping):
+        raise AIDraftSchemaValidationError("Store section must be a mapping object.")
+
+    if "name" not in store_data:
+        raise AIDraftSchemaValidationError("Missing required store field: 'name'.")
+    name = store_data["name"]
+    if not isinstance(name, str) or not name.strip():
+        raise AIDraftSchemaValidationError("Store field 'name' must be a non-empty string.")
+
+    if "description" not in store_data:
+        raise AIDraftSchemaValidationError("Missing required store field: 'description'.")
+    description = store_data["description"]
+    if not isinstance(description, str):
+        raise AIDraftSchemaValidationError("Store field 'description' must be a string.")
+
+    return dict(store_data)
+
+
+def validate_store_settings_section(store_settings_data: Mapping[str, Any]) -> dict[str, Any]:
+    """
+    Validate draft `store_settings` section for draft-ready payloads.
+    """
+    if not isinstance(store_settings_data, Mapping):
+        raise AIDraftSchemaValidationError("store_settings section must be a mapping object.")
+
+    for key in ("currency", "language", "timezone"):
+        if key not in store_settings_data:
+            raise AIDraftSchemaValidationError(
+                f"Missing required store_settings field: '{key}'."
+            )
+        value = store_settings_data[key]
+        if not isinstance(value, str) or not value.strip():
+            raise AIDraftSchemaValidationError(
+                f"store_settings field '{key}' must be a non-empty string."
+            )
+
+    return dict(store_settings_data)
+
+
 def _require_non_empty_string(theme_data: Mapping[str, Any], key: str) -> str:
     if key not in theme_data:
         raise AIDraftSchemaValidationError(f"Missing required theme field: '{key}'.")
@@ -403,15 +446,15 @@ def build_ai_fallback_payload(
     - Fallback in AI Store Creation is clarification-style (not template-style).
     - The payload intentionally requests clarification with structured MCQ objects.
     """
-    questions = list(clarification_questions) if clarification_questions else [
+    default_questions = [
         {
             "question_key": "store_type",
             "question_text": "What type of store do you want to create?",
             "options": ["Fashion", "Electronics", "Food & Grocery", "Other"],
         }
     ]
-
-    return {
+    questions = list(clarification_questions) if clarification_questions else default_questions
+    fallback_payload = {
         "store": {},
         "store_settings": {},
         "theme": {},
@@ -420,3 +463,11 @@ def build_ai_fallback_payload(
         "clarification_needed": True,
         "clarification_questions": questions,
     }
+
+    # Keep fallback usable even if a custom questions list was malformed.
+    try:
+        detect_ai_response_mode(fallback_payload)
+    except AIDraftSchemaValidationError:
+        fallback_payload["clarification_questions"] = default_questions
+
+    return fallback_payload
