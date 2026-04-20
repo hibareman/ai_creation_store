@@ -1,58 +1,59 @@
-﻿# Virtual environments
-.venv/
-venv_ai_creation/
-venv/
-env/
-
-# Python cache and build artifacts
+﻿# Python
 __pycache__/
 *.py[cod]
 *$py.class
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+*.so
+.Python
+.env
+.venv/
+venv/
+ENV/
+env/
 
-# Coverage artifacts
-.coverage
-.coverage.*
-coverage.xml
-htmlcov/
-
-# Runtime and local data
-logs/
+# Django
 *.log
+*.pot
+*.pyc
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
 media/
 staticfiles/
-static/
-db.sqlite3
-*.sqlite3
+logs/
 
-# Local audit/report outputs
-git_audit/
-git_report/
-
-# IDE/editor artifacts
+# IDE
 .vscode/
 .idea/
 *.swp
+*.swo
+*~
 
-# OS artifacts
-.DS_Store
-Thumbs.db
+# Git
+*.orig
 
-# Optional local-only helper scripts
-integrationFullIntegrationTest.py
-tests_integration.py
-verify_logging_setup.py
-.venv/
+# Project specific
+.tmp_decisions/
+.tmp_erd/
 git_audit/
 git_report/
-logs/
-media/
 senior 1/
-db.sqlite3
-integrationFullIntegrationTest.py
-__pycache__/
-**/__pycache__/
-*.pyc
+approved base prompt
+
+# Large files
+*.mp4
+*.avi
+*.mov
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.zip
+*.tar
+*.gz
+
+# Environment
 .env
+.env.local
+
+# Media files
+media/
