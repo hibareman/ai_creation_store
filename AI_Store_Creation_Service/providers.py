@@ -26,17 +26,8 @@ from .prompts import (
 
 ProviderRawResponse = dict[str, Any]
 
+
 class AIProviderContract(ABC):
-    """
-    Official provider interface for AI Store Creation workflow.
-
-    Contract decision:
-    Implementations return raw provider response payloads.
-    Parsing/normalization to workflow schema is handled in later layers.
-
-    The workflow is store-anchored; the same store_id is reused across calls.
-    """
-
     @abstractmethod
     def generate_store_draft(
         self,
@@ -46,10 +37,6 @@ class AIProviderContract(ABC):
         user_store_description: str,
         available_theme_templates: Sequence[str],
     ) -> ProviderRawResponse:
-        """
-        Execute provider call for initial draft generation.
-        Returns raw provider response.
-        """
         raise NotImplementedError
 
     @abstractmethod
@@ -62,10 +49,6 @@ class AIProviderContract(ABC):
         prompt: str,
         context: Mapping[str, Any] | None = None,
     ) -> ProviderRawResponse:
-        """
-        Execute provider call for clarification pass.
-        Returns raw provider response.
-        """
         raise NotImplementedError
 
     @abstractmethod
@@ -79,10 +62,6 @@ class AIProviderContract(ABC):
         clarification_context: Mapping[str, Any] | Sequence[Any] | None = None,
         available_theme_templates: Sequence[str] | None = None,
     ) -> ProviderRawResponse:
-        """
-        Execute provider call for regeneration pass.
-        Returns raw provider response.
-        """
         raise NotImplementedError
 
     @abstractmethod
@@ -97,20 +76,10 @@ class AIProviderContract(ABC):
         clarification_context: Mapping[str, Any] | Sequence[Any] | None = None,
         available_theme_templates: Sequence[str] | None = None,
     ) -> ProviderRawResponse:
-        """
-        Execute provider call for partial section regeneration.
-        Returns raw provider response.
-        """
         raise NotImplementedError
 
 
 class OpenAIProviderClient(AIProviderContract):
-    """
-    Concrete provider client for OpenAI Chat Completions API.
-
-    This class is intentionally limited to provider communication only.
-    """
-
     API_URL = "https://api.openai.com/v1/chat/completions"
 
     def __init__(self) -> None:
@@ -126,39 +95,99 @@ class OpenAIProviderClient(AIProviderContract):
             raise ImproperlyConfigured(
                 "AI_API_KEY is not configured. Set it in environment/.env before calling provider."
             )
-        return {
+
+        headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-        } | (
-            {"HTTP-Referer": self.http_referer.strip()} if self.http_referer else {}
-        ) | (
-            {"X-Title": self.app_title.strip()} if self.app_title else {}
-        )
-
-    def _call_chat_completions(self, messages: list[dict[str, str]]) -> ProviderRawResponse:
-        payload = {
-            "model": self.model_name,
-            "messages": messages,
-            # Request JSON-shaped answer from provider; domain parsing remains outside this layer.
-            "response_format": {"type": "json_object"},
         }
 
+        if self.http_referer:
+            headers["HTTP-Referer"] = self.http_referer.strip()
+
+        if self.app_title:
+            headers["X-Title"] = self.app_title.strip()
+
+        return headers
+
+    def _build_chat_payload(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        include_response_format: bool,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "model": self.model_name,
+            "messages": messages,
+            "provider": {
+                "require_parameters": True,
+            },
+            "plugins": [
+                {"id": "response-healing"},
+            ],
+            "temperature": 0.2,
+        }
+
+        if include_response_format:
+            # Keep this for models/providers that support JSON object output.
+            # The caller already retries without it if unsupported.
+            payload["response_format"] = {"type": "json_object"}
+
+        return payload
+
+    @staticmethod
+    def _is_response_format_unsupported_error(status_code: int, error_body: str) -> bool:
+        if status_code not in {400, 404, 422}:
+            return False
+
+        normalized = (error_body or "").lower()
+        indicators = (
+            "response_format",
+            "json_object",
+            "unsupported parameter",
+            "not supported",
+            "unknown parameter",
+            "invalid parameter",
+        )
+        return any(marker in normalized for marker in indicators)
+
+    def _send_chat_completions_request(self, payload: Mapping[str, Any]) -> ProviderRawResponse:
         request = Request(
             url=self.api_url,
-            data=json.dumps(payload).encode("utf-8"),
+            data=json.dumps(dict(payload)).encode("utf-8"),
             headers=self._build_headers(),
             method="POST",
         )
 
+        with urlopen(request, timeout=self.timeout) as response:
+            response_body = response.read().decode("utf-8")
+            return json.loads(response_body)
+
+    def _call_chat_completions(self, messages: list[dict[str, str]]) -> ProviderRawResponse:
+        payload = self._build_chat_payload(messages, include_response_format=True)
+
         try:
-            with urlopen(request, timeout=self.timeout) as response:
-                response_body = response.read().decode("utf-8")
-                return json.loads(response_body)
+            return self._send_chat_completions_request(payload)
         except HTTPError as exc:
             error_body = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(
-                f"Provider HTTP error {exc.code}: {error_body}"
-            ) from exc
+
+            if self._is_response_format_unsupported_error(exc.code, error_body):
+                retry_payload = self._build_chat_payload(
+                    messages,
+                    include_response_format=False,
+                )
+                try:
+                    return self._send_chat_completions_request(retry_payload)
+                except HTTPError as retry_exc:
+                    retry_error_body = retry_exc.read().decode("utf-8", errors="replace")
+                    raise RuntimeError(
+                        f"Provider HTTP error {retry_exc.code}: {retry_error_body}"
+                    ) from retry_exc
+                except URLError as retry_exc:
+                    raise RuntimeError(
+                        f"Provider connection error: {retry_exc.reason}"
+                    ) from retry_exc
+
+            raise RuntimeError(f"Provider HTTP error {exc.code}: {error_body}") from exc
         except URLError as exc:
             raise RuntimeError(f"Provider connection error: {exc.reason}") from exc
 
@@ -170,11 +199,6 @@ class OpenAIProviderClient(AIProviderContract):
         user_store_description: str,
         available_theme_templates: Sequence[str],
     ) -> ProviderRawResponse:
-        """
-        Execute official generation flow using description + available templates.
-
-        `store_id` remains part of the contract for workflow anchoring.
-        """
         messages = build_generate_store_draft_messages(
             tenant_id=tenant_id,
             store_id=store_id,
@@ -211,12 +235,6 @@ class OpenAIProviderClient(AIProviderContract):
         clarification_context: Mapping[str, Any] | Sequence[Any] | None = None,
         available_theme_templates: Sequence[str] | None = None,
     ) -> ProviderRawResponse:
-        """
-        Execute official full-regeneration flow.
-
-        Uses original description + current draft + optional clarification context
-        and optional available template names.
-        """
         messages = build_regenerate_store_draft_messages(
             tenant_id=tenant_id,
             store_id=store_id,
@@ -238,9 +256,6 @@ class OpenAIProviderClient(AIProviderContract):
         clarification_context: Mapping[str, Any] | Sequence[Any] | None = None,
         available_theme_templates: Sequence[str] | None = None,
     ) -> ProviderRawResponse:
-        """
-        Execute official partial-regeneration flow for one target section.
-        """
         messages = build_regenerate_store_draft_section_messages(
             tenant_id=tenant_id,
             store_id=store_id,
@@ -254,7 +269,4 @@ class OpenAIProviderClient(AIProviderContract):
 
 
 def get_ai_provider_client() -> AIProviderContract:
-    """
-    Return the default configured AI provider client.
-    """
     return OpenAIProviderClient()
