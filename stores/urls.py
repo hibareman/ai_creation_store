@@ -4,6 +4,9 @@ from .views import (
     RetrieveUpdateStoreSettingsView,
     ListCreateStoreDomainView, RetrieveUpdateDestroyStoreDomainView,
     CheckSlugAvailabilityView, SuggestSlugView,
+    PublicStoreDetailView,
+    SetStoreSubdomainView,
+    StorePublishActionView,
 )
 
 urlpatterns = [
@@ -18,6 +21,9 @@ urlpatterns = [
     # Slug helper endpoints
     path('slug/check/', CheckSlugAvailabilityView.as_view(), name='check-slug'),
     path('slug/suggest/', SuggestSlugView.as_view(), name='suggest-slug'),
+    path('public/store/<slug:subdomain>/', PublicStoreDetailView.as_view(), name='public-store-detail'),
+    path('<int:store_id>/subdomain/', SetStoreSubdomainView.as_view(), name='set-store-subdomain'),
+    path('<int:store_id>/publish/', StorePublishActionView.as_view(), name='store-publish-action'),
 
     # StoreDomain endpoints
     path('<int:store_id>/domains/', ListCreateStoreDomainView.as_view(), name='storedomain-list-create'),

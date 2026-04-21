@@ -1,7 +1,8 @@
 ﻿import logging
-from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import generics, status, serializers as drf_serializers
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer, OpenApiResponse
 from django.core.exceptions import ValidationError
 from .models import Store, StoreSettings, StoreDomain
 from .serializers import (
@@ -10,6 +11,11 @@ from .serializers import (
     StoreDomainSerializer,
     CheckSlugSerializer,
     SuggestSlugSerializer,
+    PublishStoreRequestSerializer,
+    PublicStoreSerializer,
+    StorePublishStateSerializer,
+    SetStoreSubdomainRequestSerializer,
+    StoreSubdomainResponseSerializer,
 )
 from .services import (
     create_store,
@@ -20,11 +26,25 @@ from .services import (
     delete_domain,
     is_slug_available,
     suggest_slugs,
+    publish_store,
+    unpublish_store,
+    set_store_subdomain,
 )
-from .selectors import get_user_stores, get_store_by_id, get_store_domains_by_store_id
+from .selectors import (
+    get_user_stores,
+    get_store_by_id,
+    get_store_domains_by_store_id,
+    get_public_store_by_subdomain,
+)
 from users.permissions import TenantAuthenticated
 
 logger = logging.getLogger(__name__)
+
+DOC_ERROR_RESPONSES = {
+    400: OpenApiResponse(description="Bad request"),
+    403: OpenApiResponse(description="Permission denied"),
+    404: OpenApiResponse(description="Not found"),
+}
 
 
 class StoreAccessMixin:
@@ -53,6 +73,21 @@ class StoreAccessMixin:
             raise PermissionDenied("You do not own this store")
 
 # Create store
+@extend_schema_view(
+    get=extend_schema(
+        summary="List stores",
+        description="Return all stores visible to the authenticated user in tenant scope.",
+        tags=["Stores"],
+        responses={200: StoreSerializer(many=True), **DOC_ERROR_RESPONSES},
+    ),
+    post=extend_schema(
+        summary="Create store",
+        description="Create a new store owned by the authenticated user.",
+        tags=["Stores"],
+        request=StoreSerializer,
+        responses={201: StoreSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
 class StoreListCreateView(generics.ListCreateAPIView):
     serializer_class = StoreSerializer
     permission_classes = [IsAuthenticated]
@@ -77,6 +112,22 @@ class StoreListCreateView(generics.ListCreateAPIView):
         serializer.instance = store
 
 # Update store
+@extend_schema_view(
+    put=extend_schema(
+        summary="Update store",
+        description="Replace store data for a tenant-owned store.",
+        tags=["Stores"],
+        request=StoreSerializer,
+        responses={200: StoreSerializer, **DOC_ERROR_RESPONSES},
+    ),
+    patch=extend_schema(
+        summary="Partially update store",
+        description="Partially update store data for a tenant-owned store.",
+        tags=["Stores"],
+        request=StoreSerializer,
+        responses={200: StoreSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
 class UpdateStoreView(generics.UpdateAPIView):
     serializer_class = StoreSerializer
     permission_classes = [TenantAuthenticated]
@@ -126,6 +177,17 @@ class UpdateStoreView(generics.UpdateAPIView):
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 # Delete store
+@extend_schema_view(
+    delete=extend_schema(
+        summary="Delete store",
+        description="Delete a tenant-owned store.",
+        tags=["Stores"],
+        responses={
+            204: OpenApiResponse(description="Store deleted successfully."),
+            **DOC_ERROR_RESPONSES,
+        },
+    ),
+)
 class DestroyStoreView(generics.DestroyAPIView):
     permission_classes = [TenantAuthenticated]
     lookup_field = 'id'
@@ -159,6 +221,24 @@ class DestroyStoreView(generics.DestroyAPIView):
         return store
 
 
+@extend_schema_view(
+    post=extend_schema(
+        summary="Check store slug availability",
+        description="Check whether a slug can be used for a store.",
+        tags=["Stores"],
+        request=CheckSlugSerializer,
+        responses={
+            200: inline_serializer(
+                name="CheckSlugAvailabilityResponse",
+                fields={
+                    "slug": drf_serializers.CharField(),
+                    "available": drf_serializers.BooleanField(),
+                },
+            ),
+            **DOC_ERROR_RESPONSES,
+        },
+    ),
+)
 class CheckSlugAvailabilityView(generics.GenericAPIView):
     serializer_class = CheckSlugSerializer
     permission_classes = [TenantAuthenticated]
@@ -177,6 +257,24 @@ class CheckSlugAvailabilityView(generics.GenericAPIView):
         }, status=status.HTTP_200_OK)
 
 
+@extend_schema_view(
+    post=extend_schema(
+        summary="Suggest store slugs",
+        description="Generate available slug suggestions from a store name.",
+        tags=["Stores"],
+        request=SuggestSlugSerializer,
+        responses={
+            200: inline_serializer(
+                name="SuggestSlugResponse",
+                fields={
+                    "name": drf_serializers.CharField(),
+                    "suggestions": drf_serializers.ListField(child=drf_serializers.CharField()),
+                },
+            ),
+            **DOC_ERROR_RESPONSES,
+        },
+    ),
+)
 class SuggestSlugView(generics.GenericAPIView):
     serializer_class = SuggestSlugSerializer
     permission_classes = [TenantAuthenticated]
@@ -196,7 +294,180 @@ class SuggestSlugView(generics.GenericAPIView):
         }, status=status.HTTP_200_OK)
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get public store by subdomain",
+        description="Return public-safe store data for the published active store resolved by subdomain.",
+        tags=["Public Stores"],
+        responses={
+            200: inline_serializer(
+                name="PublicStoreDetailResponse",
+                fields={
+                    "store": PublicStoreSerializer(),
+                },
+            ),
+            **DOC_ERROR_RESPONSES,
+        },
+    ),
+)
+class PublicStoreDetailView(generics.GenericAPIView):
+    """
+    Public store detail by subdomain.
+    GET /public/store/{subdomain}/
+    """
+    serializer_class = PublicStoreSerializer
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        from rest_framework.exceptions import NotFound
+
+        subdomain = self.kwargs['subdomain']
+        store = get_public_store_by_subdomain(subdomain)
+        if not store:
+            raise NotFound("Store not found")
+
+        serializer = self.get_serializer(store)
+        return Response({
+            "store": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+@extend_schema_view(
+    patch=extend_schema(
+        summary="Set store subdomain",
+        description="Set or update the subdomain for a tenant-owned store.",
+        tags=["Stores"],
+        request=SetStoreSubdomainRequestSerializer,
+        responses={
+            200: inline_serializer(
+                name="SetStoreSubdomainResponse",
+                fields={
+                    "store": inline_serializer(
+                        name="SetStoreSubdomainResponseStore",
+                        fields={
+                            "subdomain": drf_serializers.CharField(allow_null=True),
+                        },
+                    ),
+                },
+            ),
+            **DOC_ERROR_RESPONSES,
+        },
+    ),
+)
+class SetStoreSubdomainView(generics.GenericAPIView):
+    """
+    Set or update a store subdomain for an authenticated tenant user.
+    PATCH /api/stores/{store_id}/subdomain/
+    """
+    serializer_class = SetStoreSubdomainRequestSerializer
+    permission_classes = [TenantAuthenticated]
+
+    def patch(self, request, *args, **kwargs):
+        from rest_framework.exceptions import NotFound
+
+        store_id = self.kwargs['store_id']
+        store = get_store_by_id(store_id, tenant_id=getattr(request, 'tenant_id', None))
+        if not store:
+            raise NotFound("Store not found")
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            updated_store = set_store_subdomain(
+                store=store,
+                subdomain=serializer.validated_data["subdomain"],
+                user=request.user,
+            )
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        response_serializer = StoreSubdomainResponseSerializer({
+            "message": "Store subdomain updated successfully",
+            "store": {
+                "subdomain": updated_store.subdomain,
+            },
+        })
+
+        return Response({
+            "store": response_serializer.data["store"]
+        }, status=status.HTTP_200_OK)
+
+
+@extend_schema_view(
+    patch=extend_schema(
+        summary="Publish or unpublish store",
+        description="Execute publish action for a tenant-owned store using requested action.",
+        tags=["Stores"],
+        request=PublishStoreRequestSerializer,
+        responses={
+            200: inline_serializer(
+                name="StorePublishActionResponse",
+                fields={
+                    "store": StorePublishStateSerializer(),
+                },
+            ),
+            **DOC_ERROR_RESPONSES,
+        },
+    ),
+)
+class StorePublishActionView(generics.GenericAPIView):
+    """
+    Publish or unpublish a store for an authenticated tenant user.
+    PATCH /api/stores/{store_id}/publish/
+    """
+    serializer_class = PublishStoreRequestSerializer
+    permission_classes = [TenantAuthenticated]
+
+    def patch(self, request, *args, **kwargs):
+        from rest_framework.exceptions import NotFound
+
+        store_id = self.kwargs['store_id']
+        store = get_store_by_id(store_id, tenant_id=getattr(request, 'tenant_id', None))
+        if not store:
+            raise NotFound("Store not found")
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        action = serializer.validated_data["action"]
+
+        try:
+            if action == "publish":
+                updated_store = publish_store(store, user=request.user)
+            else:
+                updated_store = unpublish_store(store, user=request.user)
+        except ValidationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        response_serializer = StorePublishStateSerializer(updated_store)
+        return Response({
+            "store": response_serializer.data
+        }, status=status.HTTP_200_OK)
+
+
 # StoreSettings Views
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get store settings",
+        description="Retrieve settings for a tenant-owned store.",
+        tags=["Stores"],
+        responses={200: StoreSettingsSerializer, **DOC_ERROR_RESPONSES},
+    ),
+    put=extend_schema(
+        summary="Update store settings",
+        description="Replace settings for a tenant-owned store.",
+        tags=["Stores"],
+        request=StoreSettingsSerializer,
+        responses={200: StoreSettingsSerializer, **DOC_ERROR_RESPONSES},
+    ),
+    patch=extend_schema(
+        summary="Partially update store settings",
+        description="Partially update settings for a tenant-owned store.",
+        tags=["Stores"],
+        request=StoreSettingsSerializer,
+        responses={200: StoreSettingsSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
 class RetrieveUpdateStoreSettingsView(StoreAccessMixin, generics.RetrieveUpdateAPIView):
     """
     Get or update StoreSettings for a specific store.
@@ -242,6 +513,21 @@ class RetrieveUpdateStoreSettingsView(StoreAccessMixin, generics.RetrieveUpdateA
 
 
 # StoreDomain Views
+@extend_schema_view(
+    get=extend_schema(
+        summary="List store domains",
+        description="List domains configured for a tenant-owned store.",
+        tags=["Stores"],
+        responses={200: StoreDomainSerializer(many=True), **DOC_ERROR_RESPONSES},
+    ),
+    post=extend_schema(
+        summary="Create store domain",
+        description="Create a new domain for a tenant-owned store.",
+        tags=["Stores"],
+        request=StoreDomainSerializer,
+        responses={201: StoreDomainSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
 class ListCreateStoreDomainView(StoreAccessMixin, generics.ListCreateAPIView):
     """
     List all domains for a store or create a new one.
@@ -253,7 +539,7 @@ class ListCreateStoreDomainView(StoreAccessMixin, generics.ListCreateAPIView):
     
     def get_queryset(self):
         store_id = self.kwargs['store_id']
-        store = get_store_by_id(store_id)
+        store = get_store_by_id(store_id, tenant_id=getattr(self.request, 'tenant_id', None))
         if not store:
             return StoreDomain.objects.none()
         if not self._has_store_access(self.request, store):
@@ -272,6 +558,37 @@ class ListCreateStoreDomainView(StoreAccessMixin, generics.ListCreateAPIView):
         serializer.instance = domain_obj
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get store domain",
+        description="Retrieve a single domain for a tenant-owned store.",
+        tags=["Stores"],
+        responses={200: StoreDomainSerializer, **DOC_ERROR_RESPONSES},
+    ),
+    put=extend_schema(
+        summary="Update store domain",
+        description="Replace a domain configuration for a tenant-owned store.",
+        tags=["Stores"],
+        request=StoreDomainSerializer,
+        responses={200: StoreDomainSerializer, **DOC_ERROR_RESPONSES},
+    ),
+    patch=extend_schema(
+        summary="Partially update store domain",
+        description="Partially update a domain configuration for a tenant-owned store.",
+        tags=["Stores"],
+        request=StoreDomainSerializer,
+        responses={200: StoreDomainSerializer, **DOC_ERROR_RESPONSES},
+    ),
+    delete=extend_schema(
+        summary="Delete store domain",
+        description="Delete a domain from a tenant-owned store.",
+        tags=["Stores"],
+        responses={
+            204: OpenApiResponse(description="Store domain deleted successfully."),
+            **DOC_ERROR_RESPONSES,
+        },
+    ),
+)
 class RetrieveUpdateDestroyStoreDomainView(StoreAccessMixin, generics.RetrieveUpdateDestroyAPIView):
     """
     Retrieve, update, or delete a specific domain.
@@ -286,7 +603,7 @@ class RetrieveUpdateDestroyStoreDomainView(StoreAccessMixin, generics.RetrieveUp
     
     def get_queryset(self):
         store_id = self.kwargs['store_id']
-        store = get_store_by_id(store_id)
+        store = get_store_by_id(store_id, tenant_id=getattr(self.request, 'tenant_id', None))
         if not store:
             return StoreDomain.objects.none()
         if not self._has_store_access(self.request, store):

@@ -2,6 +2,7 @@ import logging
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiResponse
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -14,6 +15,12 @@ from .serializers import CategorySerializer, CategoryCreateUpdateSerializer
 from . import selectors, services
 
 logger = logging.getLogger(__name__)
+
+DOC_ERROR_RESPONSES = {
+    400: OpenApiResponse(description="Bad request"),
+    403: OpenApiResponse(description="Permission denied"),
+    404: OpenApiResponse(description="Not found"),
+}
 
 
 class CategoryStoreAccessMixin:
@@ -55,6 +62,21 @@ class CategoryStoreAccessMixin:
         return store
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="List categories",
+        description="List categories for a tenant-owned store.",
+        tags=["Categories"],
+        responses={200: CategorySerializer(many=True), **DOC_ERROR_RESPONSES},
+    ),
+    post=extend_schema(
+        summary="Create category",
+        description="Create a category in a tenant-owned store.",
+        tags=["Categories"],
+        request=CategoryCreateUpdateSerializer,
+        responses={201: CategorySerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
 class CategoryListCreateView(CategoryStoreAccessMixin, generics.ListCreateAPIView):
     """
     API endpoint for listing and creating categories for a store.
@@ -125,6 +147,37 @@ class CategoryListCreateView(CategoryStoreAccessMixin, generics.ListCreateAPIVie
             )
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get category detail",
+        description="Retrieve a single category for a tenant-owned store.",
+        tags=["Categories"],
+        responses={200: CategorySerializer, **DOC_ERROR_RESPONSES},
+    ),
+    put=extend_schema(
+        summary="Update category",
+        description="Replace category data in a tenant-owned store.",
+        tags=["Categories"],
+        request=CategoryCreateUpdateSerializer,
+        responses={200: CategorySerializer, **DOC_ERROR_RESPONSES},
+    ),
+    patch=extend_schema(
+        summary="Partially update category",
+        description="Partially update category data in a tenant-owned store.",
+        tags=["Categories"],
+        request=CategoryCreateUpdateSerializer,
+        responses={200: CategorySerializer, **DOC_ERROR_RESPONSES},
+    ),
+    delete=extend_schema(
+        summary="Delete category",
+        description="Delete a category from a tenant-owned store.",
+        tags=["Categories"],
+        responses={
+            204: OpenApiResponse(description="Category deleted successfully."),
+            **DOC_ERROR_RESPONSES,
+        },
+    ),
+)
 class CategoryRetrieveUpdateDestroyView(CategoryStoreAccessMixin, generics.RetrieveUpdateDestroyAPIView):
     """
     API endpoint for retrieving, updating, and deleting a specific category.

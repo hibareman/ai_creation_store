@@ -2,6 +2,7 @@ from django.core.exceptions import ValidationError
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound, PermissionDenied
+from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 
 from stores.selectors import get_store_by_id
 from users.permissions import TenantAuthenticated
@@ -12,6 +13,12 @@ from .serializers import (
     StoreThemeConfigSerializer,
     StoreThemeConfigUpdateSerializer,
 )
+
+DOC_ERROR_RESPONSES = {
+    400: OpenApiResponse(description="Bad request"),
+    403: OpenApiResponse(description="Permission denied"),
+    404: OpenApiResponse(description="Not found"),
+}
 
 
 class ThemeStoreAccessMixin:
@@ -32,6 +39,14 @@ class ThemeStoreAccessMixin:
             raise PermissionDenied("You do not own this store")
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="List active theme templates",
+        description="List active theme templates available for a tenant-owned store.",
+        tags=["Themes"],
+        responses={200: ThemeTemplateSerializer(many=True), **DOC_ERROR_RESPONSES},
+    ),
+)
 class ThemeTemplateListView(ThemeStoreAccessMixin, generics.ListAPIView):
     """
     GET /api/stores/{store_id}/themes/templates/
@@ -46,6 +61,21 @@ class ThemeTemplateListView(ThemeStoreAccessMixin, generics.ListAPIView):
         return selectors.get_active_theme_templates()
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get store theme configuration",
+        description="Retrieve theme configuration for a tenant-owned store.",
+        tags=["Themes"],
+        responses={200: StoreThemeConfigSerializer, **DOC_ERROR_RESPONSES},
+    ),
+    patch=extend_schema(
+        summary="Update store theme configuration",
+        description="Create or update theme configuration for a tenant-owned store.",
+        tags=["Themes"],
+        request=StoreThemeConfigUpdateSerializer,
+        responses={200: StoreThemeConfigSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
 class StoreThemeConfigDetailView(ThemeStoreAccessMixin, generics.GenericAPIView):
     """
     GET /api/stores/{store_id}/theme/

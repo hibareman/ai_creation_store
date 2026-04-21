@@ -491,3 +491,19 @@ class InventoryUpdateSerializer(serializers.ModelSerializer):
         if value < 0:
             raise serializers.ValidationError("Stock quantity cannot be negative")
         return value
+
+
+class PublicProductListSerializer(serializers.ModelSerializer):
+    """Public-safe product list representation."""
+
+    class Meta:
+        model = Product
+        fields = ["id", "name", "price"]
+
+
+class PublicProductDetailSerializer(serializers.ModelSerializer):
+    """Public-safe product detail representation."""
+
+    class Meta:
+        model = Product
+        fields = ["id", "name", "description", "price"]

@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from drf_spectacular.utils import extend_schema_field
 from .models import Store, StoreSettings, StoreDomain
 
 class StoreSerializer(serializers.ModelSerializer):
@@ -162,3 +161,50 @@ class SuggestSlugSerializer(serializers.Serializer):
         max_value=10,
         help_text='Number of slug suggestions to return (1-10)'
     )
+
+
+class PublishStoreRequestSerializer(serializers.Serializer):
+    """Request serializer for publish/unpublish actions."""
+    action = serializers.ChoiceField(choices=["publish", "unpublish"])
+
+
+class StorePublishStateSerializer(serializers.Serializer):
+    """Serializer for store publish state."""
+    is_published = serializers.BooleanField()
+    published_at = serializers.DateTimeField(allow_null=True)
+
+
+class StorePublishResponseSerializer(serializers.Serializer):
+    """Response serializer for publish/unpublish operations."""
+    message = serializers.CharField()
+    store = StorePublishStateSerializer()
+
+
+class SetStoreSubdomainRequestSerializer(serializers.Serializer):
+    """Request serializer for setting store subdomain."""
+    subdomain = serializers.CharField(max_length=255, required=True)
+
+    def validate_subdomain(self, value):
+        normalized = value.strip().lower()
+        if not normalized:
+            raise serializers.ValidationError("Subdomain cannot be empty")
+        return normalized
+
+
+class StoreSubdomainStateSerializer(serializers.Serializer):
+    """Serializer for store subdomain state."""
+    subdomain = serializers.CharField(allow_null=True)
+
+
+class StoreSubdomainResponseSerializer(serializers.Serializer):
+    """Response serializer for set-subdomain operation."""
+    message = serializers.CharField()
+    store = StoreSubdomainStateSerializer()
+
+
+class PublicStoreSerializer(serializers.ModelSerializer):
+    """Public-safe representation of a store."""
+
+    class Meta:
+        model = Store
+        fields = ['id', 'name', 'subdomain', 'description']

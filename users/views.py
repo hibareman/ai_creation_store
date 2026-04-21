@@ -1,7 +1,13 @@
-from rest_framework import generics, status
+from rest_framework import generics, status, serializers as drf_serializers
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiResponse,
+    extend_schema,
+    extend_schema_view,
+    inline_serializer,
+)
 
 from .serializers import RegisterSerializer, LoginSerializer, CurrentUserSerializer
 from .services import (
@@ -11,7 +17,37 @@ from .services import (
     activate_user_by_token,
 )
 
+DOC_ERROR_RESPONSES = {
+    400: OpenApiResponse(description="Bad request"),
+    403: OpenApiResponse(description="Permission denied"),
+    404: OpenApiResponse(description="Not found"),
+}
 
+
+@extend_schema_view(
+    post=extend_schema(
+        summary="Register user account",
+        description="Create a new Store Owner account and send a one-time activation email.",
+        tags=["Auth"],
+        request=RegisterSerializer,
+        examples=[
+            OpenApiExample(
+                name="Register Success",
+                value={"detail": "Activation email sent. Please check your inbox."},
+                response_only=True,
+            ),
+        ],
+        responses={
+            201: inline_serializer(
+                name="RegisterSuccessResponse",
+                fields={
+                    "detail": drf_serializers.CharField(),
+                },
+            ),
+            **DOC_ERROR_RESPONSES,
+        },
+    ),
+)
 class RegisterView(generics.GenericAPIView):
 
     serializer_class = RegisterSerializer
@@ -36,6 +72,40 @@ class RegisterView(generics.GenericAPIView):
                        status=status.HTTP_201_CREATED)
 
 
+@extend_schema_view(
+    post=extend_schema(
+        summary="Login with email and password",
+        description="Authenticate user credentials and return JWT tokens plus user identity context.",
+        tags=["Auth"],
+        request=LoginSerializer,
+        examples=[
+            OpenApiExample(
+                name="Login Success",
+                value={
+                    "access": "<jwt-access-token>",
+                    "refresh": "<jwt-refresh-token>",
+                    "user_id": 12,
+                    "role": "Store Owner",
+                    "tenant_id": 12,
+                },
+                response_only=True,
+            ),
+        ],
+        responses={
+            200: inline_serializer(
+                name="LoginSuccessResponse",
+                fields={
+                    "access": drf_serializers.CharField(),
+                    "refresh": drf_serializers.CharField(),
+                    "user_id": drf_serializers.IntegerField(),
+                    "role": drf_serializers.CharField(),
+                    "tenant_id": drf_serializers.IntegerField(allow_null=True),
+                },
+            ),
+            **DOC_ERROR_RESPONSES,
+        },
+    ),
+)
 class LoginView(generics.GenericAPIView):
 
     serializer_class = LoginSerializer
@@ -55,6 +125,41 @@ class LoginView(generics.GenericAPIView):
         return Response(token_data)
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="Activate account by token",
+        description="Activate account using the one-time activation token, then return JWT tokens.",
+        tags=["Auth"],
+        examples=[
+            OpenApiExample(
+                name="Activation Success",
+                value={
+                    "detail": "Account activated successfully!",
+                    "access": "<jwt-access-token>",
+                    "refresh": "<jwt-refresh-token>",
+                    "user_id": 12,
+                    "role": "Store Owner",
+                    "tenant_id": 12,
+                },
+                response_only=True,
+            ),
+        ],
+        responses={
+            200: inline_serializer(
+                name="ActivateSuccessResponse",
+                fields={
+                    "detail": drf_serializers.CharField(),
+                    "access": drf_serializers.CharField(),
+                    "refresh": drf_serializers.CharField(),
+                    "user_id": drf_serializers.IntegerField(),
+                    "role": drf_serializers.CharField(),
+                    "tenant_id": drf_serializers.IntegerField(allow_null=True),
+                },
+            ),
+            **DOC_ERROR_RESPONSES,
+        },
+    ),
+)
 class ActivateView(generics.GenericAPIView):
     """Activate user account using UUID token."""
     
@@ -90,8 +195,12 @@ class MeView(generics.GenericAPIView):
 
     @extend_schema(
         summary="Get current authenticated user",
-        description="Protected endpoint that returns identity data for the currently authenticated user.",
-        responses={200: CurrentUserSerializer},
+        description="Return identity data for the currently authenticated user session.",
+        tags=["Auth"],
+        responses={
+            200: CurrentUserSerializer,
+            **DOC_ERROR_RESPONSES,
+        },
     )
     def get(self, request):
         serializer = self.get_serializer(request.user)

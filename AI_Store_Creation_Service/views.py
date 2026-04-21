@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, extend_schema_view
 
 from .serializers import (
     AIApplyDraftResponseSerializer,
@@ -23,6 +24,12 @@ from .services import (
     regenerate_store_draft,
     regenerate_store_draft_section,
 )
+
+DOC_ERROR_RESPONSES = {
+    400: OpenApiResponse(description="Bad request"),
+    403: OpenApiResponse(description="Permission denied"),
+    404: OpenApiResponse(description="Not found"),
+}
 
 
 class AIBaseAPIView(GenericAPIView):
@@ -60,6 +67,26 @@ class AIBaseAPIView(GenericAPIView):
         return serializer.validated_data
 
 
+@extend_schema_view(
+    post=extend_schema(
+        summary="Start AI draft workflow",
+        description="Create a draft store and generate the initial temporary AI draft state.",
+        tags=["AI Store Creation"],
+        request=AIStartDraftRequestSerializer,
+        examples=[
+            OpenApiExample(
+                name="Start Draft Success",
+                value={
+                    "store_id": 10,
+                    "draft_payload": {"clarification_needed": True, "clarification_questions": []},
+                    "draft_metadata": {"status": "needs_clarification", "mode": "clarification"},
+                },
+                response_only=True,
+            ),
+        ],
+        responses={201: AIDraftStateResponseSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
 class AIStartDraftAPIView(AIBaseAPIView):
     serializer_class = AIStartDraftRequestSerializer
 
@@ -99,6 +126,14 @@ class AIStartDraftAPIView(AIBaseAPIView):
         return Response(response_payload, status=status.HTTP_201_CREATED)
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get current AI draft state",
+        description="Return current temporary draft payload and metadata for a store.",
+        tags=["AI Store Creation"],
+        responses={200: AIDraftStateResponseSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
 class AICurrentDraftAPIView(AIBaseAPIView):
     serializer_class = EmptySerializer
 
@@ -121,6 +156,26 @@ class AICurrentDraftAPIView(AIBaseAPIView):
         return Response(response_payload, status=status.HTTP_200_OK)
 
 
+@extend_schema_view(
+    post=extend_schema(
+        summary="Submit clarification round",
+        description="Submit one clarification input and advance the AI draft workflow to the next state.",
+        tags=["AI Store Creation"],
+        request=AIClarificationRequestSerializer,
+        examples=[
+            OpenApiExample(
+                name="Clarification Success",
+                value={
+                    "store_id": 10,
+                    "draft_payload": {"clarification_needed": False, "clarification_questions": []},
+                    "draft_metadata": {"status": "draft_ready", "mode": "draft_ready"},
+                },
+                response_only=True,
+            ),
+        ],
+        responses={200: AIDraftStateResponseSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
 class AIClarificationAPIView(AIBaseAPIView):
     serializer_class = AIClarificationRequestSerializer
 
@@ -153,6 +208,15 @@ class AIClarificationAPIView(AIBaseAPIView):
         return Response(response_payload, status=status.HTTP_200_OK)
 
 
+@extend_schema_view(
+    post=extend_schema(
+        summary="Regenerate full AI draft",
+        description="Regenerate the full AI draft for the same store/session.",
+        tags=["AI Store Creation"],
+        request=EmptySerializer,
+        responses={200: AIDraftStateResponseSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
 class AIRegenerateDraftAPIView(AIBaseAPIView):
     serializer_class = EmptySerializer
 
@@ -183,6 +247,15 @@ class AIRegenerateDraftAPIView(AIBaseAPIView):
         return Response(response_payload, status=status.HTTP_200_OK)
 
 
+@extend_schema_view(
+    post=extend_schema(
+        summary="Regenerate AI draft section",
+        description="Regenerate one section of the current AI draft payload.",
+        tags=["AI Store Creation"],
+        request=AIRegenerateSectionRequestSerializer,
+        responses={200: AIDraftStateResponseSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
 class AIRegenerateSectionAPIView(AIBaseAPIView):
     serializer_class = AIRegenerateSectionRequestSerializer
 
@@ -215,6 +288,29 @@ class AIRegenerateSectionAPIView(AIBaseAPIView):
         return Response(response_payload, status=status.HTTP_200_OK)
 
 
+@extend_schema_view(
+    post=extend_schema(
+        summary="Apply current AI draft",
+        description="Apply the current AI draft to store configuration entities and schedule draft cleanup.",
+        tags=["AI Store Creation"],
+        request=EmptySerializer,
+        examples=[
+            OpenApiExample(
+                name="Apply Draft Success",
+                value={
+                    "store_id": 10,
+                    "final_status": "setup",
+                    "store_core_applied": True,
+                    "categories": {"created": ["Clothes"], "skipped": []},
+                    "products": {"created": ["SKU-1"], "skipped": []},
+                    "draft_cleanup_scheduled": True,
+                },
+                response_only=True,
+            ),
+        ],
+        responses={200: AIApplyDraftResponseSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
 class AIApplyDraftAPIView(AIBaseAPIView):
     serializer_class = EmptySerializer
 

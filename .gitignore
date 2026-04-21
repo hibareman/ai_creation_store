@@ -54,6 +54,6 @@ approved base prompt
 # Environment
 .env
 .env.local
-
+*multi-tenant prompt
 # Media files
 media/

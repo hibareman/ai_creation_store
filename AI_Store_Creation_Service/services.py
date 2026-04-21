@@ -564,6 +564,8 @@ def process_clarification_round(
         )
         raise ValidationError("clarification_answers is required")
 
+    next_round_count = clarification_round_count + 1
+
     existing_history = (
         draft_meta.get("clarification_history")
         if isinstance(draft_meta.get("clarification_history"), list)
@@ -572,7 +574,7 @@ def process_clarification_round(
     updated_history = [
         *existing_history,
         {
-            "round": clarification_round_count + 1,
+            "round": next_round_count,
             "clarification_input": clarification_input,
         },
     ]
@@ -584,7 +586,7 @@ def process_clarification_round(
             "current_step": "analyzing_description",
             "mode": "clarification",
             "is_fallback": False,
-            "clarification_round_count": clarification_round_count,
+            "clarification_round_count": next_round_count,
             "original_user_store_description": original_description,
             "latest_clarification_input": clarification_input,
             "clarification_history": updated_history,
@@ -600,7 +602,7 @@ def process_clarification_round(
             prompt=clarification_input,
             context={
                 "original_store_description": original_description,
-                "clarification_round_count": clarification_round_count,
+                "clarification_round_count": next_round_count,
                 "latest_clarification_input": clarification_input,
                 "clarification_history": updated_history,
             },
@@ -609,8 +611,7 @@ def process_clarification_round(
         payload = parse_provider_raw_response_to_dict(raw_response)
         validate_basic_draft_schema(payload)
         mode = detect_ai_response_mode(payload)
-
-        new_round_count = clarification_round_count + 1
+        new_round_count = next_round_count
 
         if mode == "draft_ready":
             available_theme_templates = get_available_theme_template_names()
@@ -716,7 +717,7 @@ def process_clarification_round(
             _build_recoverable_fallback_metadata(
                 reason=str(exc),
                 original_user_store_description=original_description,
-                clarification_round_count=clarification_round_count,
+                clarification_round_count=next_round_count,
                 latest_clarification_input=clarification_input,
                 clarification_history=updated_history,
             ),
