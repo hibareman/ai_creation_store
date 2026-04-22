@@ -8,6 +8,8 @@ from .models import Store, StoreSettings, StoreDomain
 from .serializers import (
     StoreSerializer,
     StoreSettingsSerializer,
+    StoreSettingsUpdateSerializer,
+    StoreSettingsUpdateRequestSerializer,
     StoreDomainSerializer,
     CheckSlugSerializer,
     SuggestSlugSerializer,
@@ -457,18 +459,18 @@ class StorePublishActionView(generics.GenericAPIView):
         summary="Update store settings",
         description="Replace settings for a tenant-owned store.",
         tags=["Stores"],
-        request=StoreSettingsSerializer,
+        request=StoreSettingsUpdateRequestSerializer,
         responses={200: StoreSettingsSerializer, **DOC_ERROR_RESPONSES},
     ),
     patch=extend_schema(
         summary="Partially update store settings",
         description="Partially update settings for a tenant-owned store.",
         tags=["Stores"],
-        request=StoreSettingsSerializer,
+        request=StoreSettingsUpdateRequestSerializer,
         responses={200: StoreSettingsSerializer, **DOC_ERROR_RESPONSES},
     ),
 )
-class RetrieveUpdateStoreSettingsView(StoreAccessMixin, generics.RetrieveUpdateAPIView):
+class RetrieveUpdateStoreSettingsView(StoreAccessMixin, generics.GenericAPIView):
     """
     Get or update StoreSettings for a specific store.
     GET /api/stores/{store_id}/settings/
@@ -476,22 +478,33 @@ class RetrieveUpdateStoreSettingsView(StoreAccessMixin, generics.RetrieveUpdateA
     """
     serializer_class = StoreSettingsSerializer
     permission_classes = [TenantAuthenticated]
-    
-    def get_object(self):
+
+    def _get_store_with_access_check(self):
         store_id = self.kwargs['store_id']
         store = self._get_store_or_not_found(store_id)
         self._enforce_store_access(self.request, store)
-        return store.settings
-    
-    # ًں”´ ط£ط¶ظپ ظ‡ط°ظ‡ ط§ظ„ط¯ط§ظ„ط© ظ„طھط­ط¯ظٹط« ط§ظ„ط¥ط¹ط¯ط§ط¯ط§طھ ظ…ط¹ ط§ظ„طھط­ظ‚ظ‚
-    def update(self, request, *args, **kwargs):
-        """Update store settings with permission check"""
-        partial = kwargs.pop('partial', False)
-        store_id = self.kwargs['store_id']
-        store = self._get_store_or_not_found(store_id)
-        self._enforce_store_access(request, store)
+        return store
 
-        serializer = self.get_serializer(store.settings, data=request.data, partial=partial)
+    def _get_or_create_store_settings(self, store):
+        settings_obj, _created = StoreSettings.objects.get_or_create(store=store)
+        return settings_obj
+
+    def get(self, request, *args, **kwargs):
+        store = self._get_store_with_access_check()
+        settings_obj = self._get_or_create_store_settings(store)
+        serializer = self.get_serializer(settings_obj)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        store = self._get_store_with_access_check()
+        self._get_or_create_store_settings(store)
+
+        request_serializer = StoreSettingsUpdateRequestSerializer(data=request.data)
+        request_serializer.is_valid(raise_exception=True)
+        settings_payload = request_serializer.validated_data["settings"]
+
+        serializer = StoreSettingsUpdateSerializer(data=settings_payload, partial=partial)
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -500,14 +513,17 @@ class RetrieveUpdateStoreSettingsView(StoreAccessMixin, generics.RetrieveUpdateA
                 user=request.user,
                 **serializer.validated_data
             )
-            serializer = self.get_serializer(updated_settings)
-            return Response(serializer.data)
         except ValidationError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    
-    # ًں”´ ط£ط¶ظپ ظ‡ط°ظ‡ ط§ظ„ط¯ط§ظ„ط© ظ„ظ„ظ€ PATCH
+
+        response_serializer = self.get_serializer(updated_settings)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+    def put(self, request, *args, **kwargs):
+        kwargs['partial'] = False
+        return self.update(request, *args, **kwargs)
+
     def patch(self, request, *args, **kwargs):
-        """Partial update of store settings"""
         kwargs['partial'] = True
         return self.update(request, *args, **kwargs)
 

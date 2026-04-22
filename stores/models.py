@@ -70,9 +70,15 @@ class Store(models.Model):
 
 class StoreSettings(models.Model):
     store = models.OneToOneField(Store, on_delete=models.CASCADE, related_name='settings')
+    store_email = models.EmailField(blank=True, default='')
+    store_phone = models.CharField(max_length=30, blank=True, default='')
     currency = models.CharField(max_length=3, default='USD')
     language = models.CharField(max_length=10, default='en')
     timezone = models.CharField(max_length=50, default='UTC')
+    email_notifications = models.BooleanField(default=True)
+    order_notifications = models.BooleanField(default=True)
+    marketing_notifications = models.BooleanField(default=False)
+    two_factor_auth = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

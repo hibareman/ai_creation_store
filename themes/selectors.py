@@ -33,3 +33,13 @@ def get_theme_template_by_id(theme_template_id):
         return None
 
     return ThemeTemplate.objects.filter(id=theme_template_id).first()
+
+
+def get_theme_template_by_name(theme_template_name):
+    """
+    Return a single theme template by name (case-insensitive), if it exists.
+    """
+    if not isinstance(theme_template_name, str) or not theme_template_name.strip():
+        return None
+
+    return ThemeTemplate.objects.filter(name__iexact=theme_template_name.strip()).first()

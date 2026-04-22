@@ -16,7 +16,7 @@ urlpatterns = [
     path('<int:id>/delete/', DestroyStoreView.as_view(), name='delete-store'),
     
     # StoreSettings endpoints
-    path('<int:store_id>/settings/', RetrieveUpdateStoreSettingsView.as_view(), name='storesettings-detail'),
+    path('<int:store_id>/settings/', RetrieveUpdateStoreSettingsView.as_view(), name='store-settings'),
     
     # Slug helper endpoints
     path('slug/check/', CheckSlugAvailabilityView.as_view(), name='check-slug'),

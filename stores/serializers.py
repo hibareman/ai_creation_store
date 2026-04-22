@@ -43,41 +43,76 @@ class StoreSerializer(serializers.ModelSerializer):
         }
 
 
-class StoreSettingsSerializer(serializers.ModelSerializer):
-    """
-    Serializer for StoreSettings model.
-    
-    **Purpose:** Configure store-specific settings (currency, language, timezone)
-    
-    **Read-Only Fields:**
-    - id: Settings ID
-    - store: Automatically set to authenticated store
-    - created_at, updated_at: Auto-managed
-    
-    **Writable Fields:**
-    - currency: ISO 4217 code (e.g., EUR, USD)
-    - language: Language code (e.g., en, ar)
-    - timezone: IANA timezone (e.g., Europe/Berlin)
-    """
-    
-    class Meta:
-        model = StoreSettings
-        fields = ['id', 'store', 'currency', 'language', 'timezone', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'store', 'created_at', 'updated_at']
-        extra_kwargs = {
-            'currency': {
-                'help_text': 'ISO 4217 currency code',
-                'max_length': 3,
-            },
-            'language': {
-                'help_text': 'Language code (e.g., en, ar, de)',
-                'max_length': 10,
-            },
-            'timezone': {
-                'help_text': 'IANA timezone identifier',
-                'max_length': 50,
-            },
-        }
+class StoreSettingsDataSerializer(serializers.Serializer):
+    storeName = serializers.CharField(source='store.name', read_only=True)
+    storeUrl = serializers.CharField(source='store.slug', read_only=True)
+    storeDescription = serializers.CharField(source='store.description', read_only=True)
+    storeEmail = serializers.EmailField(source='store_email', read_only=True, allow_blank=True)
+    storePhone = serializers.CharField(source='store_phone', read_only=True, allow_blank=True)
+    currency = serializers.CharField(read_only=True)
+    timezone = serializers.CharField(read_only=True)
+    language = serializers.CharField(read_only=True)
+    emailNotifications = serializers.BooleanField(source='email_notifications', read_only=True)
+    orderNotifications = serializers.BooleanField(source='order_notifications', read_only=True)
+    marketingNotifications = serializers.BooleanField(source='marketing_notifications', read_only=True)
+    twoFactorAuth = serializers.BooleanField(source='two_factor_auth', read_only=True)
+
+
+class StoreSettingsSerializer(serializers.Serializer):
+    store_id = serializers.SerializerMethodField()
+    settings = StoreSettingsDataSerializer(source='*', read_only=True)
+
+    def get_store_id(self, obj):
+        store = getattr(obj, 'store', None)
+        if not store:
+            return None
+        return str(store.slug or store.id)
+
+
+class StoreSettingsUpdateSerializer(serializers.Serializer):
+    storeName = serializers.CharField(required=False, allow_blank=False, max_length=255)
+    storeUrl = serializers.CharField(required=False, allow_blank=False, max_length=255)
+    storeDescription = serializers.CharField(required=False, allow_blank=True)
+    storeEmail = serializers.EmailField(required=False, allow_blank=True)
+    storePhone = serializers.CharField(required=False, allow_blank=True, max_length=30)
+    currency = serializers.CharField(required=False, allow_blank=False, max_length=3)
+    timezone = serializers.CharField(required=False, allow_blank=False, max_length=50)
+    language = serializers.CharField(required=False, allow_blank=False, max_length=10)
+    emailNotifications = serializers.BooleanField(required=False)
+    orderNotifications = serializers.BooleanField(required=False)
+    marketingNotifications = serializers.BooleanField(required=False)
+    twoFactorAuth = serializers.BooleanField(required=False)
+
+    def validate_storeName(self, value):
+        cleaned = value.strip()
+        if not cleaned:
+            raise serializers.ValidationError("storeName cannot be empty.")
+        return cleaned
+
+    def validate_storeUrl(self, value):
+        cleaned = value.strip().lower()
+        if not cleaned:
+            raise serializers.ValidationError("storeUrl cannot be empty.")
+        return cleaned
+
+    def validate_storeDescription(self, value):
+        return value.strip() if isinstance(value, str) else value
+
+    def validate_storePhone(self, value):
+        return value.strip() if isinstance(value, str) else value
+
+    def validate_currency(self, value):
+        return value.strip().upper()
+
+    def validate_timezone(self, value):
+        return value.strip()
+
+    def validate_language(self, value):
+        return value.strip().lower()
+
+
+class StoreSettingsUpdateRequestSerializer(serializers.Serializer):
+    settings = StoreSettingsUpdateSerializer()
 
 
 class StoreDomainSerializer(serializers.ModelSerializer):

@@ -1,5 +1,5 @@
 import logging
-from django.db import DatabaseError, IntegrityError
+from django.db import DatabaseError, IntegrityError, transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.text import slugify
@@ -171,23 +171,14 @@ def update_store(store, **kwargs):
 
 def update_store_settings(store, user=None, **kwargs):
     """
-    Update StoreSettings for a given store.
-    Allowed fields: currency, language, timezone
-    
-    Args:
-        store: Store instance
-        user: User making the update (for permission check)
-        **kwargs: Settings fields to update (currency, language, timezone)
-    
-    Returns:
-        Updated StoreSettings instance
-    
-    Raises:
-        ValidationError: If user does not have permission
-        StoreSettings.DoesNotExist: If store has no settings
-        DatabaseError: If database operation fails
+    Update store-level settings while preserving tenant/owner isolation.
+    Supports updating fields on both Store and StoreSettings.
+
+    Supported payload keys:
+    - Store fields: storeName, storeUrl, storeDescription
+    - StoreSettings fields: storeEmail, storePhone, currency, language, timezone,
+      emailNotifications, orderNotifications, marketingNotifications, twoFactorAuth
     """
-    # 🔴 إضافة التحقق من الصلاحيات
     if user is not None:
         try:
             validate_store_access(store, user)
@@ -198,37 +189,85 @@ def update_store_settings(store, user=None, **kwargs):
             ):
                 raise ValidationError("You must own the store to update settings")
             raise
+
     try:
-        settings = store.settings
-        updated_fields = []
-        
-        for field in ['currency', 'language', 'timezone']:
-            if field in kwargs:
-                old_value = getattr(settings, field)
-                new_value = kwargs[field]
-                if old_value != new_value:
-                    setattr(settings, field, new_value)
-                    updated_fields.append(f"{field}: '{old_value}' -> '{new_value}'")
-        
-        if updated_fields:
-            settings.save()
-            logger.info(f"StoreSettings for store '{store.name}' (id: {store.id}) updated: {', '.join(updated_fields)}")
+        settings, _created = StoreSettings.objects.get_or_create(store=store)
+
+        store_updated_fields = []
+        settings_updated_fields = []
+
+        if 'storeName' in kwargs:
+            new_name = str(kwargs['storeName']).strip()
+            if not new_name:
+                raise ValidationError("storeName cannot be empty")
+            if store.name != new_name:
+                store.name = new_name
+                store_updated_fields.append('name')
+
+        if 'storeUrl' in kwargs:
+            normalized_slug = slugify(str(kwargs['storeUrl']).strip().lower())
+            if not normalized_slug:
+                raise ValidationError("storeUrl is invalid")
+
+            slug_exists = Store.objects.filter(slug=normalized_slug).exclude(id=store.id).exists()
+            if slug_exists:
+                raise ValidationError("storeUrl is already taken")
+
+            if store.slug != normalized_slug:
+                store.slug = normalized_slug
+                store_updated_fields.append('slug')
+
+        if 'storeDescription' in kwargs:
+            new_description = str(kwargs['storeDescription']).strip()
+            if store.description != new_description:
+                store.description = new_description
+                store_updated_fields.append('description')
+
+        settings_field_map = {
+            'storeEmail': 'store_email',
+            'storePhone': 'store_phone',
+            'currency': 'currency',
+            'language': 'language',
+            'timezone': 'timezone',
+            'emailNotifications': 'email_notifications',
+            'orderNotifications': 'order_notifications',
+            'marketingNotifications': 'marketing_notifications',
+            'twoFactorAuth': 'two_factor_auth',
+        }
+
+        for payload_key, model_field in settings_field_map.items():
+            if payload_key not in kwargs:
+                continue
+
+            new_value = kwargs[payload_key]
+            old_value = getattr(settings, model_field)
+            if old_value != new_value:
+                setattr(settings, model_field, new_value)
+                settings_updated_fields.append(model_field)
+
+        with transaction.atomic():
+            if store_updated_fields:
+                store.save(update_fields=list(set(store_updated_fields + ['updated_at'])))
+
+            if settings_updated_fields:
+                settings.save(update_fields=list(set(settings_updated_fields + ['updated_at'])))
+
+        if store_updated_fields or settings_updated_fields:
+            logger.info(
+                f"Store settings updated for store '{store.name}' (id: {store.id}, tenant_id: {store.tenant_id}). "
+                f"Store fields: {store_updated_fields or []}, Settings fields: {settings_updated_fields or []}"
+            )
         else:
             logger.debug(f"No changes to StoreSettings for store '{store.name}' (id: {store.id})")
-        
+
         return settings
-    
-    except StoreSettings.DoesNotExist:
-        logger.error(f"StoreSettings not found for store '{store.name}' (id: {store.id})")
-        raise
+
     except DatabaseError as e:
         logger.error(f"Database error while updating settings for store '{store.name}' (id: {store.id}): {str(e)}")
         raise
     except Exception as e:
         logger.error(f"Unexpected error while updating settings for store '{store.name}' (id: {store.id}): {str(e)}")
         raise
-
-
 def add_domain(store, domain, is_primary=False):
     """
     Add a new domain to a store.
@@ -456,3 +495,4 @@ def unpublish_store(store, user=None):
     except IntegrityError:
         raise ValidationError("Failed to unpublish store due to a data conflict")
     return store
+
