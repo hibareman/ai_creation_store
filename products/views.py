@@ -335,13 +335,41 @@ class ProductDetailView(ProductStoreAccessMixin, generics.RetrieveUpdateDestroyA
         serializer.is_valid(raise_exception=True)
         
         try:
+            validated_data = dict(serializer.validated_data)
+            stock_quantity = validated_data.pop("stock", None)
+            image_url = validated_data.pop("image_url", None)
+
             updated = services.update_product(
                 user=request.user,
                 store=store,
                 product=product,
-                **serializer.validated_data
+                **validated_data
             )
-            
+
+            if stock_quantity is not None:
+                services.update_inventory(
+                    user=request.user,
+                    store=store,
+                    product=updated,
+                    stock_quantity=stock_quantity,
+                )
+
+            if image_url is not None:
+                normalized_image_url = image_url.strip() if isinstance(image_url, str) else image_url
+                if normalized_image_url:
+                    services.add_product_image(
+                        user=request.user,
+                        store=store,
+                        product=updated,
+                        image_url=normalized_image_url,
+                    )
+
+            updated = selectors.get_product_by_id(
+                product_id=updated.id,
+                store_id=store.id,
+                tenant_id=store.tenant_id,
+            )
+
             response_serializer = ProductDetailSerializer(updated)
             return Response(response_serializer.data)
         

@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'stores',
     'categories',
     'products',
+    'orders',
     'themes',
     'AI_Store_Creation_Service',
 ]
