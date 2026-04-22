@@ -394,10 +394,33 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
         write_only=True,
         help_text="Category ID"
     )
+    stock = serializers.IntegerField(
+        required=False,
+        min_value=0,
+        write_only=True,
+        help_text="Stock quantity"
+    )
+    image_url = serializers.URLField(
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+        write_only=True,
+        help_text="Primary image URL"
+    )
 
     class Meta:
         model = Product
-        fields = ["name", "description", "price", "sku", "status", "category", "category_id"]
+        fields = [
+            "name",
+            "description",
+            "price",
+            "sku",
+            "status",
+            "category",
+            "category_id",
+            "stock",
+            "image_url",
+        ]
         extra_kwargs = {
             "name": {
                 "help_text": "Product name",
@@ -491,3 +514,19 @@ class InventoryUpdateSerializer(serializers.ModelSerializer):
         if value < 0:
             raise serializers.ValidationError("Stock quantity cannot be negative")
         return value
+
+
+class PublicProductListSerializer(serializers.ModelSerializer):
+    """Public-safe product list representation."""
+
+    class Meta:
+        model = Product
+        fields = ["id", "name", "price"]
+
+
+class PublicProductDetailSerializer(serializers.ModelSerializer):
+    """Public-safe product detail representation."""
+
+    class Meta:
+        model = Product
+        fields = ["id", "name", "description", "price"]

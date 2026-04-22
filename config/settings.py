@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'stores',
     'categories',
     'products',
+    'orders',
     'themes',
     'AI_Store_Creation_Service',
 ]
@@ -294,29 +295,42 @@ AI_TIMEOUT = int(os.getenv("AI_TIMEOUT", "120"))
 AI_API_URL = os.getenv("AI_API_URL", "https://api.openai.com/v1/chat/completions")
 AI_HTTP_REFERER = os.getenv("AI_HTTP_REFERER", "")
 AI_APP_TITLE = os.getenv("AI_APP_TITLE", "")
-AI_DRAFT_TTL = int(os.getenv("AI_DRAFT_TTL", "3600"))
+AI_DRAFT_CACHE_TTL = int(os.getenv("AI_DRAFT_CACHE_TTL", os.getenv("AI_DRAFT_TTL", "3600")))
+# Backward-compatible alias used by draft_store helpers.
+AI_DRAFT_TTL = AI_DRAFT_CACHE_TTL
 AI_DRAFT_PREFIX = os.getenv("AI_DRAFT_PREFIX", "ai_draft")
 
 
 # Cache configuration for temporary AI drafts.
-# Redis is the adopted backend; local-memory fallback is allowed for tests/dev only.
+# Rule:
+# - If REDIS_URL exists, use Redis (django-redis backend)
+# - Otherwise, use local-memory cache (safe local/dev fallback)
 RUNNING_TESTS = "test" in sys.argv or bool(os.getenv("PYTEST_CURRENT_TEST"))
-CACHE_BACKEND = os.getenv("CACHE_BACKEND", "redis").strip().lower()
-REDIS_CACHE_URL = os.getenv("REDIS_CACHE_URL", "redis://127.0.0.1:6379/1")
+REDIS_URL = os.getenv("REDIS_URL", "").strip()
+CACHE_BACKEND = os.getenv("CACHE_BACKEND", "").strip().lower()
+CACHE_KEY_PREFIX = os.getenv("CACHE_KEY_PREFIX", "ai_store_creation")
 
-if RUNNING_TESTS or CACHE_BACKEND == "locmem":
+# Development-safe override:
+# - CACHE_BACKEND=locmem forces local memory cache even if REDIS_URL is set.
+if RUNNING_TESTS or CACHE_BACKEND == "locmem" or not REDIS_URL:
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
             "LOCATION": "ai-store-creation-local-cache",
-            "TIMEOUT": AI_DRAFT_TTL,
+            "TIMEOUT": AI_DRAFT_CACHE_TTL,
+            "KEY_PREFIX": CACHE_KEY_PREFIX,
         }
     }
 else:
     CACHES = {
         "default": {
-            "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": REDIS_CACHE_URL,
-            "TIMEOUT": AI_DRAFT_TTL,
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_URL,
+            "TIMEOUT": AI_DRAFT_CACHE_TTL,
+            "KEY_PREFIX": CACHE_KEY_PREFIX,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                "IGNORE_EXCEPTIONS": True,
+            },
         }
     }

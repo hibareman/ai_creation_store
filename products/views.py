@@ -12,24 +12,36 @@ import logging
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, NotFound
+from rest_framework.permissions import AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer, OpenApiResponse
 from django.shortcuts import get_object_or_404
 from django.http import Http404
 from django.core.exceptions import ValidationError
 
 from stores.models import Store
+from stores.selectors import get_public_store_by_subdomain
 from users.permissions import TenantAuthenticated
 from .models import Product, ProductImage
 from .serializers import (
     ProductListSerializer, ProductDetailSerializer,
     ProductCreateSerializer, ProductUpdateSerializer,
-    ProductImageSerializer, InventoryUpdateSerializer
+    ProductImageSerializer, InventoryUpdateSerializer,
+    InventorySerializer,
+    PublicProductListSerializer,
+    PublicProductDetailSerializer,
 )
 from . import selectors
 from . import services
 
 logger = logging.getLogger(__name__)
+
+DOC_ERROR_RESPONSES = {
+    400: OpenApiResponse(description="Bad request"),
+    403: OpenApiResponse(description="Permission denied"),
+    404: OpenApiResponse(description="Not found"),
+}
 
 
 class ProductStoreAccessMixin:
@@ -71,6 +83,96 @@ class ProductStoreAccessMixin:
             raise Http404("Product not found")
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="List public store products",
+        description="Return active public products for a published active store by subdomain.",
+        tags=["Public Products"],
+        responses={
+            200: inline_serializer(
+                name="PublicStoreProductsListResponse",
+                fields={
+                    "products": PublicProductListSerializer(many=True),
+                },
+            ),
+            **DOC_ERROR_RESPONSES,
+        },
+    ),
+)
+class PublicStoreProductsListView(generics.GenericAPIView):
+    """
+    Public products list by store subdomain.
+    GET /public/store/{subdomain}/products/
+    """
+    serializer_class = PublicProductListSerializer
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        subdomain = self.kwargs["subdomain"]
+        store = get_public_store_by_subdomain(subdomain)
+        if not store:
+            raise NotFound("Store not found")
+
+        products = selectors.get_public_products_for_store(store)
+        serializer = self.get_serializer(products, many=True)
+        return Response({"products": serializer.data}, status=status.HTTP_200_OK)
+
+
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get public product detail",
+        description="Return one active public product in a published active store by subdomain and product ID.",
+        tags=["Public Products"],
+        responses={
+            200: inline_serializer(
+                name="PublicStoreProductDetailResponse",
+                fields={
+                    "product": PublicProductDetailSerializer(),
+                },
+            ),
+            **DOC_ERROR_RESPONSES,
+        },
+    ),
+)
+class PublicStoreProductDetailView(generics.GenericAPIView):
+    """
+    Public product detail by store subdomain and product id.
+    GET /public/store/{subdomain}/products/{product_id}/
+    """
+    serializer_class = PublicProductDetailSerializer
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        subdomain = self.kwargs["subdomain"]
+        product_id = self.kwargs["product_id"]
+
+        store = get_public_store_by_subdomain(subdomain)
+        if not store:
+            raise NotFound("Store not found")
+
+        product = selectors.get_public_product_detail(store, product_id)
+        if not product:
+            raise NotFound("Product not found")
+
+        serializer = self.get_serializer(product)
+        return Response({"product": serializer.data}, status=status.HTTP_200_OK)
+
+
+@extend_schema_view(
+    get=extend_schema(
+        summary="List store products",
+        description="List products for a tenant-owned store with tenant-safe filtering.",
+        tags=["Products"],
+        responses={200: ProductListSerializer(many=True), **DOC_ERROR_RESPONSES},
+    ),
+    post=extend_schema(
+        summary="Create product",
+        description="Create a new product in a tenant-owned store.",
+        tags=["Products"],
+        request=ProductCreateSerializer,
+        responses={201: ProductListSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
 class ProductListCreateView(ProductStoreAccessMixin, generics.ListCreateAPIView):
     """
     GET: List all products for current store
@@ -166,6 +268,37 @@ class ProductListCreateView(ProductStoreAccessMixin, generics.ListCreateAPIView)
             )
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get product detail",
+        description="Retrieve one product from a tenant-owned store.",
+        tags=["Products"],
+        responses={200: ProductDetailSerializer, **DOC_ERROR_RESPONSES},
+    ),
+    put=extend_schema(
+        summary="Update product",
+        description="Replace product data in a tenant-owned store.",
+        tags=["Products"],
+        request=ProductUpdateSerializer,
+        responses={200: ProductDetailSerializer, **DOC_ERROR_RESPONSES},
+    ),
+    patch=extend_schema(
+        summary="Partially update product",
+        description="Partially update product data in a tenant-owned store.",
+        tags=["Products"],
+        request=ProductUpdateSerializer,
+        responses={200: ProductDetailSerializer, **DOC_ERROR_RESPONSES},
+    ),
+    delete=extend_schema(
+        summary="Delete product",
+        description="Delete a product from a tenant-owned store.",
+        tags=["Products"],
+        responses={
+            204: OpenApiResponse(description="Product deleted successfully."),
+            **DOC_ERROR_RESPONSES,
+        },
+    ),
+)
 class ProductDetailView(ProductStoreAccessMixin, generics.RetrieveUpdateDestroyAPIView):
     """
     GET: Retrieve product details
@@ -202,13 +335,41 @@ class ProductDetailView(ProductStoreAccessMixin, generics.RetrieveUpdateDestroyA
         serializer.is_valid(raise_exception=True)
         
         try:
+            validated_data = dict(serializer.validated_data)
+            stock_quantity = validated_data.pop("stock", None)
+            image_url = validated_data.pop("image_url", None)
+
             updated = services.update_product(
                 user=request.user,
                 store=store,
                 product=product,
-                **serializer.validated_data
+                **validated_data
             )
-            
+
+            if stock_quantity is not None:
+                services.update_inventory(
+                    user=request.user,
+                    store=store,
+                    product=updated,
+                    stock_quantity=stock_quantity,
+                )
+
+            if image_url is not None:
+                normalized_image_url = image_url.strip() if isinstance(image_url, str) else image_url
+                if normalized_image_url:
+                    services.add_product_image(
+                        user=request.user,
+                        store=store,
+                        product=updated,
+                        image_url=normalized_image_url,
+                    )
+
+            updated = selectors.get_product_by_id(
+                product_id=updated.id,
+                store_id=store.id,
+                tenant_id=store.tenant_id,
+            )
+
             response_serializer = ProductDetailSerializer(updated)
             return Response(response_serializer.data)
         
@@ -264,6 +425,21 @@ class ProductDetailView(ProductStoreAccessMixin, generics.RetrieveUpdateDestroyA
             )
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="List product images",
+        description="List images for a product in a tenant-owned store.",
+        tags=["Products"],
+        responses={200: ProductImageSerializer(many=True), **DOC_ERROR_RESPONSES},
+    ),
+    post=extend_schema(
+        summary="Create product image",
+        description="Upload or attach an image to a product in a tenant-owned store.",
+        tags=["Products"],
+        request=ProductImageSerializer,
+        responses={201: ProductImageSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
 class ProductImageView(ProductStoreAccessMixin, generics.ListCreateAPIView):
     """
     GET: List all images for a product
@@ -344,6 +520,17 @@ class ProductImageView(ProductStoreAccessMixin, generics.ListCreateAPIView):
             )
 
 
+@extend_schema_view(
+    delete=extend_schema(
+        summary="Delete product image",
+        description="Delete a product image from a tenant-owned store.",
+        tags=["Products"],
+        responses={
+            204: OpenApiResponse(description="Product image deleted successfully."),
+            **DOC_ERROR_RESPONSES,
+        },
+    ),
+)
 class ProductImageDetailView(ProductStoreAccessMixin, generics.DestroyAPIView):
     """
     DELETE: Delete a product image
@@ -385,6 +572,22 @@ class ProductImageDetailView(ProductStoreAccessMixin, generics.DestroyAPIView):
             )
 
 
+@extend_schema_view(
+    put=extend_schema(
+        summary="Update product inventory",
+        description="Replace inventory stock quantity for a product in a tenant-owned store.",
+        tags=["Products"],
+        request=InventoryUpdateSerializer,
+        responses={200: InventorySerializer, **DOC_ERROR_RESPONSES},
+    ),
+    patch=extend_schema(
+        summary="Partially update product inventory",
+        description="Partially update inventory stock quantity for a product in a tenant-owned store.",
+        tags=["Products"],
+        request=InventoryUpdateSerializer,
+        responses={200: InventorySerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
 class InventoryUpdateView(ProductStoreAccessMixin, generics.UpdateAPIView):
     """
     PUT: Update product inventory

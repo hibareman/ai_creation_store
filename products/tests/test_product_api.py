@@ -252,6 +252,48 @@ class ProductApiTests(TestCase):
         self.product.refresh_from_db()
         self.assertEqual(self.product.name, "Patched Mouse")
 
+    def test_patch_product_accepts_stock_and_image_url(self):
+        response = self.client.patch(
+            f"/api/products/{self.store.id}/products/{self.product.id}/",
+            {
+                "stock": 3,
+                "image_url": "https://example.com/patched-mouse.jpg",
+            },
+            format="json",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self._assert_product_shape(payload)
+        self.assertEqual(payload["stock"], 3)
+        self.assertEqual(payload["image_url"], "https://example.com/patched-mouse.jpg")
+
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.inventory.stock_quantity, 3)
+        self.assertTrue(
+            ProductImage.objects.filter(
+                product=self.product,
+                image_url="https://example.com/patched-mouse.jpg",
+            ).exists()
+        )
+
+    def test_patch_product_accepts_zero_stock(self):
+        response = self.client.patch(
+            f"/api/products/{self.store.id}/products/{self.product.id}/",
+            {"stock": 0},
+            format="json",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self._assert_product_shape(payload)
+        self.assertEqual(payload["stock"], 0)
+
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.inventory.stock_quantity, 0)
+
     def test_put_product_returns_current_shape(self):
         category_b = Category.objects.create(
             store=self.store,
@@ -269,6 +311,8 @@ class ProductApiTests(TestCase):
                 "sku": "UPDATED-001",
                 "status": "out_of_stock",
                 "category_id": category_b.id,
+                "stock": 5,
+                "image_url": "https://example.com/updated-mouse.jpg",
             },
             format="json",
             HTTP_AUTHORIZATION=self.owner_auth,
@@ -281,6 +325,8 @@ class ProductApiTests(TestCase):
         self.assertEqual(payload["category_id"], category_b.id)
         self.assertEqual(payload["category_name"], "Accessories")
         self.assertEqual(payload["status"], "out_of_stock")
+        self.assertEqual(payload["stock"], 5)
+        self.assertEqual(payload["image_url"], "https://example.com/updated-mouse.jpg")
 
     def test_put_requires_full_payload(self):
         response = self.client.put(

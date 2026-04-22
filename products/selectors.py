@@ -103,6 +103,17 @@ def get_active_products_by_store(store_id: int, tenant_id: int) -> QuerySet:
     ).order_by('-created_at')
 
 
+def count_active_products_for_store(store_id: int, tenant_id: int) -> int:
+    """
+    Count active products for a store with strict tenant isolation.
+    """
+    return Product.objects.filter(
+        store_id=store_id,
+        tenant_id=tenant_id,
+        status='active'
+    ).count()
+
+
 def get_products_by_category(category_id: int, store_id: int, tenant_id: int) -> QuerySet:
     """
     Get all products in a specific category with tenant isolation.
@@ -118,3 +129,28 @@ def get_products_by_category(category_id: int, store_id: int, tenant_id: int) ->
     ).prefetch_related(
         'images', 'inventory'
     ).order_by('-created_at')
+
+
+def get_public_products_for_store(store) -> QuerySet:
+    """
+    Get publicly visible products for a published/active store.
+    Query-only selector: scoped by store and tenant, filtered to active products.
+    """
+    return Product.objects.filter(
+        store_id=store.id,
+        tenant_id=store.tenant_id,
+        status='active',
+    ).order_by('-id')
+
+
+def get_public_product_detail(store, product_id):
+    """
+    Get one publicly visible product for a published/active store.
+    Query-only selector: scoped by store and tenant, filtered to active product.
+    """
+    return Product.objects.filter(
+        id=product_id,
+        store_id=store.id,
+        tenant_id=store.tenant_id,
+        status='active',
+    ).first()

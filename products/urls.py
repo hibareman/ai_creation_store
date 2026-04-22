@@ -4,13 +4,26 @@ from .views import (
     ProductDetailView,
     ProductImageView,
     ProductImageDetailView,
-    InventoryUpdateView
+    InventoryUpdateView,
+    PublicStoreProductsListView,
+    PublicStoreProductDetailView,
 )
 
 # Product URLs: /api/products/
 app_name = 'products'
 
 urlpatterns = [
+    path(
+        'public/store/<slug:subdomain>/products/',
+        PublicStoreProductsListView.as_view(),
+        name='public-store-products-list'
+    ),
+    path(
+        'public/store/<slug:subdomain>/products/<int:product_id>/',
+        PublicStoreProductDetailView.as_view(),
+        name='public-store-product-detail'
+    ),
+
     # Product CRUD
     path(
         '<int:store_id>/products/',

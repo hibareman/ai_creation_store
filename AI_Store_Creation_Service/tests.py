@@ -331,6 +331,30 @@ class AICreationServicesTests(AIWorkflowBaseMixin, TestCase):
         self.assertEqual(meta["clarification_round_count"], 1)
 
     @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_process_clarification_round_provider_failure_keeps_round_tracking_consistent(
+        self,
+        mock_get_provider,
+    ):
+        store = self._create_store()
+        self._prepare_clarification_state(store, round_count=0)
+        mock_get_provider.return_value.clarify_store_draft.side_effect = RuntimeError("provider timeout")
+
+        result = process_clarification_round(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            clarification_answers={"store_type": "Fashion"},
+        )
+
+        fallback = build_ai_fallback_payload()
+        self.assertEqual(result, fallback)
+
+        meta = get_ai_draft_meta(store.id)
+        self.assertEqual(meta["clarification_round_count"], 1)
+        self.assertEqual(meta["clarification_history"][0]["round"], 1)
+        self.assertEqual(meta["clarification_round_count"], meta["clarification_history"][-1]["round"])
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
     def test_process_clarification_round_transitions_to_draft_ready(self, mock_get_provider):
         store = self._create_store()
         self._seed_templates()
