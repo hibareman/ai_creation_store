@@ -353,21 +353,24 @@ class StoreSerializersTests(TestCase):
     def test_store_settings_serializer_contains_expected_fields(self):
         settings = self.store.settings
         serializer = StoreSettingsSerializer(settings)
-        expected_fields = {'id', 'store', 'currency', 'language', 'timezone', 'created_at', 'updated_at'}
+        expected_fields = {'store_id', 'settings'}
         self.assertEqual(set(serializer.data.keys()), expected_fields)
 
     def test_store_settings_serializer_store_is_read_only(self):
         settings = self.store.settings
         serializer = StoreSettingsSerializer(settings)
-        self.assertEqual(serializer.data['store'], self.store.id)
+        self.assertEqual(serializer.data['store_id'], self.store.slug)
 
     def test_store_settings_serializer_data_accuracy(self):
         settings = self.store.settings
         serializer = StoreSettingsSerializer(settings)
-        self.assertEqual(serializer.data['currency'], 'USD')
-        self.assertEqual(serializer.data['language'], 'en')
-        self.assertEqual(serializer.data['timezone'], 'UTC')
-        self.assertEqual(serializer.data['store'], self.store.id)
+        payload = serializer.data['settings']
+        self.assertEqual(payload['storeName'], self.store.name)
+        self.assertEqual(payload['storeUrl'], self.store.slug)
+        self.assertEqual(payload['storeDescription'], self.store.description)
+        self.assertEqual(payload['currency'], 'USD')
+        self.assertEqual(payload['language'], 'en')
+        self.assertEqual(payload['timezone'], 'UTC')
 
     def test_store_domain_serializer_contains_expected_fields(self):
         serializer = StoreDomainSerializer(self.domain)
@@ -391,9 +394,10 @@ class StoreSerializersTests(TestCase):
         settings.timezone = 'Europe/Paris'
         settings.save()
         serializer = StoreSettingsSerializer(settings)
-        self.assertEqual(serializer.data['currency'], 'EUR')
-        self.assertEqual(serializer.data['language'], 'fr')
-        self.assertEqual(serializer.data['timezone'], 'Europe/Paris')
+        payload = serializer.data['settings']
+        self.assertEqual(payload['currency'], 'EUR')
+        self.assertEqual(payload['language'], 'fr')
+        self.assertEqual(payload['timezone'], 'Europe/Paris')
 
     def test_multiple_domains_serialization(self):
         domain2 = StoreDomain.objects.create(store=self.store, domain="example2.com", is_primary=False)
@@ -610,30 +614,41 @@ class StoreSettingsAPITests(TestCase):
         response = self.client.get(f"/api/stores/{self.store.id}/settings/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = self._payload(response)
-        self.assertEqual(data['currency'], 'USD')
-        self.assertEqual(data['language'], 'en')
-        self.assertEqual(data['timezone'], 'UTC')
+        self.assertEqual(data['store_id'], self.store.slug)
+        self.assertEqual(data['settings']['currency'], 'USD')
+        self.assertEqual(data['settings']['language'], 'en')
+        self.assertEqual(data['settings']['timezone'], 'UTC')
 
     def test_update_store_settings(self):
         data = {
-            'currency': 'EUR',
-            'language': 'fr',
-            'timezone': 'Europe/Paris'
+            'settings': {
+                'currency': 'EUR',
+                'language': 'fr',
+                'timezone': 'Europe/Paris'
+            }
         }
-        response = self.client.patch(f"/api/stores/{self.store.id}/settings/", data)
+        response = self.client.patch(
+            f"/api/stores/{self.store.id}/settings/",
+            data,
+            format='json'
+        )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         resp_data = self._payload(response)
-        self.assertEqual(resp_data['currency'], 'EUR')
-        self.assertEqual(resp_data['language'], 'fr')
-        self.assertEqual(resp_data['timezone'], 'Europe/Paris')
+        self.assertEqual(resp_data['settings']['currency'], 'EUR')
+        self.assertEqual(resp_data['settings']['language'], 'fr')
+        self.assertEqual(resp_data['settings']['timezone'], 'Europe/Paris')
 
     def test_update_store_settings_partial(self):
-        data = {'currency': 'GBP'}
-        response = self.client.patch(f"/api/stores/{self.store.id}/settings/", data)
+        data = {'settings': {'currency': 'GBP'}}
+        response = self.client.patch(
+            f"/api/stores/{self.store.id}/settings/",
+            data,
+            format='json'
+        )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         resp_data = self._payload(response)
-        self.assertEqual(resp_data['currency'], 'GBP')
-        self.assertEqual(resp_data['language'], 'en')
+        self.assertEqual(resp_data['settings']['currency'], 'GBP')
+        self.assertEqual(resp_data['settings']['language'], 'en')
 
     def test_settings_tenant_isolation(self):
         user2 = User.objects.create_user(username="user2", email="test2@test.com", password="pass123")
