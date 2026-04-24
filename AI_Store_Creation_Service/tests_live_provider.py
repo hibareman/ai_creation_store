@@ -67,8 +67,7 @@ class AILiveProviderIntegrationTests(TestCase):
         response = self.client.post(
             "/api/ai/stores/draft/start/",
             {
-                "name": "Live AI Store",
-                "user_store_description": "A niche gadgets store for remote workers.",
+                "user_description": "A niche gadgets store for remote workers.",
             },
             format="json",
         )

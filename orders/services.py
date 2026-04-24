@@ -489,7 +489,12 @@ def get_order_by_id_for_owner(store_id: int, tenant_id: int, order_id: int):
             tenant_id=tenant_id,
         )
         .select_related("customer", "store")
-        .prefetch_related("items", "items__product", "customer__addresses")
+        .prefetch_related(
+            "items",
+            "items__product",
+            "items__product__images",
+            "customer__addresses",
+        )
         .first()
     )
 

@@ -13,6 +13,10 @@ from . import selectors
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_THEME_PRIMARY_COLOR = "#4F46E5"
+DEFAULT_THEME_SECONDARY_COLOR = "#FFFFFF"
+DEFAULT_THEME_FONT_FAMILY = "Inter"
+
 
 def _validate_store_authorization(user, store):
     """
@@ -52,6 +56,50 @@ def _get_valid_theme_template(theme_template_id):
     if not theme_template:
         raise ValidationError("Selected theme template does not exist")
     return theme_template
+
+
+def _build_default_in_memory_theme_config(store):
+    """
+    Build an in-memory default StoreThemeConfig-like object for read-only GET fallbacks.
+
+    Important:
+    - This function does NOT write to the database.
+    - It is only used when a store-specific configuration row does not exist yet.
+    """
+    default_template = selectors.get_first_active_theme_template()
+    return StoreThemeConfig(
+        store=store,
+        theme_template=default_template,
+        primary_color=DEFAULT_THEME_PRIMARY_COLOR,
+        secondary_color=DEFAULT_THEME_SECONDARY_COLOR,
+        font_family=DEFAULT_THEME_FONT_FAMILY,
+        logo_url="",
+        banner_url="",
+    )
+
+
+def get_store_theme_config_for_read(store):
+    """
+    Return persisted store theme config if it exists; otherwise return a safe in-memory default.
+
+    This helper is read-only and does not create a DB row.
+    """
+    if not store:
+        raise ValidationError("Store is required")
+
+    config = selectors.get_store_theme_config(store)
+    if config is not None:
+        return config
+    return _build_default_in_memory_theme_config(store)
+
+
+def get_store_appearance_config_for_read(store):
+    """
+    Return persisted appearance config if it exists; otherwise return a safe in-memory default.
+
+    This helper is read-only and does not create a DB row.
+    """
+    return get_store_theme_config_for_read(store)
 
 
 def get_or_create_store_theme_config(

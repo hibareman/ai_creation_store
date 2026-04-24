@@ -17,12 +17,11 @@ from .serializers import (
 )
 from .services import (
     apply_current_ai_draft_to_store,
-    create_draft_store_for_ai_flow,
-    generate_initial_store_draft,
     get_current_ai_draft,
     process_clarification_round,
     regenerate_store_draft,
     regenerate_store_draft_section,
+    start_ai_draft_workflow,
 )
 
 DOC_ERROR_RESPONSES = {
@@ -95,26 +94,15 @@ class AIStartDraftAPIView(AIBaseAPIView):
         request_serializer.is_valid(raise_exception=True)
 
         tenant_id = getattr(request, "tenant_id", None)
-        name = request_serializer.validated_data["name"]
-        user_store_description = request_serializer.validated_data["user_store_description"]
+        normalized_user_description = request_serializer.validated_data[
+            "normalized_user_description"
+        ]
 
         try:
-            store = create_draft_store_for_ai_flow(
+            draft_state = start_ai_draft_workflow(
                 user=request.user,
                 tenant_id=tenant_id,
-                name=name,
-                description="",
-            )
-            generate_initial_store_draft(
-                store_id=store.id,
-                user=request.user,
-                tenant_id=tenant_id,
-                user_store_description=user_store_description,
-            )
-            draft_state = get_current_ai_draft(
-                store_id=store.id,
-                user=request.user,
-                tenant_id=tenant_id,
+                user_store_description=normalized_user_description,
             )
         except DjangoValidationError as exc:
             return self._validation_error_response(exc)

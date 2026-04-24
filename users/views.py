@@ -15,6 +15,7 @@ from .services import (
     login_user,
     send_activation_email,
     activate_user_by_token,
+    get_auth_bootstrap_store_payload,
 )
 
 DOC_ERROR_RESPONSES = {
@@ -87,6 +88,20 @@ class RegisterView(generics.GenericAPIView):
                     "user_id": 12,
                     "role": "Store Owner",
                     "tenant_id": 12,
+                    "stores": [
+                        {
+                            "id": 1,
+                            "name": "My Store",
+                            "slug": "my-store",
+                            "subdomain": "my-store",
+                        }
+                    ],
+                    "current_store": {
+                        "id": 1,
+                        "name": "My Store",
+                        "slug": "my-store",
+                        "subdomain": "my-store",
+                    },
                 },
                 response_only=True,
             ),
@@ -100,6 +115,8 @@ class RegisterView(generics.GenericAPIView):
                     "user_id": drf_serializers.IntegerField(),
                     "role": drf_serializers.CharField(),
                     "tenant_id": drf_serializers.IntegerField(allow_null=True),
+                    "stores": drf_serializers.ListField(),
+                    "current_store": drf_serializers.JSONField(allow_null=True),
                 },
             ),
             **DOC_ERROR_RESPONSES,
@@ -140,6 +157,20 @@ class LoginView(generics.GenericAPIView):
                     "user_id": 12,
                     "role": "Store Owner",
                     "tenant_id": 12,
+                    "stores": [
+                        {
+                            "id": 1,
+                            "name": "My Store",
+                            "slug": "my-store",
+                            "subdomain": "my-store",
+                        }
+                    ],
+                    "current_store": {
+                        "id": 1,
+                        "name": "My Store",
+                        "slug": "my-store",
+                        "subdomain": "my-store",
+                    },
                 },
                 response_only=True,
             ),
@@ -154,6 +185,8 @@ class LoginView(generics.GenericAPIView):
                     "user_id": drf_serializers.IntegerField(),
                     "role": drf_serializers.CharField(),
                     "tenant_id": drf_serializers.IntegerField(allow_null=True),
+                    "stores": drf_serializers.ListField(),
+                    "current_store": drf_serializers.JSONField(allow_null=True),
                 },
             ),
             **DOC_ERROR_RESPONSES,
@@ -172,14 +205,13 @@ class ActivateView(generics.GenericAPIView):
         try:
             user = activate_user_by_token(token)
             token_data = login_user(user)
-            return Response({
-                "detail": "Account activated successfully!",
-                "access": token_data['access'],
-                "refresh": token_data['refresh'],
-                "user_id": user.id,
-                "role": user.role,
-                "tenant_id": user.tenant_id,
-            }, status=status.HTTP_200_OK)
+            return Response(
+                {
+                    "detail": "Account activated successfully!",
+                    **token_data,
+                },
+                status=status.HTTP_200_OK,
+            )
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -204,4 +236,6 @@ class MeView(generics.GenericAPIView):
     )
     def get(self, request):
         serializer = self.get_serializer(request.user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        payload = dict(serializer.data)
+        payload.update(get_auth_bootstrap_store_payload(request.user))
+        return Response(payload, status=status.HTTP_200_OK)

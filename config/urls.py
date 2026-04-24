@@ -15,6 +15,7 @@ urlpatterns = [
 
     path('api/auth/', include('users.urls')),
     path('api/stores/', include('stores.urls')),
+    path('api/', include('seo.urls')),
     path('api/', include('orders.urls')),
     # Category contract route used by tests/docs:
     # /api/stores/<store_id>/categories/

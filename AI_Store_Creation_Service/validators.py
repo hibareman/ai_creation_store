@@ -34,6 +34,14 @@ _HSLA_COLOR_RE = re.compile(
     re.IGNORECASE,
 )
 
+_DEFAULT_CLARIFICATION_QUESTIONS = [
+    {
+        "question_key": "store_type",
+        "question_text": "What type of store do you want to create?",
+        "options": ["Fashion", "Electronics", "Food & Grocery", "Other"],
+    }
+]
+
 
 def _ensure_key_of_type(
     payload: Mapping[str, Any],
@@ -60,27 +68,64 @@ def validate_basic_draft_schema(payload: Mapping[str, Any]) -> dict[str, Any]:
     """
     Validate only the basic top-level AI draft schema.
 
-    Required top-level keys and general types:
-    - store: mapping
-    - store_settings: mapping
-    - theme: mapping
-    - categories: list
-    - products: list
-    - clarification_needed: bool
-    - clarification_questions: list
+    Behavior:
+    - `clarification_needed` and `clarification_questions` are always required.
+    - Structural keys (`store`, `store_settings`, `theme`, `categories`, `products`)
+      are normalized to safe empty defaults when missing.
+
+    This makes clarification-mode payloads from smaller local models robust, while
+    still enforcing strict typing and mode consistency in later validators.
     """
     if not isinstance(payload, Mapping):
         raise AIDraftSchemaValidationError("Draft payload must be a mapping object.")
 
-    _ensure_key_of_type(payload, "store", Mapping)
-    _ensure_key_of_type(payload, "store_settings", Mapping)
-    _ensure_key_of_type(payload, "theme", Mapping)
-    _ensure_key_of_type(payload, "categories", list)
-    _ensure_key_of_type(payload, "products", list)
-    _ensure_key_of_type(payload, "clarification_needed", bool)
-    _ensure_key_of_type(payload, "clarification_questions", list)
+    normalized = dict(payload)
 
-    return dict(payload)
+    # Structural keys (safe defaults when missing).
+    structure_defaults: dict[str, Any] = {
+        "store": {},
+        "store_settings": {},
+        "theme": {},
+        "categories": [],
+        "products": [],
+    }
+    for key, default_value in structure_defaults.items():
+        if key not in normalized:
+            normalized[key] = default_value
+
+    _ensure_key_of_type(normalized, "store", Mapping)
+    _ensure_key_of_type(normalized, "store_settings", Mapping)
+    _ensure_key_of_type(normalized, "theme", Mapping)
+    _ensure_key_of_type(normalized, "categories", list)
+    _ensure_key_of_type(normalized, "products", list)
+
+    # Clarification keys:
+    # - tolerate missing provider fields by inferring safe defaults
+    # - still enforce final types strictly.
+    if "clarification_questions" not in normalized:
+        normalized["clarification_questions"] = []
+
+    _ensure_key_of_type(normalized, "clarification_questions", list)
+
+    if "clarification_needed" not in normalized:
+        has_structural_content = any(
+            bool(normalized.get(key))
+            for key in ("store", "store_settings", "theme", "categories", "products")
+        )
+        if normalized["clarification_questions"]:
+            normalized["clarification_needed"] = True
+        else:
+            # If we already have meaningful draft content, treat it as draft-ready.
+            # Otherwise default to clarification mode.
+            normalized["clarification_needed"] = not has_structural_content
+
+    _ensure_key_of_type(normalized, "clarification_needed", bool)
+
+    # Keep clarification mode internally consistent even when provider omitted questions.
+    if normalized["clarification_needed"] and not normalized["clarification_questions"]:
+        normalized["clarification_questions"] = list(_DEFAULT_CLARIFICATION_QUESTIONS)
+
+    return normalized
 
 
 def validate_store_section(store_data: Mapping[str, Any]) -> dict[str, Any]:
@@ -398,9 +443,9 @@ def detect_ai_response_mode(payload: Mapping[str, Any]) -> Literal["clarificatio
                 )
 
             question_keys = set(question.keys())
-            if question_keys != expected_keys:
+            if not expected_keys.issubset(question_keys):
                 raise AIDraftSchemaValidationError(
-                    f"Clarification question at index {index} must contain exactly: "
+                    f"Clarification question at index {index} must contain required keys: "
                     "question_key, question_text, options."
                 )
 

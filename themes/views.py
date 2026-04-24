@@ -98,9 +98,7 @@ class StoreThemeConfigDetailView(ThemeStoreAccessMixin, generics.GenericAPIView)
         store = self._get_store_or_not_found(self.kwargs["store_id"])
         self._enforce_store_access(request, store)
 
-        theme_config = selectors.get_store_theme_config(store)
-        if not theme_config:
-            raise NotFound("Store theme configuration not found")
+        theme_config = services.get_store_theme_config_for_read(store)
 
         serializer = StoreThemeConfigSerializer(theme_config)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -199,9 +197,7 @@ class StoreAppearanceDetailView(ThemeStoreAccessMixin, generics.GenericAPIView):
         store = self._get_store_or_not_found(self.kwargs["store_id"])
         self._enforce_store_access(request, store)
 
-        theme_config = selectors.get_store_theme_config(store)
-        if not theme_config:
-            raise NotFound("Store appearance configuration not found")
+        theme_config = services.get_store_appearance_config_for_read(store)
 
         serializer = StoreAppearanceSerializer(theme_config)
         return Response(serializer.data, status=status.HTTP_200_OK)

@@ -45,6 +45,10 @@ class StoreTests(TestCase):
         self.assertEqual(Store.objects.filter(owner=self.user_a, name="New Store").exists(), True)
         created_store = Store.objects.get(owner=self.user_a, name="New Store")
         self.assertEqual(created_store.status, "setup")
+        data = self._payload(response)
+        self.assertIn("slug", data)
+        self.assertIn("subdomain", data)
+        self.assertIsNone(data["subdomain"])
 
     def test_create_store_ignores_client_active_status_and_starts_setup(self):
         response = self.client.post("/api/stores/", {"name": "Client Active Store", "status": "active"})
@@ -111,6 +115,46 @@ class StoreTests(TestCase):
         self.assertTrue(all(store['owner'] == self.user_a.id for store in data))
         # Should not include user_b's store
         self.assertFalse(any(store['owner'] == self.user_b.id for store in data))
+        self.assertTrue(all('slug' in store for store in data))
+        self.assertTrue(all('subdomain' in store for store in data))
+
+    def test_store_payload_exposes_subdomain_separately_when_set(self):
+        self.store_a.subdomain = "store-a-live"
+        self.store_a.save(update_fields=["subdomain"])
+
+        response = self.client.get("/api/stores/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        store_data = next(item for item in payload if item["id"] == self.store_a.id)
+        self.assertEqual(store_data["slug"], self.store_a.slug)
+        self.assertEqual(store_data["subdomain"], "store-a-live")
+
+    def test_store_payload_keeps_slug_and_subdomain_separate(self):
+        self.store_a.subdomain = "public-store-a"
+        self.store_a.save(update_fields=["subdomain"])
+        original_slug = self.store_a.slug
+
+        response = self.client.patch(
+            f"/api/stores/{self.store_a.id}/",
+            {"name": "Store A Renamed"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = self._payload(response)
+        self.assertEqual(data["slug"], original_slug)
+        self.assertEqual(data["subdomain"], "public-store-a")
+
+    def test_set_subdomain_updates_subdomain_only_not_slug(self):
+        original_slug = self.store_a.slug
+        response = self.client.patch(
+            f"/api/stores/{self.store_a.id}/subdomain/",
+            {"subdomain": "new-public-subdomain"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.store_a.refresh_from_db()
+        self.assertEqual(self.store_a.subdomain, "new-public-subdomain")
+        self.assertEqual(self.store_a.slug, original_slug)
 
     def test_get_stores_excludes_other_owner_in_same_tenant(self):
         user_same_tenant = User.objects.create_user(
@@ -347,8 +391,31 @@ class StoreSerializersTests(TestCase):
 
     def test_store_serializer_contains_expected_fields(self):
         serializer = StoreSerializer(self.store)
-        expected_fields = {'id', 'owner', 'name', 'slug', 'description', 'status', 'tenant_id', 'created_at', 'updated_at'}
+        expected_fields = {
+            'id',
+            'owner',
+            'name',
+            'slug',
+            'subdomain',
+            'description',
+            'status',
+            'tenant_id',
+            'created_at',
+            'updated_at',
+        }
         self.assertEqual(set(serializer.data.keys()), expected_fields)
+
+    def test_store_serializer_returns_subdomain_null_when_missing(self):
+        serializer = StoreSerializer(self.store)
+        self.assertIn('subdomain', serializer.data)
+        self.assertIsNone(serializer.data['subdomain'])
+
+    def test_store_serializer_returns_subdomain_when_set(self):
+        self.store.subdomain = "test-store-sub"
+        self.store.save(update_fields=["subdomain"])
+        serializer = StoreSerializer(self.store)
+        self.assertEqual(serializer.data['slug'], self.store.slug)
+        self.assertEqual(serializer.data['subdomain'], "test-store-sub")
 
     def test_store_settings_serializer_contains_expected_fields(self):
         settings = self.store.settings
@@ -367,10 +434,19 @@ class StoreSerializersTests(TestCase):
         payload = serializer.data['settings']
         self.assertEqual(payload['storeName'], self.store.name)
         self.assertEqual(payload['storeUrl'], self.store.slug)
+        self.assertIsNone(payload['storeSubdomain'])
         self.assertEqual(payload['storeDescription'], self.store.description)
         self.assertEqual(payload['currency'], 'USD')
         self.assertEqual(payload['language'], 'en')
         self.assertEqual(payload['timezone'], 'UTC')
+
+    def test_store_settings_serializer_exposes_store_subdomain_when_set(self):
+        self.store.subdomain = "settings-subdomain"
+        self.store.save(update_fields=["subdomain"])
+        serializer = StoreSettingsSerializer(self.store.settings)
+        payload = serializer.data['settings']
+        self.assertEqual(payload['storeUrl'], self.store.slug)
+        self.assertEqual(payload['storeSubdomain'], "settings-subdomain")
 
     def test_store_domain_serializer_contains_expected_fields(self):
         serializer = StoreDomainSerializer(self.domain)
@@ -618,6 +694,19 @@ class StoreSettingsAPITests(TestCase):
         self.assertEqual(data['settings']['currency'], 'USD')
         self.assertEqual(data['settings']['language'], 'en')
         self.assertEqual(data['settings']['timezone'], 'UTC')
+        self.assertIn('storeUrl', data['settings'])
+        self.assertIn('storeSubdomain', data['settings'])
+        self.assertEqual(data['settings']['storeUrl'], self.store.slug)
+        self.assertIsNone(data['settings']['storeSubdomain'])
+
+    def test_get_store_settings_returns_real_subdomain_separately(self):
+        self.store.subdomain = "settings-api-subdomain"
+        self.store.save(update_fields=["subdomain"])
+        response = self.client.get(f"/api/stores/{self.store.id}/settings/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = self._payload(response)
+        self.assertEqual(data['settings']['storeUrl'], self.store.slug)
+        self.assertEqual(data['settings']['storeSubdomain'], "settings-api-subdomain")
 
     def test_update_store_settings(self):
         data = {
@@ -795,4 +884,590 @@ class StoreDomainAPITests(TestCase):
     def test_create_domain_for_nonexistent_store_returns_404(self):
         data = {'domain': 'ghost-store.com', 'is_primary': False}
         response = self.client.post("/api/stores/999999/domains/", data)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_repeated_primary_switch_keeps_exactly_one_primary_domain(self):
+        from ..services import add_domain
+
+        first_domain = add_domain(self.store, "first-primary.com", is_primary=True)
+        second_domain = add_domain(self.store, "second-primary.com", is_primary=False)
+        third_domain = add_domain(self.store, "third-primary.com", is_primary=False)
+
+        first_switch = self.client.patch(
+            f"/api/stores/{self.store.id}/domains/{second_domain.id}/",
+            {"is_primary": True},
+            format="json",
+        )
+        self.assertEqual(first_switch.status_code, status.HTTP_200_OK)
+
+        second_switch = self.client.patch(
+            f"/api/stores/{self.store.id}/domains/{third_domain.id}/",
+            {"is_primary": True},
+            format="json",
+        )
+        self.assertEqual(second_switch.status_code, status.HTTP_200_OK)
+
+        first_domain.refresh_from_db()
+        second_domain.refresh_from_db()
+        third_domain.refresh_from_db()
+
+        self.assertFalse(first_domain.is_primary)
+        self.assertFalse(second_domain.is_primary)
+        self.assertTrue(third_domain.is_primary)
+        self.assertEqual(StoreDomain.objects.filter(store=self.store, is_primary=True).count(), 1)
+
+class StorePublishAPITests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.owner = User.objects.create_user(
+            username="publish_owner",
+            email="publish_owner@test.com",
+            password="pass123",
+            is_active=True,
+        )
+        self.owner.tenant_id = 1001
+        self.owner.save(update_fields=["tenant_id"])
+
+        self.same_tenant_non_owner = User.objects.create_user(
+            username="publish_same_tenant",
+            email="publish_same_tenant@test.com",
+            password="pass123",
+            is_active=True,
+        )
+        self.same_tenant_non_owner.tenant_id = self.owner.tenant_id
+        self.same_tenant_non_owner.save(update_fields=["tenant_id"])
+
+        self.cross_tenant_user = User.objects.create_user(
+            username="publish_cross_tenant",
+            email="publish_cross_tenant@test.com",
+            password="pass123",
+            is_active=True,
+        )
+        self.cross_tenant_user.tenant_id = 2002
+        self.cross_tenant_user.save(update_fields=["tenant_id"])
+
+        self.store = create_store(owner=self.owner, name="Publishable Store")
+        self.store.status = "active"
+        self.store.subdomain = "publishable-store"
+        self.store.save(update_fields=["status", "subdomain"])
+
+        from products.models import Product
+        Product.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Publish Product",
+            description="Ready product",
+            price=10,
+            sku="PUB-SKU-1",
+            status="active",
+        )
+
+        self.owner_client = APIClient()
+        owner_token = str(RefreshToken.for_user(self.owner).access_token)
+        self.owner_client.credentials(HTTP_AUTHORIZATION=f"Bearer {owner_token}")
+
+    @staticmethod
+    def _payload(response):
+        return response.json()
+
+    def _auth_client_for(self, user):
+        client = APIClient()
+        token = str(RefreshToken.for_user(user).access_token)
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        return client
+
+    def test_owner_can_publish_store_successfully(self):
+        response = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/publish/",
+            {"action": "publish"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.store.refresh_from_db()
+        self.assertTrue(self.store.is_published)
+        self.assertIsNotNone(self.store.published_at)
+        payload = self._payload(response)
+        self.assertIn("store", payload)
+        self.assertTrue(payload["store"]["is_published"])
+        self.assertIsNotNone(payload["store"]["published_at"])
+
+    def test_owner_can_unpublish_store_successfully(self):
+        publish_response = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/publish/",
+            {"action": "publish"},
+            format="json",
+        )
+        self.assertEqual(publish_response.status_code, status.HTTP_200_OK)
+
+        response = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/publish/",
+            {"action": "unpublish"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.store.refresh_from_db()
+        self.assertFalse(self.store.is_published)
+        self.assertIsNone(self.store.published_at)
+        payload = self._payload(response)
+        self.assertIn("store", payload)
+        self.assertFalse(payload["store"]["is_published"])
+        self.assertIsNone(payload["store"]["published_at"])
+
+    def test_same_tenant_non_owner_cannot_publish_or_unpublish(self):
+        client = self._auth_client_for(self.same_tenant_non_owner)
+        for action in ("publish", "unpublish"):
+            response = client.patch(
+                f"/api/stores/{self.store.id}/publish/",
+                {"action": action},
+                format="json",
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertIn("detail", self._payload(response))
+
+    def test_cross_tenant_user_cannot_publish_or_unpublish(self):
+        client = self._auth_client_for(self.cross_tenant_user)
+        for action in ("publish", "unpublish"):
+            response = client.patch(
+                f"/api/stores/{self.store.id}/publish/",
+                {"action": action},
+                format="json",
+            )
+            self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_publish_nonexistent_store_returns_404(self):
+        response = self.owner_client.patch(
+            "/api/stores/999999/publish/",
+            {"action": "publish"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_publish_invalid_action_returns_400(self):
+        response = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/publish/",
+            {"action": "invalid-action"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("action", self._payload(response))
+    def test_publish_validation_failure_does_not_partially_modify_store_state(self):
+        invalid_store = create_store(owner=self.owner, name="Invalid Publish Store")
+        invalid_store.status = "active"
+        invalid_store.subdomain = None
+        invalid_store.is_published = False
+        invalid_store.published_at = None
+        invalid_store.save(update_fields=["status", "subdomain", "is_published", "published_at"])
+
+        from products.models import Product
+        Product.objects.create(
+            store=invalid_store,
+            tenant_id=invalid_store.tenant_id,
+            name="Ready Product",
+            description="Ready but store missing subdomain",
+            price=10,
+            sku="INVALID-PUB-1",
+            status="active",
+        )
+
+        response = self.owner_client.patch(
+            f"/api/stores/{invalid_store.id}/publish/",
+            {"action": "publish"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        invalid_store.refresh_from_db()
+        self.assertFalse(invalid_store.is_published)
+        self.assertIsNone(invalid_store.published_at)
+    def test_repeated_publish_keeps_store_consistently_published(self):
+            first_response = self.owner_client.patch(
+                f"/api/stores/{self.store.id}/publish/",
+                {"action": "publish"},
+                format="json",
+            )
+            self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+
+            self.store.refresh_from_db()
+            first_published_at = self.store.published_at
+            self.assertTrue(self.store.is_published)
+            self.assertIsNotNone(first_published_at)
+
+            second_response = self.owner_client.patch(
+                f"/api/stores/{self.store.id}/publish/",
+                {"action": "publish"},
+                format="json",
+            )
+            self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+
+            self.store.refresh_from_db()
+            self.assertTrue(self.store.is_published)
+            self.assertIsNotNone(self.store.published_at)
+            self.assertGreaterEqual(self.store.published_at, first_published_at)
+            
+    def test_repeated_unpublish_keeps_store_consistently_unpublished(self):
+        publish_response = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/publish/",
+            {"action": "publish"},
+            format="json",
+        )
+        self.assertEqual(publish_response.status_code, status.HTTP_200_OK)
+
+        first_unpublish = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/publish/",
+            {"action": "unpublish"},
+            format="json",
+        )
+        self.assertEqual(first_unpublish.status_code, status.HTTP_200_OK)
+
+        second_unpublish = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/publish/",
+            {"action": "unpublish"},
+            format="json",
+        )
+        self.assertEqual(second_unpublish.status_code, status.HTTP_200_OK)
+
+        self.store.refresh_from_db()
+        self.assertFalse(self.store.is_published)
+        self.assertIsNone(self.store.published_at)
+    def test_publish_validation_failure_does_not_partially_modify_store_state(self):
+        invalid_store = create_store(owner=self.owner, name="Invalid Publish Store")
+        invalid_store.status = "active"
+        invalid_store.subdomain = None
+        invalid_store.is_published = False
+        invalid_store.published_at = None
+        invalid_store.save(update_fields=["status", "subdomain", "is_published", "published_at"])
+
+        from products.models import Product
+        Product.objects.create(
+            store=invalid_store,
+            tenant_id=invalid_store.tenant_id,
+            name="Ready Product",
+            description="Ready but store missing subdomain",
+            price=10,
+            sku="INVALID-PUB-1",
+            status="active",
+        )
+
+        response = self.owner_client.patch(
+            f"/api/stores/{invalid_store.id}/publish/",
+            {"action": "publish"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        invalid_store.refresh_from_db()
+        self.assertFalse(invalid_store.is_published)
+        self.assertIsNone(invalid_store.published_at)
+
+    def test_repeated_publish_keeps_store_consistently_published(self):
+        first_response = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/publish/",
+            {"action": "publish"},
+            format="json",
+        )
+        self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+
+        self.store.refresh_from_db()
+        first_published_at = self.store.published_at
+        self.assertTrue(self.store.is_published)
+        self.assertIsNotNone(first_published_at)
+
+        second_response = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/publish/",
+            {"action": "publish"},
+            format="json",
+        )
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+
+        self.store.refresh_from_db()
+        self.assertTrue(self.store.is_published)
+        self.assertIsNotNone(self.store.published_at)
+        self.assertGreaterEqual(self.store.published_at, first_published_at)
+
+
+    def test_repeated_unpublish_keeps_store_consistently_unpublished(self):
+        publish_response = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/publish/",
+            {"action": "publish"},
+            format="json",
+        )
+        self.assertEqual(publish_response.status_code, status.HTTP_200_OK)
+
+        first_unpublish = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/publish/",
+            {"action": "unpublish"},
+            format="json",
+        )
+        self.assertEqual(first_unpublish.status_code, status.HTTP_200_OK)
+
+        second_unpublish = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/publish/",
+            {"action": "unpublish"},
+            format="json",
+        )
+        self.assertEqual(second_unpublish.status_code, status.HTTP_200_OK)
+
+        self.store.refresh_from_db()
+        self.assertFalse(self.store.is_published)
+        self.assertIsNone(self.store.published_at)
+
+
+class StoreSubdomainAPITests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            username="sub_owner",
+            email="sub_owner@test.com",
+            password="pass123",
+            is_active=True,
+        )
+        self.owner.tenant_id = 3001
+        self.owner.save(update_fields=["tenant_id"])
+
+        self.same_tenant_non_owner = User.objects.create_user(
+            username="sub_same_tenant",
+            email="sub_same_tenant@test.com",
+            password="pass123",
+            is_active=True,
+        )
+        self.same_tenant_non_owner.tenant_id = self.owner.tenant_id
+        self.same_tenant_non_owner.save(update_fields=["tenant_id"])
+
+        self.cross_tenant_user = User.objects.create_user(
+            username="sub_cross_tenant",
+            email="sub_cross_tenant@test.com",
+            password="pass123",
+            is_active=True,
+        )
+        self.cross_tenant_user.tenant_id = 4001
+        self.cross_tenant_user.save(update_fields=["tenant_id"])
+
+        self.store = create_store(owner=self.owner, name="Subdomain Store")
+        self.other_store = create_store(owner=self.owner, name="Another Subdomain Store")
+
+        self.owner_client = APIClient()
+        owner_token = str(RefreshToken.for_user(self.owner).access_token)
+        self.owner_client.credentials(HTTP_AUTHORIZATION=f"Bearer {owner_token}")
+
+    @staticmethod
+    def _payload(response):
+        return response.json()
+
+    def _auth_client_for(self, user):
+        client = APIClient()
+        token = str(RefreshToken.for_user(user).access_token)
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        return client
+
+    def test_owner_can_set_subdomain_successfully(self):
+        response = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/subdomain/",
+            {"subdomain": "my-public-store"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.store.refresh_from_db()
+        self.assertEqual(self.store.subdomain, "my-public-store")
+        payload = self._payload(response)
+        self.assertEqual(payload["store"]["subdomain"], "my-public-store")
+
+    def test_setting_subdomain_does_not_change_slug(self):
+        original_slug = self.store.slug
+        response = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/subdomain/",
+            {"subdomain": "my-store-sub"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.store.refresh_from_db()
+        self.assertEqual(self.store.slug, original_slug)
+        self.assertEqual(self.store.subdomain, "my-store-sub")
+
+    def test_changing_slug_does_not_overwrite_existing_subdomain(self):
+        self.store.subdomain = "stable-subdomain"
+        self.store.save(update_fields=["subdomain"])
+
+        response = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/",
+            {"slug": "new-slug-value"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.store.refresh_from_db()
+        self.assertEqual(self.store.slug, "new-slug-value")
+        self.assertEqual(self.store.subdomain, "stable-subdomain")
+
+    def test_duplicate_subdomain_is_rejected(self):
+        self.other_store.subdomain = "reserved-subdomain"
+        self.other_store.save(update_fields=["subdomain"])
+
+        response = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/subdomain/",
+            {"subdomain": "reserved-subdomain"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("detail", self._payload(response))
+
+    def test_blank_or_invalid_subdomain_is_rejected(self):
+        blank_response = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/subdomain/",
+            {"subdomain": "   "},
+            format="json",
+        )
+        self.assertEqual(blank_response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        invalid_response = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/subdomain/",
+            {"subdomain": "!!!"},
+            format="json",
+        )
+        self.assertEqual(invalid_response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_same_tenant_non_owner_cannot_set_subdomain(self):
+        client = self._auth_client_for(self.same_tenant_non_owner)
+        response = client.patch(
+            f"/api/stores/{self.store.id}/subdomain/",
+            {"subdomain": "attempted-hijack"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("detail", self._payload(response))
+
+    def test_cross_tenant_user_cannot_set_subdomain(self):
+        client = self._auth_client_for(self.cross_tenant_user)
+        response = client.patch(
+            f"/api/stores/{self.store.id}/subdomain/",
+            {"subdomain": "attempted-hijack"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_store_payload_exposes_slug_and_subdomain_separately_after_update(self):
+        set_response = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/subdomain/",
+            {"subdomain": "separated-fields-store"},
+            format="json",
+        )
+        self.assertEqual(set_response.status_code, status.HTTP_200_OK)
+
+        list_response = self.owner_client.get("/api/stores/")
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        payload = self._payload(list_response)
+        store_data = next(item for item in payload if item["id"] == self.store.id)
+        self.assertIn("slug", store_data)
+        self.assertIn("subdomain", store_data)
+        self.assertEqual(store_data["slug"], self.store.slug)
+        self.assertEqual(store_data["subdomain"], "separated-fields-store")
+ 
+    def test_duplicate_subdomain_rejection_does_not_mutate_existing_slug_or_subdomain(self):
+        self.store.subdomain = "original-subdomain"
+        self.store.save(update_fields=["subdomain"])
+
+        self.other_store.subdomain = "reserved-subdomain"
+        self.other_store.save(update_fields=["subdomain"])
+
+        original_slug = self.store.slug
+        original_subdomain = self.store.subdomain
+
+        response = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/subdomain/",
+            {"subdomain": "reserved-subdomain"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.store.refresh_from_db()
+        self.assertEqual(self.store.slug, original_slug)
+        self.assertEqual(self.store.subdomain, original_subdomain)
+
+    def test_subdomain_input_is_normalized_consistently_in_db_and_response(self):
+        response = self.owner_client.patch(
+            f"/api/stores/{self.store.id}/subdomain/",
+            {"subdomain": "  My Fancy SHOP  "},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.store.refresh_from_db()
+        self.assertEqual(self.store.subdomain, "my-fancy-shop")
+
+        payload = self._payload(response)
+        self.assertEqual(payload["store"]["subdomain"], "my-fancy-shop")
+
+
+
+
+
+
+
+
+
+
+
+
+class StoreDomainAPIAccessEdgeTests(TestCase):
+    def setUp(self):
+        from ..services import add_domain
+
+        self.owner = User.objects.create_user(
+            username="domain_owner",
+            email="domain_owner@test.com",
+            password="pass123",
+            is_active=True,
+        )
+        self.owner.tenant_id = 6001
+        self.owner.save(update_fields=["tenant_id"])
+
+        self.same_tenant_non_owner = User.objects.create_user(
+            username="domain_same_tenant",
+            email="domain_same_tenant@test.com",
+            password="pass123",
+            is_active=True,
+        )
+        self.same_tenant_non_owner.tenant_id = self.owner.tenant_id
+        self.same_tenant_non_owner.save(update_fields=["tenant_id"])
+
+        self.store = create_store(owner=self.owner, name="Domain Store")
+        self.domain = add_domain(self.store, "domain-store.com", is_primary=True)
+
+        self.owner_client = APIClient()
+        owner_token = str(RefreshToken.for_user(self.owner).access_token)
+        self.owner_client.credentials(HTTP_AUTHORIZATION=f"Bearer {owner_token}")
+
+    def _auth_client_for(self, user):
+        client = APIClient()
+        token = str(RefreshToken.for_user(user).access_token)
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        return client
+
+    def test_same_tenant_non_owner_domain_access_is_blocked(self):
+        client = self._auth_client_for(self.same_tenant_non_owner)
+
+        create_response = client.post(
+            f"/api/stores/{self.store.id}/domains/",
+            {"domain": "blocked.com", "is_primary": False},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_403_FORBIDDEN)
+
+        update_response = client.patch(
+            f"/api/stores/{self.store.id}/domains/{self.domain.id}/",
+            {"domain": "blocked-update.com"},
+            format="json",
+        )
+        self.assertEqual(update_response.status_code, status.HTTP_404_NOT_FOUND)
+
+        delete_response = client.delete(
+            f"/api/stores/{self.store.id}/domains/{self.domain.id}/",
+        )
+        self.assertEqual(delete_response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_missing_domain_returns_404(self):
+        response = self.owner_client.get(
+            f"/api/stores/{self.store.id}/domains/999999/",
+        )
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

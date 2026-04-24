@@ -16,17 +16,20 @@ from themes.models import StoreThemeConfig, ThemeTemplate
 
 from .draft_store import get_ai_draft, get_ai_draft_meta, save_ai_draft, save_ai_draft_meta
 from .models import AIStoreAuditLog
+from .prompts import build_clarify_store_draft_messages, build_generate_store_draft_messages
 from .services import (
     apply_current_ai_draft_categories,
     apply_current_ai_draft_products,
     apply_current_ai_draft_store_core,
     apply_current_ai_draft_to_store,
     create_draft_store_for_ai_flow,
+    derive_store_name_from_description,
     generate_initial_store_draft,
     get_current_ai_draft,
     process_clarification_round,
     regenerate_store_draft,
     regenerate_store_draft_section,
+    start_ai_draft_workflow,
 )
 from .validators import build_ai_fallback_payload
 
@@ -222,6 +225,66 @@ class AICreationServicesTests(AIWorkflowBaseMixin, TestCase):
         with self.assertRaises(ValidationError):
             create_draft_store_for_ai_flow(user=self.user, tenant_id=101, name="   ")
 
+    def test_derive_store_name_extracts_explicit_name(self):
+        derived = derive_store_name_from_description(
+            'Please create a new store, store name is "Noor Beauty".'
+        )
+        self.assertEqual(derived, "Noor Beauty")
+
+    def test_derive_store_name_returns_safe_non_empty_fallback(self):
+        derived = derive_store_name_from_description("This is a very vague description.")
+        self.assertIsInstance(derived, str)
+        self.assertTrue(derived.strip())
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_start_ai_draft_workflow_creates_store_with_locally_derived_name(self, mock_get_provider):
+        self._seed_templates()
+        payload = self._clarification_payload()
+        mock_get_provider.return_value.generate_store_draft.return_value = self._as_provider_response(
+            payload
+        )
+
+        draft_state = start_ai_draft_workflow(
+            user=self.user,
+            tenant_id=101,
+            user_store_description="I want to build an electronics and gadgets store.",
+        )
+
+        self.assertEqual(set(draft_state.keys()), {"store_id", "draft_payload", "draft_metadata"})
+        created_store = Store.objects.get(id=draft_state["store_id"])
+        self.assertTrue(created_store.name.strip())
+        self.assertEqual(created_store.owner_id, self.user.id)
+        self.assertEqual(created_store.tenant_id, 101)
+        self.assertEqual(created_store.status, "draft")
+
+    def test_clarify_prompt_contract_requires_full_draft_when_information_is_sufficient(self):
+        messages = build_clarify_store_draft_messages(
+            tenant_id=101,
+            store_id=1,
+            current_draft=self._clarification_payload(),
+            prompt="Store type is fashion and all details are clear",
+            context={"original_store_description": "Fashion store"},
+        )
+        system_prompt = messages[0]["content"]
+        self.assertIn("return a complete valid draft payload now", system_prompt)
+        self.assertIn('"clarification_needed": false', system_prompt)
+        self.assertIn('"clarification_questions": []', system_prompt)
+
+    def test_full_generation_prompt_contract_mentions_targeted_reliability_constraints(self):
+        messages = build_generate_store_draft_messages(
+            tenant_id=101,
+            store_id=1,
+            user_store_description="Build me a beauty store",
+            available_theme_templates=["Modern", "Classic"],
+        )
+        system_prompt = messages[0]["content"]
+        self.assertIn("Generate between 2 and 4 products.", system_prompt)
+        self.assertIn("Never return more than 4 products.", system_prompt)
+        self.assertIn("`theme_template`", system_prompt)
+        self.assertIn("`primary_color`", system_prompt)
+        self.assertIn("non-empty string", system_prompt)
+        self.assertIn("no blank strings, nulls, or empty values", system_prompt)
+
     @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
     def test_generate_initial_store_draft_success_full_draft(self, mock_get_provider):
         store = self._create_store()
@@ -246,6 +309,274 @@ class AICreationServicesTests(AIWorkflowBaseMixin, TestCase):
         self.assertFalse(meta["is_fallback"])
 
     @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_generate_initial_store_draft_canonicalizes_theme_template_name(self, mock_get_provider):
+        store = self._create_store()
+        self._seed_templates()
+        payload = self._valid_full_draft_payload()
+        payload["theme"]["theme_template"] = "  modern  "
+
+        mock_get_provider.return_value.generate_store_draft.return_value = self._as_provider_response(
+            payload
+        )
+
+        result = generate_initial_store_draft(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            user_store_description="A modern sportswear store",
+        )
+
+        self.assertEqual(result["theme"]["theme_template"], "Modern")
+        self.assertEqual(get_ai_draft(store.id)["theme"]["theme_template"], "Modern")
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_generate_initial_store_draft_normalizes_missing_product_image_url(self, mock_get_provider):
+        store = self._create_store()
+        self._seed_templates()
+        payload = self._valid_full_draft_payload()
+        payload["products"][0].pop("image_url", None)
+
+        mock_get_provider.return_value.generate_store_draft.return_value = self._as_provider_response(
+            payload
+        )
+
+        result = generate_initial_store_draft(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            user_store_description="A modern sportswear store",
+        )
+
+        self.assertEqual(result["products"][0]["image_url"], "")
+        self.assertEqual(get_ai_draft_meta(store.id)["status"], "draft_ready")
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_generate_initial_store_draft_normalizes_null_product_image_url(self, mock_get_provider):
+        store = self._create_store()
+        self._seed_templates()
+        payload = self._valid_full_draft_payload()
+        payload["products"][0]["image_url"] = None
+
+        mock_get_provider.return_value.generate_store_draft.return_value = self._as_provider_response(
+            payload
+        )
+
+        result = generate_initial_store_draft(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            user_store_description="A modern sportswear store",
+        )
+
+        self.assertEqual(result["products"][0]["image_url"], "")
+        self.assertEqual(get_ai_draft_meta(store.id)["status"], "draft_ready")
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_generate_initial_store_draft_keeps_valid_product_image_url_unchanged(self, mock_get_provider):
+        store = self._create_store()
+        self._seed_templates()
+        payload = self._valid_full_draft_payload()
+        payload["products"][0]["image_url"] = "https://cdn.example.com/p-1.png"
+
+        mock_get_provider.return_value.generate_store_draft.return_value = self._as_provider_response(
+            payload
+        )
+
+        result = generate_initial_store_draft(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            user_store_description="A modern sportswear store",
+        )
+
+        self.assertEqual(result["products"][0]["image_url"], "https://cdn.example.com/p-1.png")
+        self.assertEqual(result["products"][1]["image_url"], "")
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_generate_initial_store_draft_still_fails_for_core_invalid_product_payload(
+        self,
+        mock_get_provider,
+    ):
+        store = self._create_store()
+        self._seed_templates()
+        payload = self._valid_full_draft_payload()
+        payload["products"][0].pop("sku", None)
+
+        mock_get_provider.return_value.generate_store_draft.return_value = self._as_provider_response(
+            payload
+        )
+
+        result = generate_initial_store_draft(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            user_store_description="A modern sportswear store",
+        )
+
+        self.assertEqual(result, build_ai_fallback_payload())
+        meta = get_ai_draft_meta(store.id)
+        self.assertTrue(meta["is_fallback"])
+        self.assertIn("missing required field 'sku'", meta["reason"])
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_generate_initial_store_draft_trims_products_to_allowed_max(self, mock_get_provider):
+        store = self._create_store()
+        self._seed_templates()
+        payload = self._valid_full_draft_payload()
+        payload["products"].extend(
+            [
+                {
+                    "name": "Hat",
+                    "description": "Sport hat",
+                    "price": 15,
+                    "sku": "HT-001",
+                    "category_name": "Clothes",
+                    "stock_quantity": 7,
+                    "image_url": "",
+                },
+                {
+                    "name": "Socks",
+                    "description": "Daily socks",
+                    "price": 8,
+                    "sku": "SK-001",
+                    "category_name": "Clothes",
+                    "stock_quantity": 20,
+                    "image_url": "",
+                },
+                {
+                    "name": "Backpack",
+                    "description": "Travel backpack",
+                    "price": 42,
+                    "sku": "BP-001",
+                    "category_name": "Shoes",
+                    "stock_quantity": 4,
+                    "image_url": "",
+                },
+            ]
+        )
+
+        mock_get_provider.return_value.generate_store_draft.return_value = self._as_provider_response(
+            payload
+        )
+
+        result = generate_initial_store_draft(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            user_store_description="A modern sportswear store",
+        )
+
+        self.assertEqual(len(result["products"]), 4)
+        self.assertEqual(result["products"][-1]["sku"], "SK-001")
+        self.assertEqual(get_ai_draft_meta(store.id)["status"], "draft_ready")
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_generate_initial_store_draft_cleans_clarification_options_before_validation(
+        self,
+        mock_get_provider,
+    ):
+        store = self._create_store()
+        self._seed_templates()
+        payload = self._clarification_payload()
+        payload["clarification_questions"][0]["options"] = ["Fashion", "", None, "  ", "Electronics"]
+
+        mock_get_provider.return_value.generate_store_draft.return_value = self._as_provider_response(
+            payload
+        )
+
+        result = generate_initial_store_draft(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            user_store_description="Store idea is not clear yet",
+        )
+
+        self.assertTrue(result["clarification_needed"])
+        self.assertEqual(
+            result["clarification_questions"][0]["options"],
+            ["Fashion", "Electronics"],
+        )
+        self.assertEqual(get_ai_draft_meta(store.id)["status"], "needs_clarification")
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_generate_initial_store_draft_resolves_theme_template_from_style_hint(
+        self,
+        mock_get_provider,
+    ):
+        store = self._create_store()
+        self._seed_templates()
+        payload = self._valid_full_draft_payload()
+        payload["theme"]["theme_template"] = "   "
+        payload["theme"]["style"] = " modern "
+
+        mock_get_provider.return_value.generate_store_draft.return_value = self._as_provider_response(
+            payload
+        )
+
+        result = generate_initial_store_draft(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            user_store_description="A modern sportswear store",
+        )
+
+        self.assertEqual(result["theme"]["theme_template"], "Modern")
+        self.assertEqual(get_ai_draft_meta(store.id)["status"], "draft_ready")
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_generate_initial_store_draft_unresolved_theme_template_still_fails(self, mock_get_provider):
+        store = self._create_store()
+        self._seed_templates()
+        payload = self._valid_full_draft_payload()
+        payload["theme"]["theme_template"] = "   "
+        payload["theme"]["style"] = "futuristic-neon"
+
+        mock_get_provider.return_value.generate_store_draft.return_value = self._as_provider_response(
+            payload
+        )
+
+        result = generate_initial_store_draft(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            user_store_description="A modern sportswear store",
+        )
+
+        self.assertEqual(result, build_ai_fallback_payload())
+        meta = get_ai_draft_meta(store.id)
+        self.assertEqual(meta["status"], "needs_clarification")
+        self.assertTrue(meta["is_fallback"])
+        self.assertIn("theme_template", meta["reason"])
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_generate_initial_store_draft_keeps_core_validation_strict_for_invalid_categories(
+        self,
+        mock_get_provider,
+    ):
+        store = self._create_store()
+        self._seed_templates()
+        payload = self._valid_full_draft_payload()
+        payload["categories"] = [{"name": "Only One Category"}]
+        payload["products"][0]["category_name"] = "Only One Category"
+        payload["products"][1]["category_name"] = "Only One Category"
+
+        mock_get_provider.return_value.generate_store_draft.return_value = self._as_provider_response(
+            payload
+        )
+
+        result = generate_initial_store_draft(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            user_store_description="A modern sportswear store",
+        )
+
+        self.assertEqual(result, build_ai_fallback_payload())
+        meta = get_ai_draft_meta(store.id)
+        self.assertTrue(meta["is_fallback"])
+        self.assertIn("Categories list must contain between 2 and 5 items.", meta["reason"])
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
     def test_generate_initial_store_draft_success_clarification_mode(self, mock_get_provider):
         store = self._create_store()
         self._seed_templates()
@@ -266,6 +597,116 @@ class AICreationServicesTests(AIWorkflowBaseMixin, TestCase):
         meta = get_ai_draft_meta(store.id)
         self.assertEqual(meta["status"], "needs_clarification")
         self.assertEqual(meta["mode"], "clarification")
+        self.assertFalse(meta["is_fallback"])
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_generate_initial_store_draft_accepts_clarification_payload_with_missing_structural_keys(
+        self,
+        mock_get_provider,
+    ):
+        store = self._create_store()
+        self._seed_templates()
+        payload = {
+            "clarification_needed": True,
+            "clarification_questions": [
+                {
+                    "question_key": "store_type",
+                    "question_text": "What type of store?",
+                    "options": ["Fashion", "Electronics"],
+                }
+            ],
+        }
+
+        mock_get_provider.return_value.generate_store_draft.return_value = self._as_provider_response(
+            payload
+        )
+
+        result = generate_initial_store_draft(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            user_store_description="Store idea is not clear yet",
+        )
+
+        self.assertEqual(result["clarification_needed"], True)
+        self.assertIn("store", result)
+        self.assertIn("store_settings", result)
+        self.assertIn("theme", result)
+        self.assertIn("categories", result)
+        self.assertIn("products", result)
+        self.assertEqual(result["store"], {})
+        self.assertEqual(result["categories"], [])
+        self.assertEqual(get_ai_draft(store.id), result)
+
+        meta = get_ai_draft_meta(store.id)
+        self.assertEqual(meta["status"], "needs_clarification")
+        self.assertEqual(meta["mode"], "clarification")
+        self.assertFalse(meta["is_fallback"])
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_generate_initial_store_draft_accepts_clarification_questions_with_extra_keys(
+        self,
+        mock_get_provider,
+    ):
+        store = self._create_store()
+        self._seed_templates()
+        payload = {
+            "clarification_needed": True,
+            "clarification_questions": [
+                {
+                    "question_key": "store_type",
+                    "question_text": "What type of store?",
+                    "options": ["Fashion", "Electronics"],
+                    "hint": "Choose one",
+                    "priority": 1,
+                }
+            ],
+        }
+
+        mock_get_provider.return_value.generate_store_draft.return_value = self._as_provider_response(
+            payload
+        )
+
+        result = generate_initial_store_draft(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            user_store_description="Store idea is not clear yet",
+        )
+
+        self.assertTrue(result["clarification_needed"])
+        self.assertEqual(result["clarification_questions"][0]["question_key"], "store_type")
+        self.assertIn("hint", result["clarification_questions"][0])
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_generate_initial_store_draft_accepts_full_payload_without_clarification_keys(
+        self,
+        mock_get_provider,
+    ):
+        store = self._create_store()
+        self._seed_templates()
+        payload = self._valid_full_draft_payload()
+        payload.pop("clarification_needed", None)
+        payload.pop("clarification_questions", None)
+
+        mock_get_provider.return_value.generate_store_draft.return_value = self._as_provider_response(
+            payload
+        )
+
+        result = generate_initial_store_draft(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            user_store_description="A modern sportswear store",
+        )
+
+        self.assertEqual(result["clarification_needed"], False)
+        self.assertEqual(result["clarification_questions"], [])
+        self.assertEqual(result["store"]["name"], "My Store")
+
+        meta = get_ai_draft_meta(store.id)
+        self.assertEqual(meta["status"], "draft_ready")
+        self.assertEqual(meta["mode"], "draft_ready")
         self.assertFalse(meta["is_fallback"])
 
     @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
@@ -308,6 +749,19 @@ class AICreationServicesTests(AIWorkflowBaseMixin, TestCase):
         self.assertEqual(result["draft_payload"], payload)
         self.assertEqual(result["draft_metadata"], metadata)
 
+    def test_get_current_ai_draft_rebuilds_missing_metadata_when_draft_exists(self):
+        store = self._create_store()
+        payload = self._valid_full_draft_payload()
+        save_ai_draft(store.id, payload)
+
+        result = get_current_ai_draft(store.id, self.user, 101)
+
+        self.assertEqual(result["store_id"], store.id)
+        self.assertEqual(result["draft_payload"], payload)
+        self.assertEqual(result["draft_metadata"]["status"], "draft_ready")
+        self.assertEqual(result["draft_metadata"]["mode"], "draft_ready")
+        self.assertTrue(result["draft_metadata"]["original_user_store_description"].strip())
+
     @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
     def test_process_clarification_round_stays_in_clarification(self, mock_get_provider):
         store = self._create_store()
@@ -328,6 +782,30 @@ class AICreationServicesTests(AIWorkflowBaseMixin, TestCase):
 
         meta = get_ai_draft_meta(store.id)
         self.assertEqual(meta["status"], "needs_clarification")
+        self.assertEqual(meta["clarification_round_count"], 1)
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_process_clarification_round_rebuilds_missing_metadata_when_draft_exists(
+        self, mock_get_provider
+    ):
+        store = self._create_store()
+        save_ai_draft(store.id, self._clarification_payload())
+        mock_get_provider.return_value.clarify_store_draft.return_value = self._as_provider_response(
+            self._clarification_payload()
+        )
+
+        result = process_clarification_round(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            clarification_answers={"store_type": "Fashion"},
+        )
+
+        self.assertTrue(result["clarification_needed"])
+        meta = get_ai_draft_meta(store.id)
+        self.assertEqual(meta["status"], "needs_clarification")
+        self.assertEqual(meta["mode"], "clarification")
+        self.assertTrue(meta["original_user_store_description"].strip())
         self.assertEqual(meta["clarification_round_count"], 1)
 
     @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
@@ -446,6 +924,40 @@ class AICreationServicesTests(AIWorkflowBaseMixin, TestCase):
         meta = get_ai_draft_meta(store.id)
         self.assertEqual(meta["status"], "draft_ready")
         self.assertEqual(meta["last_partial_regeneration_target_section"], "theme")
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_regenerate_store_draft_section_rebuilds_missing_metadata_when_draft_exists(
+        self, mock_get_provider
+    ):
+        store = self._create_store()
+        self._seed_templates()
+        base_payload = self._valid_full_draft_payload()
+        save_ai_draft(store.id, base_payload)
+
+        replacement_theme = {
+            "theme_template": " classic ",
+            "primary_color": "#101010",
+            "secondary_color": "rgb(255, 255, 255)",
+            "font_family": "Inter",
+            "logo_url": "",
+            "banner_url": "",
+        }
+        mock_get_provider.return_value.regenerate_store_draft_section.return_value = self._as_provider_response(
+            {"theme": replacement_theme}
+        )
+
+        result = regenerate_store_draft_section(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            target_section="theme",
+        )
+
+        self.assertEqual(result["theme"]["theme_template"], "Classic")
+        meta = get_ai_draft_meta(store.id)
+        self.assertEqual(meta["status"], "draft_ready")
+        self.assertEqual(meta["mode"], "draft_ready")
+        self.assertTrue(meta["original_user_store_description"].strip())
 
     @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
     def test_regenerate_store_draft_section_failure_keeps_draft_unchanged(self, mock_get_provider):
@@ -619,8 +1131,7 @@ class AICreationApiTests(AIWorkflowBaseMixin, TestCase):
             response = self.client.post(
                 reverse("ai_store_creation:start-draft"),
                 {
-                    "name": "Endpoint Store",
-                    "user_store_description": "A modern sportswear store",
+                    "user_description": "A modern sportswear store",
                 },
                 format="json",
             )
@@ -630,6 +1141,47 @@ class AICreationApiTests(AIWorkflowBaseMixin, TestCase):
         self.assertEqual(set(body.keys()), {"store_id", "draft_payload", "draft_metadata"})
         self.assertEqual(body["draft_payload"], payload)
         self.assertEqual(body["draft_metadata"]["status"], "draft_ready")
+
+        created_store = Store.objects.get(id=body["store_id"])
+        self.assertTrue(created_store.name.strip())
+
+    def test_start_endpoint_accepts_deprecated_user_store_description(self):
+        payload = self._valid_full_draft_payload()
+
+        with patch("AI_Store_Creation_Service.services.get_ai_provider_client") as mock_get_provider:
+            mock_get_provider.return_value.generate_store_draft.return_value = self._as_provider_response(payload)
+
+            response = self.client.post(
+                reverse("ai_store_creation:start-draft"),
+                {
+                    "user_store_description": "A modern sportswear store",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 201)
+        body = self._payload(response)
+        self.assertEqual(set(body.keys()), {"store_id", "draft_payload", "draft_metadata"})
+
+    def test_start_endpoint_prefers_user_description_when_both_fields_exist(self):
+        payload = self._valid_full_draft_payload()
+
+        with patch("AI_Store_Creation_Service.services.get_ai_provider_client") as mock_get_provider:
+            mock_get_provider.return_value.generate_store_draft.return_value = self._as_provider_response(payload)
+
+            response = self.client.post(
+                reverse("ai_store_creation:start-draft"),
+                {
+                    "user_description": 'store name is "Priority Name"',
+                    "user_store_description": 'store name is "Deprecated Name"',
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 201)
+        store_id = self._payload(response)["store_id"]
+        created_store = Store.objects.get(id=store_id)
+        self.assertEqual(created_store.name, "Priority Name")
 
     def test_current_draft_endpoint_happy_path(self):
         store = self._create_store()
@@ -661,8 +1213,7 @@ class AICreationApiTests(AIWorkflowBaseMixin, TestCase):
             start_response = self.client.post(
                 reverse("ai_store_creation:start-draft"),
                 {
-                    "name": "Clarification Store",
-                    "user_store_description": "I need help defining my store",
+                    "user_description": "I need help defining my store",
                 },
                 format="json",
             )
@@ -809,10 +1360,18 @@ class AICreationApiTests(AIWorkflowBaseMixin, TestCase):
         self.client.credentials()
         response = self.client.post(
             reverse("ai_store_creation:start-draft"),
-            {"name": "Store", "user_store_description": "Desc"},
+            {"user_description": "Desc"},
             format="json",
         )
         self.assertEqual(response.status_code, 401)
+
+    def test_start_endpoint_rejects_blank_description(self):
+        response = self.client.post(
+            reverse("ai_store_creation:start-draft"),
+            {"user_description": "   ", "user_store_description": "   "},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
 
     def test_current_draft_rejects_wrong_owner_access(self):
         foreign_store = self._create_store(owner=self.other_owner_same_tenant, tenant_id=101)
@@ -891,7 +1450,7 @@ class AICreationApiTests(AIWorkflowBaseMixin, TestCase):
 
         response = self.client.post(
             reverse("ai_store_creation:start-draft"),
-            {"name": "Store", "user_store_description": "Desc"},
+            {"user_description": "Desc"},
             format="json",
         )
 
@@ -899,6 +1458,35 @@ class AICreationApiTests(AIWorkflowBaseMixin, TestCase):
         body = response.json()
         self.assertEqual(body["draft_metadata"]["status"], "needs_clarification")
         self.assertTrue(body["draft_metadata"]["is_fallback"])
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_start_endpoint_repeated_vague_descriptions_create_valid_unique_stores(
+        self,
+        mock_get_provider,
+    ):
+        mock_get_provider.return_value.generate_store_draft.return_value = self._as_provider_response(
+            self._clarification_payload()
+        )
+
+        first_response = self.client.post(
+            reverse("ai_store_creation:start-draft"),
+            {"user_description": "Store please"},
+            format="json",
+        )
+        second_response = self.client.post(
+            reverse("ai_store_creation:start-draft"),
+            {"user_description": "Store please"},
+            format="json",
+        )
+
+        self.assertEqual(first_response.status_code, 201)
+        self.assertEqual(second_response.status_code, 201)
+
+        first_store = Store.objects.get(id=self._payload(first_response)["store_id"])
+        second_store = Store.objects.get(id=self._payload(second_response)["store_id"])
+        self.assertTrue(first_store.name.strip())
+        self.assertTrue(second_store.name.strip())
+        self.assertNotEqual(first_store.slug, second_store.slug)
 
     @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
     def test_regenerate_endpoint_returns_safe_fallback_when_provider_fails(self, mock_get_provider):

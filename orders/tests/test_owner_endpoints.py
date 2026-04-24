@@ -249,8 +249,64 @@ class OwnerEndpointsTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         payload = self._payload(response)
         self.assertIn("order", payload)
-        self.assertEqual(payload["order"]["id"], self.owner_order.id)
-        self.assertEqual(payload["order"]["store_id"], self.owner_store.id)
+
+        order = payload["order"]
+        self.assertEqual(order["id"], self.owner_order.id)
+        self.assertEqual(order["store_id"], self.owner_store.id)
+        self.assertEqual(order["order_number"], f"ORD-{self.owner_order.id}")
+
+        expected_fields = {
+            "id",
+            "store_id",
+            "order_number",
+            "status",
+            "created_at",
+            "updated_at",
+            "subtotal",
+            "shipping_fee",
+            "discount",
+            "total",
+            "payment_method",
+            "notes",
+            "customer",
+            "shipping_address",
+            "items",
+        }
+        self.assertEqual(set(order.keys()), expected_fields)
+
+        self.assertIsInstance(order["subtotal"], (int, float))
+        self.assertIsInstance(order["shipping_fee"], (int, float))
+        self.assertIsInstance(order["discount"], (int, float))
+        self.assertIsInstance(order["total"], (int, float))
+
+        self.assertEqual(order["customer"]["id"], self.customer.id)
+        self.assertEqual(order["customer"]["name"], self.customer.name)
+        self.assertEqual(order["customer"]["email"], self.customer.email)
+        self.assertEqual(order["customer"]["phone"], self.customer.phone)
+
+        self.assertEqual(order["shipping_address"]["country"], "US")
+        self.assertEqual(order["shipping_address"]["city"], "San Francisco")
+        self.assertEqual(order["shipping_address"]["address_line_1"], "Market Street")
+        self.assertEqual(order["shipping_address"]["address_line_2"], "")
+        self.assertEqual(order["shipping_address"]["postal_code"], "94103")
+
+        self.assertEqual(len(order["items"]), 1)
+        item = order["items"][0]
+        expected_item_fields = {
+            "id",
+            "product_id",
+            "product_name",
+            "sku",
+            "image_url",
+            "quantity",
+            "unit_price",
+            "line_total",
+        }
+        self.assertEqual(set(item.keys()), expected_item_fields)
+        self.assertEqual(item["product_name"], "Starter Package")
+        self.assertEqual(item["quantity"], 3)
+        self.assertIsInstance(item["unit_price"], (int, float))
+        self.assertIsInstance(item["line_total"], (int, float))
 
     def test_order_detail_unauthenticated_returns_401(self):
         response = self.client.get(

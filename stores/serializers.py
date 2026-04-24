@@ -20,8 +20,19 @@ class StoreSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Store
-        fields = ['id', 'owner', 'name', 'slug', 'description', 'status', 'tenant_id', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'tenant_id', 'created_at', 'updated_at', 'owner']
+        fields = [
+            'id',
+            'owner',
+            'name',
+            'slug',
+            'subdomain',
+            'description',
+            'status',
+            'tenant_id',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'tenant_id', 'created_at', 'updated_at', 'owner', 'subdomain']
         extra_kwargs = {
             'name': {
                 'help_text': 'Store display name (max 255 characters)',
@@ -46,6 +57,7 @@ class StoreSerializer(serializers.ModelSerializer):
 class StoreSettingsDataSerializer(serializers.Serializer):
     storeName = serializers.CharField(source='store.name', read_only=True)
     storeUrl = serializers.CharField(source='store.slug', read_only=True)
+    storeSubdomain = serializers.CharField(source='store.subdomain', read_only=True, allow_null=True)
     storeDescription = serializers.CharField(source='store.description', read_only=True)
     storeEmail = serializers.EmailField(source='store_email', read_only=True, allow_blank=True)
     storePhone = serializers.CharField(source='store_phone', read_only=True, allow_blank=True)

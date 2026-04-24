@@ -83,6 +83,190 @@ class OwnerOrderSerializer(serializers.ModelSerializer):
         return ", ".join([part for part in parts if part])
 
 
+class OwnerOrderDetailItemSerializer(serializers.ModelSerializer):
+    """Detailed nested order item output for owner order detail endpoint."""
+
+    product_id = serializers.SerializerMethodField()
+    sku = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
+    unit_price = serializers.SerializerMethodField()
+    line_total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OrderItem
+        fields = [
+            "id",
+            "product_id",
+            "product_name",
+            "sku",
+            "image_url",
+            "quantity",
+            "unit_price",
+            "line_total",
+        ]
+
+    def get_product_id(self, obj):
+        return obj.product_id or 0
+
+    def get_sku(self, obj):
+        if obj.product_id and obj.product:
+            return obj.product.sku or ""
+        return ""
+
+    def get_image_url(self, obj):
+        if not obj.product_id or not obj.product:
+            return ""
+
+        prefetched_cache = getattr(obj.product, "_prefetched_objects_cache", {})
+        prefetched_images = prefetched_cache.get("images")
+        if prefetched_images is None:
+            image = obj.product.images.order_by("-created_at").first()
+        else:
+            image = prefetched_images[0] if prefetched_images else None
+
+        if not image:
+            return ""
+
+        if image.image_file:
+            try:
+                url = image.image_file.url
+                request = self.context.get("request")
+                if request:
+                    return request.build_absolute_uri(url)
+                return url
+            except Exception:
+                return ""
+
+        return image.image_url or ""
+
+    def get_unit_price(self, obj):
+        return float(obj.product_price or 0)
+
+    def get_line_total(self, obj):
+        return float((obj.product_price or 0) * obj.quantity)
+
+
+class OwnerOrderDetailSerializer(serializers.ModelSerializer):
+    """
+    Detailed single order object for owner order detail response.
+
+    Output shape matches frontend contract for:
+    GET /api/stores/{store_id}/orders/{order_id}/
+    """
+
+    order_number = serializers.SerializerMethodField()
+    subtotal = serializers.SerializerMethodField()
+    shipping_fee = serializers.SerializerMethodField()
+    discount = serializers.SerializerMethodField()
+    total = serializers.SerializerMethodField()
+    payment_method = serializers.SerializerMethodField()
+    notes = serializers.SerializerMethodField()
+    customer = serializers.SerializerMethodField()
+    shipping_address = serializers.SerializerMethodField()
+    items = OwnerOrderDetailItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = [
+            "id",
+            "store_id",
+            "order_number",
+            "status",
+            "created_at",
+            "updated_at",
+            "subtotal",
+            "shipping_fee",
+            "discount",
+            "total",
+            "payment_method",
+            "notes",
+            "customer",
+            "shipping_address",
+            "items",
+        ]
+
+    def get_order_number(self, obj):
+        return f"ORD-{obj.id}"
+
+    def get_subtotal(self, obj):
+        return float(obj.total_price or 0)
+
+    def get_shipping_fee(self, obj):
+        # MVP: fee is not persisted yet, so return zero in numeric format.
+        return 0.0
+
+    def get_discount(self, obj):
+        # MVP: discount is not persisted yet, so return zero in numeric format.
+        return 0.0
+
+    def get_total(self, obj):
+        return float(obj.total_price or 0)
+
+    def get_payment_method(self, obj):
+        # MVP placeholder until payment method persistence is introduced.
+        return ""
+
+    def get_notes(self, obj):
+        # MVP placeholder until order notes persistence is introduced.
+        return ""
+
+    def get_customer(self, obj):
+        if not obj.customer_id or not obj.customer:
+            return {
+                "id": None,
+                "name": "",
+                "email": "",
+                "phone": "",
+            }
+
+        return {
+            "id": obj.customer.id,
+            "name": obj.customer.name or "",
+            "email": obj.customer.email or "",
+            "phone": getattr(obj.customer, "phone", "") or "",
+        }
+
+    def get_shipping_address(self, obj):
+        if not obj.customer_id or not obj.customer:
+            return {
+                "country": "",
+                "city": "",
+                "address_line_1": "",
+                "address_line_2": "",
+                "postal_code": "",
+            }
+
+        prefetched_cache = getattr(obj.customer, "_prefetched_objects_cache", {})
+        prefetched_addresses = prefetched_cache.get("addresses")
+        if prefetched_addresses is None:
+            address = obj.customer.addresses.order_by("-created_at").first()
+        else:
+            address = prefetched_addresses[0] if prefetched_addresses else None
+
+        if not address:
+            return {
+                "country": "",
+                "city": "",
+                "address_line_1": "",
+                "address_line_2": "",
+                "postal_code": "",
+            }
+
+        return {
+            "country": address.country or "",
+            "city": address.city or "",
+            "address_line_1": address.street or "",
+            "address_line_2": "",
+            "postal_code": address.postal_code or "",
+        }
+
+
+class OwnerOrderDetailResponseSerializer(serializers.Serializer):
+    """Top-level owner order detail response serializer."""
+
+    order = OwnerOrderDetailSerializer()
+
+
 class OwnerOrdersListResponseSerializer(serializers.Serializer):
     """Top-level owner orders list response serializer."""
 

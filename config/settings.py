@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     'products',
     'orders',
     'themes',
+    'seo',
     'AI_Store_Creation_Service',
 ]
 
@@ -289,10 +290,11 @@ LOGGING = CUSTOM_LOGGING
 
 
 # AI Store Creation configuration (foundation only)
+AI_PROVIDER = os.getenv("AI_PROVIDER", "ollama").strip().lower()
 AI_API_KEY = os.getenv("AI_API_KEY", "")
-AI_MODEL_NAME = os.getenv("AI_MODEL_NAME", "gpt-5.2")
+AI_MODEL_NAME = os.getenv("AI_MODEL_NAME", "qwen2.5:1.5b")
 AI_TIMEOUT = int(os.getenv("AI_TIMEOUT", "120"))
-AI_API_URL = os.getenv("AI_API_URL", "https://api.openai.com/v1/chat/completions")
+AI_API_URL = os.getenv("AI_API_URL", "http://localhost:11434/api/chat")
 AI_HTTP_REFERER = os.getenv("AI_HTTP_REFERER", "")
 AI_APP_TITLE = os.getenv("AI_APP_TITLE", "")
 AI_DRAFT_CACHE_TTL = int(os.getenv("AI_DRAFT_CACHE_TTL", os.getenv("AI_DRAFT_TTL", "3600")))

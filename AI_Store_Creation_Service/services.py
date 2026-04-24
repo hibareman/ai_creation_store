@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+import re
+from typing import Any, Callable, Mapping, Sequence
 
 from django.db import transaction
 from django.core.exceptions import ValidationError
@@ -52,6 +53,72 @@ from .validators import (
 
 logger = logging.getLogger(__name__)
 _ALLOWED_PARTIAL_TARGET_SECTIONS = {"theme", "categories", "products"}
+_MAX_DRAFT_PRODUCTS = 4
+_ARABIC_CHAR_RE = re.compile(r"[\u0600-\u06FF]")
+_EXPLICIT_STORE_NAME_PATTERNS = [
+    re.compile(
+        r"(?:store\s+name\s+is|named|called)\s*[:\-]?\s*[\"'“”‘’«»]?(?P<name>[^\n\r\"'“”‘’«»،,.;:]{2,80})",
+        flags=re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:اسم\s+المتجر(?:\s+هو)?|المتجر\s+اسمه|متجر(?:ي)?\s+باسم)\s*[:\-]?\s*[\"'“”‘’«»]?(?P<name>[^\n\r\"'“”‘’«»،,.;:]{2,80})",
+        flags=re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:name|اسم)\s*[:\-]\s*[\"'“”‘’«»]?(?P<name>[^\n\r\"'“”‘’«»،,.;:]{2,80})",
+        flags=re.IGNORECASE,
+    ),
+]
+_HEURISTIC_STORE_NAME_KEYWORDS = [
+    (
+        (
+            "skincare",
+            "skin care",
+            "beauty",
+            "cosmetic",
+            "cosmetics",
+            "perfume",
+            "perfumes",
+            "fragrance",
+            "fragrances",
+            "عناية بالبشرة",
+            "بشرة",
+            "تجميل",
+            "مكياج",
+            "عطور",
+            "عطر",
+        ),
+        "Beauty Store",
+        "متجر الجمال",
+    ),
+    (
+        ("fashion", "clothing", "apparel", "ملابس", "أزياء", "ازياء", "موضة"),
+        "Fashion Store",
+        "متجر الأزياء",
+    ),
+    (
+        ("electronics", "gadgets", "devices", "إلكترونيات", "الكترونيات", "أجهزة", "اجهزة"),
+        "Electronics Store",
+        "متجر الإلكترونيات",
+    ),
+    (
+        ("coffee", "cafe", "caf\u00e9", "قهوة", "كافيه", "مقهى", "مقهي"),
+        "Coffee Store",
+        "متجر القهوة",
+    ),
+    (
+        ("jewelry", "jewellery", "مجوهرات", "ذهب"),
+        "Jewelry Store",
+        "متجر المجوهرات",
+    ),
+]
+_ALLOWED_WORKFLOW_STATUSES = {
+    "needs_clarification",
+    "draft_ready",
+    "processing",
+    "failed",
+    "applied",
+}
 
 
 def _safe_int_or_none(value: Any) -> int | None:
@@ -61,6 +128,32 @@ def _safe_int_or_none(value: Any) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _parse_provider_response_with_single_retry(
+    *,
+    provider_call: Callable[[], dict[str, Any]],
+    action: str,
+    store_id: int,
+) -> dict[str, Any]:
+    """
+    Parse provider response with one automatic retry on parse-only failures.
+
+    This keeps behavior safe for small local models that occasionally return
+    malformed JSON on first attempt.
+    """
+    raw_response = provider_call()
+    try:
+        return parse_provider_raw_response_to_dict(raw_response)
+    except AIProviderParsingError as first_exc:
+        logger.warning(
+            "Provider parse failed on first attempt; retrying once. action=%s, store_id=%s, reason=%s",
+            action,
+            store_id,
+            str(first_exc),
+        )
+        raw_response_retry = provider_call()
+        return parse_provider_raw_response_to_dict(raw_response_retry)
 
 
 def _write_ai_audit_log(
@@ -103,10 +196,294 @@ def _ensure_theme_template_is_available(
     Ensure theme_template matches an exact currently available ThemeTemplate name.
     """
     selected_template_name = theme_data.get("theme_template")
-    if selected_template_name not in set(available_theme_templates):
+    if not isinstance(selected_template_name, str):
         raise AIDraftSchemaValidationError(
             "Theme field 'theme_template' must match an available ThemeTemplate name."
         )
+
+    normalized_selected = " ".join(selected_template_name.strip().split())
+    available_names = [
+        " ".join(str(template_name).strip().split())
+        for template_name in available_theme_templates
+        if str(template_name).strip()
+    ]
+
+    if normalized_selected in set(available_names):
+        theme_data["theme_template"] = normalized_selected
+        return
+
+    selected_folded = normalized_selected.casefold()
+    folded_map: dict[str, str] = {}
+    duplicate_folded_keys: set[str] = set()
+    for available_name in available_names:
+        folded = available_name.casefold()
+        if folded in folded_map and folded_map[folded] != available_name:
+            duplicate_folded_keys.add(folded)
+            continue
+        folded_map[folded] = available_name
+
+    if selected_folded in folded_map and selected_folded not in duplicate_folded_keys:
+        # Canonicalize to the exact template name from DB.
+        theme_data["theme_template"] = folded_map[selected_folded]
+        return
+
+    raise AIDraftSchemaValidationError(
+        "Theme field 'theme_template' must match an available ThemeTemplate name."
+    )
+
+
+def _normalize_text_value(value: Any) -> str:
+    if not isinstance(value, str):
+        return ""
+    return " ".join(value.strip().split())
+
+
+def _tokenize_hint(value: str) -> set[str]:
+    return {
+        token
+        for token in re.split(r"[^0-9A-Za-z\u0600-\u06FF]+", value.casefold())
+        if token
+    }
+
+
+def _resolve_template_name_from_hints(
+    hint_values: Sequence[Any],
+    available_theme_templates: Sequence[str],
+) -> str | None:
+    available_names = [
+        _normalize_text_value(template_name)
+        for template_name in available_theme_templates
+        if _normalize_text_value(template_name)
+    ]
+    if not available_names:
+        return None
+
+    folded_map: dict[str, str] = {}
+    duplicate_folded_keys: set[str] = set()
+    for available_name in available_names:
+        folded = available_name.casefold()
+        if folded in folded_map and folded_map[folded] != available_name:
+            duplicate_folded_keys.add(folded)
+            continue
+        folded_map[folded] = available_name
+
+    normalized_hints = [
+        _normalize_text_value(hint_value) for hint_value in hint_values if _normalize_text_value(hint_value)
+    ]
+    for hint in normalized_hints:
+        folded_hint = hint.casefold()
+        if folded_hint in folded_map and folded_hint not in duplicate_folded_keys:
+            return folded_map[folded_hint]
+
+    # Small safe style/template hint matching:
+    # if hint tokens contain all tokens of one available template name, use it
+    # only when the match is unique.
+    for hint in normalized_hints:
+        hint_tokens = _tokenize_hint(hint)
+        if not hint_tokens:
+            continue
+        matched_templates: list[str] = []
+        for available_name in available_names:
+            available_tokens = _tokenize_hint(available_name)
+            if available_tokens and available_tokens.issubset(hint_tokens):
+                matched_templates.append(available_name)
+        unique_matches = list(dict.fromkeys(matched_templates))
+        if len(unique_matches) == 1:
+            return unique_matches[0]
+
+    return None
+
+
+def _cleanup_clarification_question_options(payload: dict[str, Any]) -> None:
+    questions = payload.get("clarification_questions")
+    if not isinstance(questions, list):
+        return
+
+    for question in questions:
+        if not isinstance(question, dict):
+            continue
+        options = question.get("options")
+        if not isinstance(options, list):
+            continue
+        cleaned_options = []
+        for option in options:
+            normalized_option = _normalize_text_value(option)
+            if normalized_option:
+                cleaned_options.append(normalized_option)
+        question["options"] = cleaned_options
+
+
+def _trim_products_overflow(payload: dict[str, Any]) -> None:
+    products = payload.get("products")
+    if isinstance(products, list) and len(products) > _MAX_DRAFT_PRODUCTS:
+        payload["products"] = products[:_MAX_DRAFT_PRODUCTS]
+
+
+def _normalize_products_image_url(payload: dict[str, Any]) -> None:
+    products = payload.get("products")
+    if not isinstance(products, list):
+        return
+
+    for product in products:
+        if not isinstance(product, dict):
+            continue
+        if "image_url" not in product or product.get("image_url") is None:
+            product["image_url"] = ""
+
+
+def _resolve_theme_template_from_payload_hints(
+    payload: dict[str, Any],
+    available_theme_templates: Sequence[str],
+) -> None:
+    if not available_theme_templates:
+        return
+
+    theme_data = payload.get("theme")
+    if not isinstance(theme_data, dict):
+        return
+
+    explicit_template = _normalize_text_value(theme_data.get("theme_template"))
+    if explicit_template:
+        resolved_from_explicit = _resolve_template_name_from_hints(
+            [explicit_template],
+            available_theme_templates,
+        )
+        if resolved_from_explicit:
+            theme_data["theme_template"] = resolved_from_explicit
+        return
+
+    hint_values: list[Any] = []
+    for key in (
+        "style",
+        "theme_style",
+        "themeStyle",
+        "template",
+        "template_name",
+        "templateName",
+        "theme_name",
+        "themeName",
+    ):
+        hint_values.append(theme_data.get(key))
+        hint_values.append(payload.get(key))
+
+    store_data = payload.get("store")
+    if isinstance(store_data, Mapping):
+        hint_values.append(store_data.get("style"))
+
+    resolved = _resolve_template_name_from_hints(hint_values, available_theme_templates)
+    if resolved:
+        theme_data["theme_template"] = resolved
+
+
+def _apply_targeted_prevalidation_repairs(
+    payload: dict[str, Any],
+    *,
+    available_theme_templates: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    _trim_products_overflow(payload)
+    _normalize_products_image_url(payload)
+    _cleanup_clarification_question_options(payload)
+    if available_theme_templates is not None:
+        _resolve_theme_template_from_payload_hints(payload, available_theme_templates)
+    return payload
+
+
+def _infer_mode_from_draft_payload(draft_payload: Mapping[str, Any]) -> str | None:
+    try:
+        normalized_draft = validate_basic_draft_schema(draft_payload)
+        return detect_ai_response_mode(normalized_draft)
+    except Exception:
+        return None
+
+
+def _derive_original_description_fallback(
+    *,
+    store: Store,
+    draft_payload: Mapping[str, Any],
+    draft_meta: Mapping[str, Any],
+) -> str:
+    candidates: list[Any] = [
+        draft_meta.get("original_user_store_description"),
+        getattr(store, "description", ""),
+    ]
+
+    store_section = draft_payload.get("store")
+    if isinstance(store_section, Mapping):
+        candidates.append(store_section.get("description"))
+        candidates.append(store_section.get("name"))
+
+    candidates.append(getattr(store, "name", ""))
+
+    for candidate in candidates:
+        if isinstance(candidate, str) and candidate.strip():
+            return " ".join(candidate.strip().split())
+    return ""
+
+
+def _get_or_rebuild_draft_metadata(
+    *,
+    store: Store,
+    draft_payload: Mapping[str, Any],
+    draft_meta: Mapping[str, Any] | None,
+    rebuild_partial: bool,
+) -> dict[str, Any]:
+    meta: dict[str, Any] = dict(draft_meta) if isinstance(draft_meta, Mapping) else {}
+    original_meta = dict(meta)
+
+    should_rebuild = rebuild_partial or not meta
+    if not should_rebuild:
+        return meta
+
+    mode_from_draft = _infer_mode_from_draft_payload(draft_payload)
+    expected_status = "needs_clarification" if mode_from_draft == "clarification" else "draft_ready"
+    expected_mode = mode_from_draft or "clarification"
+    expected_step = (
+        "analyzing_description"
+        if expected_mode == "clarification"
+        else "setting_up_store_configuration"
+    )
+
+    status = meta.get("status")
+    if not isinstance(status, str) or status not in _ALLOWED_WORKFLOW_STATUSES:
+        meta["status"] = expected_status
+
+    mode = meta.get("mode")
+    if not isinstance(mode, str) or mode not in {"clarification", "draft_ready"}:
+        meta["mode"] = expected_mode
+
+    current_step = meta.get("current_step")
+    if not isinstance(current_step, str) or not current_step.strip():
+        meta["current_step"] = expected_step
+
+    if not isinstance(meta.get("is_fallback"), bool):
+        meta["is_fallback"] = False
+
+    raw_round_count = meta.get("clarification_round_count", 0)
+    try:
+        meta["clarification_round_count"] = int(raw_round_count)
+    except (TypeError, ValueError):
+        meta["clarification_round_count"] = 0
+
+    if not isinstance(meta.get("clarification_history"), list):
+        meta["clarification_history"] = []
+
+    latest_input = meta.get("latest_clarification_input")
+    if latest_input is not None and not isinstance(latest_input, str):
+        meta["latest_clarification_input"] = str(latest_input)
+
+    original_description = meta.get("original_user_store_description")
+    if not isinstance(original_description, str) or not original_description.strip():
+        fallback_description = _derive_original_description_fallback(
+            store=store,
+            draft_payload=draft_payload,
+            draft_meta=meta,
+        )
+        if fallback_description:
+            meta["original_user_store_description"] = fallback_description
+
+    if meta != original_meta:
+        save_ai_draft_meta(store.id, meta)
+    return meta
 
 
 def _build_recoverable_fallback_metadata(
@@ -171,6 +548,48 @@ def _normalize_sku_for_compare(sku: str) -> str:
     return " ".join(sku.strip().split()).casefold()
 
 
+def _clean_store_name_candidate(candidate: str) -> str:
+    normalized = " ".join(str(candidate or "").strip().split())
+    normalized = normalized.strip(" \t\n\r-–—:;,.!?؟،'\"“”‘’«»()[]{}")
+    normalized = " ".join(normalized.split())
+    if len(normalized) > 80:
+        normalized = normalized[:80].rstrip()
+    return normalized
+
+
+def derive_store_name_from_description(user_description: str) -> str:
+    """
+    Derive a safe deterministic initial store name from user description.
+
+    This helper is intentionally local and provider-independent.
+    """
+    if not isinstance(user_description, str) or not user_description.strip():
+        raise ValidationError("user_store_description is required")
+
+    normalized_description = " ".join(user_description.strip().split())
+    normalized_lower = normalized_description.casefold()
+    has_arabic_text = bool(_ARABIC_CHAR_RE.search(normalized_description))
+
+    for pattern in _EXPLICIT_STORE_NAME_PATTERNS:
+        match = pattern.search(normalized_description)
+        if not match:
+            continue
+        extracted_name = _clean_store_name_candidate(match.group("name"))
+        if extracted_name:
+            return extracted_name
+
+    for keywords, english_name, arabic_name in _HEURISTIC_STORE_NAME_KEYWORDS:
+        if any(keyword.casefold() in normalized_lower for keyword in keywords):
+            candidate_name = arabic_name if has_arabic_text else english_name
+            cleaned = _clean_store_name_candidate(candidate_name)
+            if cleaned:
+                return cleaned
+
+    fallback_name = "متجري" if has_arabic_text else "My Store"
+    cleaned_fallback = _clean_store_name_candidate(fallback_name)
+    return cleaned_fallback or "My Store"
+
+
 def create_draft_store_for_ai_flow(
     user,
     tenant_id: int | None,
@@ -224,6 +643,47 @@ def create_draft_store_for_ai_flow(
         normalized_tenant_id,
     )
     return store
+
+
+def start_ai_draft_workflow(
+    *,
+    user,
+    tenant_id: int | None,
+    user_store_description: str,
+) -> dict[str, Any]:
+    """
+    Start draft flow end-to-end with locally derived initial store name.
+
+    Flow:
+    1) normalize and validate user description
+    2) derive deterministic initial store name locally (no provider dependency)
+    3) create draft store
+    4) generate initial AI draft
+    5) return current draft state
+    """
+    if not isinstance(user_store_description, str) or not user_store_description.strip():
+        raise ValidationError("user_store_description is required")
+
+    normalized_description = user_store_description.strip()
+    derived_store_name = derive_store_name_from_description(normalized_description)
+
+    store = create_draft_store_for_ai_flow(
+        user=user,
+        tenant_id=tenant_id,
+        name=derived_store_name,
+        description="",
+    )
+    generate_initial_store_draft(
+        store_id=store.id,
+        user=user,
+        tenant_id=tenant_id,
+        user_store_description=normalized_description,
+    )
+    return get_current_ai_draft(
+        store_id=store.id,
+        user=user,
+        tenant_id=tenant_id,
+    )
 
 
 def generate_initial_store_draft(
@@ -291,15 +751,21 @@ def generate_initial_store_draft(
 
     try:
         provider = get_ai_provider_client()
-        raw_response = provider.generate_store_draft(
-            tenant_id=store.tenant_id,
+        payload = _parse_provider_response_with_single_retry(
+            provider_call=lambda: provider.generate_store_draft(
+                tenant_id=store.tenant_id,
+                store_id=store.id,
+                user_store_description=normalized_description,
+                available_theme_templates=available_theme_templates,
+            ),
+            action="start_draft",
             store_id=store.id,
-            user_store_description=normalized_description,
+        )
+        payload = _apply_targeted_prevalidation_repairs(
+            payload,
             available_theme_templates=available_theme_templates,
         )
-
-        payload = parse_provider_raw_response_to_dict(raw_response)
-        validate_basic_draft_schema(payload)
+        payload = validate_basic_draft_schema(payload)
         mode = detect_ai_response_mode(payload)
 
         if mode == "draft_ready":
@@ -396,7 +862,12 @@ def get_current_ai_draft(store_id: int, user, tenant_id: int | None) -> dict[str
     if draft_payload is None:
         raise ValidationError("No temporary AI draft found for this store")
 
-    draft_meta = get_ai_draft_meta(store.id) or {}
+    draft_meta = _get_or_rebuild_draft_metadata(
+        store=store,
+        draft_payload=draft_payload,
+        draft_meta=get_ai_draft_meta(store.id),
+        rebuild_partial=False,
+    )
 
     return {
         "store_id": store.id,
@@ -456,7 +927,12 @@ def process_clarification_round(
         )
         raise ValidationError("No temporary AI draft found for this store")
 
-    draft_meta = get_ai_draft_meta(store.id) or {}
+    draft_meta = _get_or_rebuild_draft_metadata(
+        store=store,
+        draft_payload=current_draft,
+        draft_meta=get_ai_draft_meta(store.id),
+        rebuild_partial=True,
+    )
     current_status = draft_meta.get("status")
     if current_status != "needs_clarification":
         _write_ai_audit_log(
@@ -595,21 +1071,24 @@ def process_clarification_round(
 
     try:
         provider = get_ai_provider_client()
-        raw_response = provider.clarify_store_draft(
-            tenant_id=normalized_tenant_id,
+        payload = _parse_provider_response_with_single_retry(
+            provider_call=lambda: provider.clarify_store_draft(
+                tenant_id=normalized_tenant_id,
+                store_id=store.id,
+                current_draft=current_draft,
+                prompt=clarification_input,
+                context={
+                    "original_store_description": original_description,
+                    "clarification_round_count": next_round_count,
+                    "latest_clarification_input": clarification_input,
+                    "clarification_history": updated_history,
+                },
+            ),
+            action="clarification_round",
             store_id=store.id,
-            current_draft=current_draft,
-            prompt=clarification_input,
-            context={
-                "original_store_description": original_description,
-                "clarification_round_count": next_round_count,
-                "latest_clarification_input": clarification_input,
-                "clarification_history": updated_history,
-            },
         )
-
-        payload = parse_provider_raw_response_to_dict(raw_response)
-        validate_basic_draft_schema(payload)
+        payload = _apply_targeted_prevalidation_repairs(payload)
+        payload = validate_basic_draft_schema(payload)
         mode = detect_ai_response_mode(payload)
         new_round_count = next_round_count
 
@@ -617,6 +1096,10 @@ def process_clarification_round(
             available_theme_templates = get_available_theme_template_names()
             if not available_theme_templates:
                 raise AIDraftSchemaValidationError("No available theme templates found")
+            payload = _apply_targeted_prevalidation_repairs(
+                payload,
+                available_theme_templates=available_theme_templates,
+            )
             validate_store_section(payload["store"])
             validate_store_settings_section(payload["store_settings"])
             validate_theme_section(payload["theme"])
@@ -788,7 +1271,12 @@ def regenerate_store_draft(
         )
         raise ValidationError("No temporary AI draft found for this store")
 
-    draft_meta = get_ai_draft_meta(store.id) or {}
+    draft_meta = _get_or_rebuild_draft_metadata(
+        store=store,
+        draft_payload=current_draft,
+        draft_meta=get_ai_draft_meta(store.id),
+        rebuild_partial=True,
+    )
     original_description = draft_meta.get("original_user_store_description")
     if not isinstance(original_description, str) or not original_description.strip():
         _write_ai_audit_log(
@@ -846,17 +1334,23 @@ def regenerate_store_draft(
 
     try:
         provider = get_ai_provider_client()
-        raw_response = provider.regenerate_store_draft(
-            tenant_id=normalized_tenant_id,
+        payload = _parse_provider_response_with_single_retry(
+            provider_call=lambda: provider.regenerate_store_draft(
+                tenant_id=normalized_tenant_id,
+                store_id=store.id,
+                original_store_description=normalized_description,
+                current_draft=current_draft,
+                clarification_context=clarification_context,
+                available_theme_templates=available_theme_templates,
+            ),
+            action="full_regenerate",
             store_id=store.id,
-            original_store_description=normalized_description,
-            current_draft=current_draft,
-            clarification_context=clarification_context,
+        )
+        payload = _apply_targeted_prevalidation_repairs(
+            payload,
             available_theme_templates=available_theme_templates,
         )
-
-        payload = parse_provider_raw_response_to_dict(raw_response)
-        validate_basic_draft_schema(payload)
+        payload = validate_basic_draft_schema(payload)
         mode = detect_ai_response_mode(payload)
 
         if mode == "draft_ready":
@@ -1018,7 +1512,12 @@ def regenerate_store_draft_section(
         )
         raise ValidationError("No temporary AI draft found for this store")
 
-    draft_meta = get_ai_draft_meta(store.id) or {}
+    draft_meta = _get_or_rebuild_draft_metadata(
+        store=store,
+        draft_payload=current_draft,
+        draft_meta=get_ai_draft_meta(store.id),
+        rebuild_partial=True,
+    )
     original_description = draft_meta.get("original_user_store_description")
     if not isinstance(original_description, str) or not original_description.strip():
         _write_ai_audit_log(
@@ -1082,17 +1581,19 @@ def regenerate_store_draft_section(
 
     try:
         provider = get_ai_provider_client()
-        raw_response = provider.regenerate_store_draft_section(
-            tenant_id=normalized_tenant_id,
+        replacement_payload = _parse_provider_response_with_single_retry(
+            provider_call=lambda: provider.regenerate_store_draft_section(
+                tenant_id=normalized_tenant_id,
+                store_id=store.id,
+                target_section=normalized_target_section,
+                original_store_description=normalized_description,
+                current_draft=current_draft,
+                clarification_context=clarification_context,
+                available_theme_templates=available_theme_templates,
+            ),
+            action="partial_regenerate",
             store_id=store.id,
-            target_section=normalized_target_section,
-            original_store_description=normalized_description,
-            current_draft=current_draft,
-            clarification_context=clarification_context,
-            available_theme_templates=available_theme_templates,
         )
-
-        replacement_payload = parse_provider_raw_response_to_dict(raw_response)
         replacement_value = _extract_partial_section_replacement(
             replacement_payload,
             normalized_target_section,
@@ -1221,12 +1722,17 @@ def apply_current_ai_draft_store_core(
     if current_draft is None:
         raise ValidationError("No temporary AI draft found for this store")
 
-    draft_meta = get_ai_draft_meta(store.id) or {}
+    draft_meta = _get_or_rebuild_draft_metadata(
+        store=store,
+        draft_payload=current_draft,
+        draft_meta=get_ai_draft_meta(store.id),
+        rebuild_partial=True,
+    )
     if draft_meta.get("status") != "draft_ready":
         raise ValidationError("Current workflow state is not draft_ready")
 
     try:
-        validate_basic_draft_schema(current_draft)
+        current_draft = validate_basic_draft_schema(current_draft)
         mode = detect_ai_response_mode(current_draft)
         if mode != "draft_ready":
             raise AIDraftSchemaValidationError("Current draft payload is not draft_ready")
@@ -1342,12 +1848,17 @@ def apply_current_ai_draft_categories(
     if current_draft is None:
         raise ValidationError("No temporary AI draft found for this store")
 
-    draft_meta = get_ai_draft_meta(store.id) or {}
+    draft_meta = _get_or_rebuild_draft_metadata(
+        store=store,
+        draft_payload=current_draft,
+        draft_meta=get_ai_draft_meta(store.id),
+        rebuild_partial=True,
+    )
     if draft_meta.get("status") != "draft_ready":
         raise ValidationError("Current workflow state is not draft_ready")
 
     try:
-        validate_basic_draft_schema(current_draft)
+        current_draft = validate_basic_draft_schema(current_draft)
         mode = detect_ai_response_mode(current_draft)
         if mode != "draft_ready":
             raise AIDraftSchemaValidationError("Current draft payload is not draft_ready")
@@ -1440,12 +1951,17 @@ def apply_current_ai_draft_products(
     if current_draft is None:
         raise ValidationError("No temporary AI draft found for this store")
 
-    draft_meta = get_ai_draft_meta(store.id) or {}
+    draft_meta = _get_or_rebuild_draft_metadata(
+        store=store,
+        draft_payload=current_draft,
+        draft_meta=get_ai_draft_meta(store.id),
+        rebuild_partial=True,
+    )
     if draft_meta.get("status") != "draft_ready":
         raise ValidationError("Current workflow state is not draft_ready")
 
     try:
-        validate_basic_draft_schema(current_draft)
+        current_draft = validate_basic_draft_schema(current_draft)
         mode = detect_ai_response_mode(current_draft)
         if mode != "draft_ready":
             raise AIDraftSchemaValidationError("Current draft payload is not draft_ready")
@@ -1598,7 +2114,12 @@ def apply_current_ai_draft_to_store(
         )
         raise ValidationError("No temporary AI draft found for this store")
 
-    draft_meta = get_ai_draft_meta(store.id) or {}
+    draft_meta = _get_or_rebuild_draft_metadata(
+        store=store,
+        draft_payload=current_draft,
+        draft_meta=get_ai_draft_meta(store.id),
+        rebuild_partial=True,
+    )
     if draft_meta.get("status") != "draft_ready":
         _write_ai_audit_log(
             tenant_id=normalized_tenant_id,

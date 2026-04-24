@@ -11,6 +11,13 @@ def get_active_theme_templates():
     return ThemeTemplate.objects.all().order_by("name")
 
 
+def get_first_active_theme_template():
+    """
+    Return the first available theme template using the standard active ordering.
+    """
+    return get_active_theme_templates().first()
+
+
 def get_store_theme_config(store):
     """
     Return the theme configuration for a store, if it exists.
