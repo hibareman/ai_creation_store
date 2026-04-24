@@ -12,6 +12,8 @@ from .serializers import (
     CustomerCreateOrderRequestSerializer,
     CustomerCreateOrderResponseSerializer,
     OwnerCustomersListResponseSerializer,
+    OwnerOrderDetailResponseSerializer,
+    OwnerOrderDetailSerializer,
     OwnerOrderSerializer,
     OwnerOrdersListResponseSerializer,
     OwnerOrderStatusUpdateSerializer,
@@ -140,13 +142,7 @@ class StoreOwnerOrdersListView(OwnerStoreScopedMixin, generics.GenericAPIView):
         summary="Get owner order detail",
         description="Return one order detail for the authenticated owner's tenant-scoped store.",
         tags=["Orders"],
-        responses={
-            200: inline_serializer(
-                name="OwnerOrderDetailResponse",
-                fields={"order": OwnerOrderSerializer()},
-            ),
-            **DOC_ERROR_RESPONSES,
-        },
+        responses={200: OwnerOrderDetailResponseSerializer, **DOC_ERROR_RESPONSES},
     ),
 )
 class StoreOwnerOrderDetailView(OwnerStoreScopedMixin, generics.GenericAPIView):
@@ -156,7 +152,7 @@ class StoreOwnerOrderDetailView(OwnerStoreScopedMixin, generics.GenericAPIView):
     """
 
     permission_classes = [TenantAuthenticated]
-    serializer_class = OwnerOrderSerializer
+    serializer_class = OwnerOrderDetailSerializer
 
     def get(self, request, *args, **kwargs):
         store = self.get_store()

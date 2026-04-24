@@ -183,9 +183,10 @@ DB_PORT=5433
 CORS_ALLOW_ALL_ORIGINS=True
 
 AI_API_KEY=
-AI_MODEL_NAME=google/gemma-4-31b-it:free
+AI_PROVIDER=ollama
+AI_MODEL_NAME=qwen2.5:1.5b
 AI_TIMEOUT=240
-AI_API_URL=https://openrouter.ai/api/v1/chat/completions
+AI_API_URL=http://localhost:11434/api/chat
 AI_HTTP_REFERER=http://localhost:8000
 AI_APP_TITLE=AI Store Backend
 
@@ -200,6 +201,19 @@ CACHE_KEY_PREFIX=ai_store_creation
 
 * If `REDIS_URL` is not provided, the project uses **LocMemCache** as a safe local fallback.
 * If `AI_API_KEY` is not configured, AI draft flow may fall back to clarification mode depending on the current provider behavior.
+* For local Ollama usage:
+  * run `ollama serve`
+  * pull model once: `ollama pull qwen2.5:1.5b`
+  * keep `AI_PROVIDER=ollama` and `AI_API_URL=http://localhost:11434/api/chat`
+
+### AI Provider Options
+
+* `AI_PROVIDER=ollama` (default in this project)
+  * uses local Ollama endpoint
+  * does not require `AI_API_KEY`
+* `AI_PROVIDER=openai`
+  * uses OpenAI-compatible chat completions endpoint
+  * requires `AI_API_KEY`
 
 ---
 

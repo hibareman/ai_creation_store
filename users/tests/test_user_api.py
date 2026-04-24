@@ -7,6 +7,7 @@ from rest_framework import response, status
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from stores.models import Store
 from users import services
 from users.models import User
 
@@ -176,6 +177,44 @@ class UserApiTests(TestCase):
         self.assertTrue(user.is_active)
         self.assertIsNone(user.activation_token)
 
+    def test_activation_payload_includes_bootstrap_store_structure(self):
+        user = services.register_user(
+            username="activationstores",
+            email="activationstores@example.com",
+            password="pwxyz123",
+        )
+        store_with_subdomain = Store.objects.create(
+            owner=user,
+            name="Activation Store One",
+            tenant_id=user.tenant_id,
+            subdomain="activation-one",
+        )
+        store_without_subdomain = Store.objects.create(
+            owner=user,
+            name="Activation Store Two",
+            tenant_id=user.tenant_id,
+            subdomain=None,
+        )
+
+        response = self.client.get(f"/api/auth/activate/{user.activation_token}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self.assertIn("stores", payload)
+        self.assertIn("current_store", payload)
+        self.assertEqual(len(payload["stores"]), 2)
+
+        stores_by_id = {item["id"]: item for item in payload["stores"]}
+        self.assertEqual(stores_by_id[store_with_subdomain.id]["slug"], store_with_subdomain.slug)
+        self.assertEqual(stores_by_id[store_with_subdomain.id]["subdomain"], "activation-one")
+        self.assertEqual(stores_by_id[store_without_subdomain.id]["slug"], store_without_subdomain.slug)
+        self.assertIsNone(stores_by_id[store_without_subdomain.id]["subdomain"])
+
+        current_store = payload["current_store"]
+        self.assertEqual(
+            set(current_store.keys()),
+            {"id", "name", "slug", "subdomain"},
+        )
+
     def test_login_after_activation_returns_tokens_and_identity_fields(self):
         user = services.register_user(
             username="activeuser",
@@ -202,6 +241,124 @@ class UserApiTests(TestCase):
         self.assertEqual(payload["user_id"], user.id)
         self.assertEqual(payload["role"], "Store Owner")
         self.assertEqual(payload["tenant_id"], user.id)
+        self.assertIn("stores", payload)
+        self.assertIn("current_store", payload)
+        self.assertEqual(payload["stores"], [])
+        self.assertIsNone(payload["current_store"])
+
+    def test_login_payload_includes_current_store_slug_and_subdomain(self):
+        user = User.objects.create_user(
+            username="storelogin",
+            email="storelogin@example.com",
+            password="StrongPass123!",
+            role="Store Owner",
+            is_active=True,
+            tenant_id=5001,
+        )
+        store = Store.objects.create(
+            owner=user,
+            name="Beauty Login Store",
+            tenant_id=user.tenant_id,
+            subdomain="beauty-login",
+        )
+
+        response = self.client.post(
+            "/api/auth/login/",
+            {
+                "email": "storelogin@example.com",
+                "password": "StrongPass123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self.assertIn("stores", payload)
+        self.assertIn("current_store", payload)
+        self.assertEqual(len(payload["stores"]), 1)
+        self.assertEqual(payload["current_store"]["id"], store.id)
+        self.assertEqual(payload["current_store"]["slug"], store.slug)
+        self.assertEqual(payload["current_store"]["subdomain"], "beauty-login")
+
+    def test_login_payload_does_not_mirror_slug_into_missing_subdomain(self):
+        user = User.objects.create_user(
+            username="slugonly",
+            email="slugonly@example.com",
+            password="StrongPass123!",
+            role="Store Owner",
+            is_active=True,
+            tenant_id=5002,
+        )
+        store = Store.objects.create(
+            owner=user,
+            name="Slug Only Store",
+            tenant_id=user.tenant_id,
+            subdomain=None,
+        )
+
+        response = self.client.post(
+            "/api/auth/login/",
+            {
+                "email": "slugonly@example.com",
+                "password": "StrongPass123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self.assertEqual(payload["current_store"]["id"], store.id)
+        self.assertEqual(payload["current_store"]["slug"], store.slug)
+        self.assertIsNone(payload["current_store"]["subdomain"])
+
+    def test_login_payload_with_multiple_owned_stores_returns_all_with_mixed_subdomains(self):
+        user = User.objects.create_user(
+            username="multistore_login",
+            email="multistore_login@example.com",
+            password="StrongPass123!",
+            role="Store Owner",
+            is_active=True,
+            tenant_id=5004,
+        )
+        store_with_subdomain = Store.objects.create(
+            owner=user,
+            name="Multi Store A",
+            tenant_id=user.tenant_id,
+            subdomain="multi-store-a",
+        )
+        store_without_subdomain = Store.objects.create(
+            owner=user,
+            name="Multi Store B",
+            tenant_id=user.tenant_id,
+            subdomain=None,
+        )
+
+        response = self.client.post(
+            "/api/auth/login/",
+            {
+                "email": "multistore_login@example.com",
+                "password": "StrongPass123!",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self.assertIn("stores", payload)
+        self.assertIn("current_store", payload)
+        self.assertEqual(len(payload["stores"]), 2)
+
+        stores_by_id = {item["id"]: item for item in payload["stores"]}
+        self.assertEqual(stores_by_id[store_with_subdomain.id]["slug"], store_with_subdomain.slug)
+        self.assertEqual(stores_by_id[store_with_subdomain.id]["subdomain"], "multi-store-a")
+        self.assertEqual(stores_by_id[store_without_subdomain.id]["slug"], store_without_subdomain.slug)
+        self.assertIsNone(stores_by_id[store_without_subdomain.id]["subdomain"])
+
+        current_store = payload["current_store"]
+        self.assertEqual(
+            set(current_store.keys()),
+            {"id", "name", "slug", "subdomain"},
+        )
+        self.assertEqual(current_store["id"], store_with_subdomain.id)
 
     # ---------------------------------
     # Me endpoint
@@ -237,6 +394,78 @@ class UserApiTests(TestCase):
         self.assertIn("updated_at", payload)
         self.assertNotIn("access", payload)
         self.assertNotIn("refresh", payload)
+        self.assertIn("stores", payload)
+        self.assertIn("current_store", payload)
+        self.assertEqual(payload["stores"], [])
+        self.assertIsNone(payload["current_store"])
+
+    def test_me_includes_current_store_slug_and_subdomain(self):
+        user = User.objects.create_user(
+            username="storeme",
+            email="storeme@example.com",
+            password="StrongPass123!",
+            role="Store Owner",
+            is_active=True,
+            tenant_id=5003,
+        )
+        store = Store.objects.create(
+            owner=user,
+            name="Store Me",
+            tenant_id=user.tenant_id,
+            subdomain="store-me-live",
+        )
+
+        response = self.client.get(
+            "/api/auth/me/",
+            HTTP_AUTHORIZATION=self._auth_header(user),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self.assertEqual(len(payload["stores"]), 1)
+        self.assertEqual(payload["current_store"]["id"], store.id)
+        self.assertEqual(payload["current_store"]["slug"], store.slug)
+        self.assertEqual(payload["current_store"]["subdomain"], "store-me-live")
+
+    def test_me_with_multiple_owned_stores_returns_bootstrap_structure(self):
+        user = User.objects.create_user(
+            username="multistore_me",
+            email="multistore_me@example.com",
+            password="StrongPass123!",
+            role="Store Owner",
+            is_active=True,
+            tenant_id=5005,
+        )
+        store_with_subdomain = Store.objects.create(
+            owner=user,
+            name="Me Store A",
+            tenant_id=user.tenant_id,
+            subdomain="me-store-a",
+        )
+        store_without_subdomain = Store.objects.create(
+            owner=user,
+            name="Me Store B",
+            tenant_id=user.tenant_id,
+            subdomain=None,
+        )
+
+        response = self.client.get(
+            "/api/auth/me/",
+            HTTP_AUTHORIZATION=self._auth_header(user),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self.assertIn("stores", payload)
+        self.assertIn("current_store", payload)
+        self.assertEqual(len(payload["stores"]), 2)
+
+        stores_by_id = {item["id"]: item for item in payload["stores"]}
+        self.assertEqual(stores_by_id[store_with_subdomain.id]["slug"], store_with_subdomain.slug)
+        self.assertEqual(stores_by_id[store_with_subdomain.id]["subdomain"], "me-store-a")
+        self.assertEqual(stores_by_id[store_without_subdomain.id]["slug"], store_without_subdomain.slug)
+        self.assertIsNone(stores_by_id[store_without_subdomain.id]["subdomain"])
+        self.assertEqual(payload["current_store"]["id"], store_with_subdomain.id)
 
     def test_me_with_valid_token_super_admin_works_with_null_tenant(self):
         user = User.objects.create_user(
@@ -259,6 +488,8 @@ class UserApiTests(TestCase):
         self.assertEqual(payload["role"], "Super Admin")
         self.assertIsNone(payload["tenant_id"])
         self.assertEqual(payload["display_name"], "rootAdmin")
+        self.assertEqual(payload["stores"], [])
+        self.assertIsNone(payload["current_store"])
 
     def test_me_missing_token_returns_401(self):
         response = self.client.get("/api/auth/me/")
@@ -389,3 +620,78 @@ class UserApiTests(TestCase):
         self.assertIn("refresh", payload)
         self.assertEqual(payload["role"], "Super Admin")
         self.assertIsNone(payload["tenant_id"])
+    def test_login_bootstrap_reflects_latest_subdomain_after_store_update(self):
+        user = User.objects.create_user(
+            username="bootstrap_refresh_login",
+            email="bootstrap_refresh_login@example.com",
+            password="StrongPass123!",
+            role="Store Owner",
+            is_active=True,
+            tenant_id=7001,
+        )
+        store = Store.objects.create(
+            owner=user,
+            name="Bootstrap Refresh Store",
+            tenant_id=user.tenant_id,
+            subdomain=None,
+        )
+
+        authenticated_client = APIClient()
+        authenticated_client.credentials(HTTP_AUTHORIZATION=self._auth_header(user))
+
+        patch_response = authenticated_client.patch(
+            f"/api/stores/{store.id}/subdomain/",
+            {"subdomain": "fresh-bootstrap-subdomain"},
+            format="json",
+        )
+        self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
+
+        login_response = self.client.post(
+            "/api/auth/login/",
+            {
+                "email": "bootstrap_refresh_login@example.com",
+                "password": "StrongPass123!",
+            },
+            format="json",
+        )
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+
+        payload = self._payload(login_response)
+        self.assertEqual(payload["current_store"]["id"], store.id)
+        self.assertEqual(payload["current_store"]["slug"], store.slug)
+        self.assertEqual(payload["current_store"]["subdomain"], "fresh-bootstrap-subdomain")
+
+
+    def test_me_bootstrap_reflects_latest_subdomain_after_store_update(self):
+        user = User.objects.create_user(
+            username="bootstrap_refresh_me",
+            email="bootstrap_refresh_me@example.com",
+            password="StrongPass123!",
+            role="Store Owner",
+            is_active=True,
+            tenant_id=7002,
+        )
+        store = Store.objects.create(
+            owner=user,
+            name="Bootstrap Me Store",
+            tenant_id=user.tenant_id,
+            subdomain=None,
+        )
+
+        authenticated_client = APIClient()
+        authenticated_client.credentials(HTTP_AUTHORIZATION=self._auth_header(user))
+
+        patch_response = authenticated_client.patch(
+            f"/api/stores/{store.id}/subdomain/",
+            {"subdomain": "fresh-me-subdomain"},
+            format="json",
+        )
+        self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
+
+        me_response = authenticated_client.get("/api/auth/me/")
+        self.assertEqual(me_response.status_code, status.HTTP_200_OK)
+
+        payload = self._payload(me_response)
+        self.assertEqual(payload["current_store"]["id"], store.id)
+        self.assertEqual(payload["current_store"]["slug"], store.slug)
+        self.assertEqual(payload["current_store"]["subdomain"], "fresh-me-subdomain")

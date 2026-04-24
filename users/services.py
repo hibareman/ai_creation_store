@@ -3,10 +3,35 @@ from django.db import DatabaseError, IntegrityError
 from django.core.mail import send_mail
 from django.conf import settings
 from .models import User
+from stores.models import Store
 from rest_framework_simplejwt.tokens import RefreshToken
 import uuid
 
 logger = logging.getLogger(__name__)
+
+
+def get_auth_bootstrap_store_payload(user) -> dict:
+    """
+    Build current-store/bootstrap payload for auth/session responses.
+
+    Keeps slug and subdomain semantics strictly separated:
+    - slug: internal store slug
+    - subdomain: optional public subdomain (can be null)
+    """
+    if getattr(user, "role", None) == "Super Admin":
+        return {"stores": [], "current_store": None}
+
+    tenant_id = getattr(user, "tenant_id", None)
+    if not tenant_id:
+        return {"stores": [], "current_store": None}
+
+    stores = list(
+        Store.objects.filter(owner_id=user.id, tenant_id=tenant_id)
+        .order_by("id")
+        .values("id", "name", "slug", "subdomain")
+    )
+    current_store = stores[0] if stores else None
+    return {"stores": stores, "current_store": current_store}
 
 
 def register_user(username, email, password, role='Store Owner'):
@@ -43,13 +68,15 @@ def login_user(user):
     """Generate JWT tokens for the given user."""
     try:
         refresh = RefreshToken.for_user(user)
-        return {
+        payload = {
             'access': str(refresh.access_token),
             'refresh': str(refresh),
             'user_id': user.id,
             'role': user.role,
             'tenant_id': getattr(user, 'tenant_id', None),
         }
+        payload.update(get_auth_bootstrap_store_payload(user))
+        return payload
     except Exception as e:
         logger.error(f"Failed to generate tokens: {str(e)}")
         raise

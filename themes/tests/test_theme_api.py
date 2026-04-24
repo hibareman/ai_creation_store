@@ -197,7 +197,7 @@ class ThemeApiTests(TestCase):
         self.theme_config.refresh_from_db()
         self.assertEqual(self.theme_config.theme_template_id, self.modern_template.id)
 
-    def test_store_without_theme_config_returns_404(self):
+    def test_store_without_theme_config_returns_default_payload(self):
         # Create a new store without theme config
         new_store = Store.objects.create(
             owner=self.owner,
@@ -210,7 +210,80 @@ class ThemeApiTests(TestCase):
             HTTP_AUTHORIZATION=self.owner_auth_header,
         )
 
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = self._payload(response)
+        self.assertIsNone(data["id"])
+        self.assertEqual(data["store"], new_store.id)
+        self.assertEqual(data["primary_color"], "#4F46E5")
+        self.assertEqual(data["secondary_color"], "#FFFFFF")
+        self.assertEqual(data["font_family"], "Inter")
+        self.assertEqual(data["logo_url"], "")
+        self.assertEqual(data["banner_url"], "")
+        self.assertFalse(StoreThemeConfig.objects.filter(store=new_store).exists())
+        self.assertIsNotNone(data["theme_template"])
+
+    def test_store_without_appearance_config_returns_default_payload(self):
+        new_store = Store.objects.create(
+            owner=self.owner,
+            name="New Store Without Appearance",
+            tenant_id=100,
+        )
+
+        response = self.client.get(
+            f"/api/stores/{new_store.id}/appearance/",
+            HTTP_AUTHORIZATION=self.owner_auth_header,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = self._payload(response)
+        self.assertEqual(data["store_id"], str(new_store.slug or new_store.id))
+        self.assertEqual(data["appearance"]["primaryColor"], "#4F46E5")
+        self.assertEqual(data["appearance"]["backgroundColor"], "#FFFFFF")
+        self.assertEqual(data["appearance"]["font"], "Inter")
+        self.assertEqual(data["appearance"]["logoUrl"], "")
+        self.assertIsInstance(data["appearance"]["style"], str)
+        self.assertFalse(StoreThemeConfig.objects.filter(store=new_store).exists())
+
+    def test_store_with_theme_config_returns_saved_appearance_values(self):
+        response = self.client.get(
+            f"/api/stores/{self.store.id}/appearance/",
+            HTTP_AUTHORIZATION=self.owner_auth_header,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = self._payload(response)
+        self.assertEqual(data["store_id"], str(self.store.slug or self.store.id))
+        self.assertEqual(data["appearance"]["primaryColor"], "#111111")
+        self.assertEqual(data["appearance"]["backgroundColor"], "#222222")
+        self.assertEqual(data["appearance"]["font"], "Inter")
+        self.assertEqual(data["appearance"]["style"], "modern")
+        self.assertEqual(data["appearance"]["logoUrl"], "https://example.com/logo.png")
+
+    def test_missing_store_still_returns_404_for_theme_and_appearance(self):
+        theme_response = self.client.get(
+            "/api/stores/999999/theme/",
+            HTTP_AUTHORIZATION=self.owner_auth_header,
+        )
+        self.assertEqual(theme_response.status_code, status.HTTP_404_NOT_FOUND)
+
+        appearance_response = self.client.get(
+            "/api/stores/999999/appearance/",
+            HTTP_AUTHORIZATION=self.owner_auth_header,
+        )
+        self.assertEqual(appearance_response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_owner_and_tenant_access_rules_unchanged_for_appearance(self):
+        same_tenant_non_owner_response = self.client.get(
+            f"/api/stores/{self.store.id}/appearance/",
+            HTTP_AUTHORIZATION=self.same_tenant_non_owner_auth_header,
+        )
+        self.assertEqual(same_tenant_non_owner_response.status_code, status.HTTP_403_FORBIDDEN)
+
+        other_tenant_response = self.client.get(
+            f"/api/stores/{self.store.id}/appearance/",
+            HTTP_AUTHORIZATION=self.other_tenant_auth_header,
+        )
+        self.assertEqual(other_tenant_response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_create_theme_config_for_store_without_config(self):
         # Create a new store without theme config
@@ -273,3 +346,70 @@ class ThemeApiTests(TestCase):
         data = self._payload(response)
         self.assertEqual(data["logo_url"], "")
         self.assertEqual(data["banner_url"], "")
+    def test_repeated_theme_fallback_reads_do_not_create_db_record(self):
+        new_store = Store.objects.create(
+            owner=self.owner,
+            name="Fallback Theme Store",
+            tenant_id=100,
+        )
+        self.assertFalse(StoreThemeConfig.objects.filter(store=new_store).exists())
+
+        first_response = self.client.get(
+            f"/api/stores/{new_store.id}/theme/",
+            HTTP_AUTHORIZATION=self.owner_auth_header,
+        )
+        second_response = self.client.get(
+            f"/api/stores/{new_store.id}/theme/",
+            HTTP_AUTHORIZATION=self.owner_auth_header,
+        )
+
+        self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+
+        first_payload = self._payload(first_response)
+        second_payload = self._payload(second_response)
+
+        self.assertIsNone(first_payload["id"])
+        self.assertIsNone(second_payload["id"])
+        self.assertEqual(first_payload["store"], new_store.id)
+        self.assertEqual(second_payload["store"], new_store.id)
+        self.assertEqual(first_payload["primary_color"], "#4F46E5")
+        self.assertEqual(second_payload["primary_color"], "#4F46E5")
+        self.assertEqual(first_payload["secondary_color"], "#FFFFFF")
+        self.assertEqual(second_payload["secondary_color"], "#FFFFFF")
+
+        self.assertFalse(StoreThemeConfig.objects.filter(store=new_store).exists())
+
+    def test_repeated_appearance_fallback_reads_do_not_create_db_record(self):
+        new_store = Store.objects.create(
+            owner=self.owner,
+            name="Fallback Appearance Store",
+            tenant_id=100,
+        )
+        self.assertFalse(StoreThemeConfig.objects.filter(store=new_store).exists())
+
+        first_response = self.client.get(
+            f"/api/stores/{new_store.id}/appearance/",
+            HTTP_AUTHORIZATION=self.owner_auth_header,
+        )
+        second_response = self.client.get(
+            f"/api/stores/{new_store.id}/appearance/",
+            HTTP_AUTHORIZATION=self.owner_auth_header,
+        )
+
+        self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+
+        first_payload = self._payload(first_response)
+        second_payload = self._payload(second_response)
+
+        self.assertEqual(first_payload["store_id"], str(new_store.slug or new_store.id))
+        self.assertEqual(second_payload["store_id"], str(new_store.slug or new_store.id))
+        self.assertEqual(first_payload["appearance"]["primaryColor"], "#4F46E5")
+        self.assertEqual(second_payload["appearance"]["primaryColor"], "#4F46E5")
+        self.assertEqual(first_payload["appearance"]["backgroundColor"], "#FFFFFF")
+        self.assertEqual(second_payload["appearance"]["backgroundColor"], "#FFFFFF")
+        self.assertEqual(first_payload["appearance"]["font"], "Inter")
+        self.assertEqual(second_payload["appearance"]["font"], "Inter")
+
+        self.assertFalse(StoreThemeConfig.objects.filter(store=new_store).exists())

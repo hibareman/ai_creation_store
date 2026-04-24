@@ -11,12 +11,34 @@ from rest_framework import serializers
 
 
 class AIStartDraftRequestSerializer(serializers.Serializer):
-    name = serializers.CharField(required=True, allow_blank=False, trim_whitespace=True)
-    user_store_description = serializers.CharField(
-        required=True,
-        allow_blank=False,
+    user_description = serializers.CharField(
+        required=False,
+        allow_blank=True,
         trim_whitespace=True,
     )
+    user_store_description = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        trim_whitespace=True,
+    )
+
+    def validate(self, attrs):
+        preferred = attrs.get("user_description")
+        deprecated = attrs.get("user_store_description")
+
+        normalized_user_description = None
+        if isinstance(preferred, str) and preferred.strip():
+            normalized_user_description = preferred.strip()
+        elif isinstance(deprecated, str) and deprecated.strip():
+            normalized_user_description = deprecated.strip()
+
+        if not normalized_user_description:
+            raise serializers.ValidationError(
+                "Either 'user_description' or deprecated 'user_store_description' must be provided."
+            )
+
+        attrs["normalized_user_description"] = normalized_user_description
+        return attrs
 
 
 class AIDraftStateResponseSerializer(serializers.Serializer):
