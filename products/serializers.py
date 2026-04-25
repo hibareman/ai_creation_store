@@ -11,6 +11,8 @@ This version only changes the external response DTOs:
 """
 
 from rest_framework import serializers
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from PIL import Image, UnidentifiedImageError
 
 from categories.models import Category
@@ -70,6 +72,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
         fields = ["id", "image_url", "image_file", "created_at", "updated_at"]
         read_only_fields = ["id", "image_url", "created_at", "updated_at"]
 
+    @extend_schema_field(OpenApiTypes.URI)
     def get_image_url(self, obj):
         """
         Always expose a final, display-ready URL.
@@ -211,17 +214,20 @@ class ProductResponseSerializer(serializers.ModelSerializer):
             "status": {"help_text": "Status: active, draft, out_of_stock"},
         }
 
+    @extend_schema_field(OpenApiTypes.INT)
     def get_stock(self, obj):
         try:
             return int(getattr(obj.inventory, "stock_quantity", 0) or 0)
         except Inventory.DoesNotExist:
             return 0
 
+    @extend_schema_field(OpenApiTypes.FLOAT)
     def get_price(self, obj):
         if obj.price is None:
             return None
         return float(obj.price)
 
+    @extend_schema_field(OpenApiTypes.URI)
     def get_image_url(self, obj):
         prefetched_images = getattr(obj, "_prefetched_objects_cache", {}).get("images")
         if prefetched_images is None:

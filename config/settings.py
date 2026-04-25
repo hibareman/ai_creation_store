@@ -237,6 +237,11 @@ SPECTACULAR_SETTINGS = {
     ],
     "PRELOAD_ENUM_CHOICES": True,
     "ENUM_GENERATE_CHOICES": True,
+    "ENUM_NAME_OVERRIDES": {
+        "StoreStatusEnum": "stores.models.Store.STATUS_CHOICES",
+        "ProductStatusEnum": "products.models.Product.STATUS_CHOICES",
+        "OrderStatusEnum": "orders.models.Order.STATUS_CHOICES",
+    },
     "TAGS_SORT_ALPHABETICALLY": False,
     "X_IGNORE_AUTODISCOVERY": False,
 }
@@ -292,9 +297,12 @@ LOGGING = CUSTOM_LOGGING
 # AI Store Creation configuration (foundation only)
 AI_PROVIDER = os.getenv("AI_PROVIDER", "ollama").strip().lower()
 AI_API_KEY = os.getenv("AI_API_KEY", "")
-AI_MODEL_NAME = os.getenv("AI_MODEL_NAME", "qwen2.5:1.5b")
-AI_TIMEOUT = int(os.getenv("AI_TIMEOUT", "120"))
-AI_API_URL = os.getenv("AI_API_URL", "http://localhost:11434/api/chat")
+AI_API_URL = os.getenv("AI_API_URL", "")
+AI_MODEL_NAME = os.getenv("AI_MODEL_NAME", "")
+AI_TIMEOUT = int(os.getenv("AI_TIMEOUT", "60"))
+AI_MAX_TOKENS = int(os.getenv("AI_MAX_TOKENS", "4096"))
+AI_TEMPERATURE = float(os.getenv("AI_TEMPERATURE", "0.2"))
+ANTHROPIC_VERSION = os.getenv("ANTHROPIC_VERSION", "2023-06-01")
 AI_HTTP_REFERER = os.getenv("AI_HTTP_REFERER", "")
 AI_APP_TITLE = os.getenv("AI_APP_TITLE", "")
 AI_DRAFT_CACHE_TTL = int(os.getenv("AI_DRAFT_CACHE_TTL", os.getenv("AI_DRAFT_TTL", "3600")))

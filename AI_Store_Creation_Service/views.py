@@ -69,7 +69,12 @@ class AIBaseAPIView(GenericAPIView):
 @extend_schema_view(
     post=extend_schema(
         summary="Start AI draft workflow",
-        description="Create a draft store and generate the initial temporary AI draft state.",
+        description=(
+            "Create a draft store immediately and generate the initial temporary AI draft state. "
+            "Request prefers user_description; deprecated user_store_description is accepted as a fallback. "
+            "A name field is not required. Response includes store_id, draft_payload, and draft_metadata. "
+            "draft_metadata.status can include processing, needs_clarification, draft_ready, failed, or applied."
+        ),
         tags=["AI Store Creation"],
         request=AIStartDraftRequestSerializer,
         examples=[
@@ -147,7 +152,10 @@ class AICurrentDraftAPIView(AIBaseAPIView):
 @extend_schema_view(
     post=extend_schema(
         summary="Submit clarification round",
-        description="Submit one clarification input and advance the AI draft workflow to the next state.",
+        description=(
+            "Submit one clarification input through clarification_answers and advance the AI draft workflow. "
+            "clarification_answers accepts a non-empty string, object, or list."
+        ),
         tags=["AI Store Creation"],
         request=AIClarificationRequestSerializer,
         examples=[
@@ -199,7 +207,10 @@ class AIClarificationAPIView(AIBaseAPIView):
 @extend_schema_view(
     post=extend_schema(
         summary="Regenerate full AI draft",
-        description="Regenerate the full AI draft for the same store/session.",
+        description=(
+            "Regenerate the full AI draft for the same store/session using the saved original description "
+            "and clarification context. No new free-text prompt is accepted."
+        ),
         tags=["AI Store Creation"],
         request=EmptySerializer,
         responses={200: AIDraftStateResponseSerializer, **DOC_ERROR_RESPONSES},
@@ -238,7 +249,11 @@ class AIRegenerateDraftAPIView(AIBaseAPIView):
 @extend_schema_view(
     post=extend_schema(
         summary="Regenerate AI draft section",
-        description="Regenerate one section of the current AI draft payload.",
+        description=(
+            "Regenerate one section of the current AI draft payload. target_section must be one of "
+            "theme, categories, or products. Partial regeneration requires draft_ready state and keeps "
+            "the existing draft unchanged if regeneration fails."
+        ),
         tags=["AI Store Creation"],
         request=AIRegenerateSectionRequestSerializer,
         responses={200: AIDraftStateResponseSerializer, **DOC_ERROR_RESPONSES},
@@ -279,7 +294,10 @@ class AIRegenerateSectionAPIView(AIBaseAPIView):
 @extend_schema_view(
     post=extend_schema(
         summary="Apply current AI draft",
-        description="Apply the current AI draft to store configuration entities and schedule draft cleanup.",
+        description=(
+            "Apply the current draft_ready AI draft to store configuration, categories, and products, "
+            "then schedule temporary draft cleanup after the successful database commit."
+        ),
         tags=["AI Store Creation"],
         request=EmptySerializer,
         examples=[

@@ -69,13 +69,19 @@ class ThemeTemplateListView(ThemeStoreAccessMixin, generics.ListAPIView):
 @extend_schema_view(
     get=extend_schema(
         summary="Get store theme configuration",
-        description="Retrieve theme configuration for a tenant-owned store.",
+        description=(
+            "Retrieve theme configuration for a tenant-owned store. If no persisted config exists, "
+            "returns 200 with an in-memory default config and does not create a database record."
+        ),
         tags=["Themes"],
         responses={200: StoreThemeConfigSerializer, **DOC_ERROR_RESPONSES},
     ),
     patch=extend_schema(
         summary="Update store theme configuration",
-        description="Create or update theme configuration for a tenant-owned store.",
+        description=(
+            "Create or update theme configuration for a tenant-owned store. If no config exists yet, "
+            "theme_template, primary_color, secondary_color, and font_family are required."
+        ),
         tags=["Themes"],
         request=StoreThemeConfigUpdateSerializer,
         responses={200: StoreThemeConfigSerializer, **DOC_ERROR_RESPONSES},
@@ -161,20 +167,29 @@ class StoreThemeConfigDetailView(ThemeStoreAccessMixin, generics.GenericAPIView)
 @extend_schema_view(
     get=extend_schema(
         summary="Get store appearance",
-        description="Retrieve appearance/branding configuration for a tenant-owned store.",
+        description=(
+            "Retrieve appearance/branding configuration for a tenant-owned store. If no persisted config exists, "
+            "returns 200 with an in-memory default appearance and does not create a database record."
+        ),
         tags=["Themes"],
         responses={200: StoreAppearanceSerializer, **DOC_ERROR_RESPONSES},
     ),
     put=extend_schema(
         summary="Update store appearance",
-        description="Replace appearance/branding configuration for a tenant-owned store.",
+        description=(
+            "Replace appearance/branding configuration for a tenant-owned store. If no config exists yet, "
+            "style, primaryColor, backgroundColor, and font are required for initial creation."
+        ),
         tags=["Themes"],
         request=AppearanceUpdateRequestSerializer,
         responses={200: StoreAppearanceSerializer, **DOC_ERROR_RESPONSES},
     ),
     patch=extend_schema(
         summary="Partially update store appearance",
-        description="Partially update appearance/branding configuration for a tenant-owned store.",
+        description=(
+            "Partially update appearance/branding configuration for a tenant-owned store. If no config exists yet, "
+            "style, primaryColor, backgroundColor, and font are required for initial creation."
+        ),
         tags=["Themes"],
         request=AppearanceUpdateRequestSerializer,
         responses={200: StoreAppearanceSerializer, **DOC_ERROR_RESPONSES},

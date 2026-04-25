@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import json
+import os
 from typing import Any, Mapping, Sequence
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -102,9 +103,10 @@ class OpenAIProviderClient(AIProviderContract):
 
     def __init__(self) -> None:
         self.api_key = settings.AI_API_KEY
-        self.model_name = settings.AI_MODEL_NAME
+        self.model_name = str(getattr(settings, "AI_MODEL_NAME", "")).strip() or "qwen2.5:1.5b"
         self.timeout = settings.AI_TIMEOUT
-        self.api_url = getattr(settings, "AI_API_URL", self.API_URL)
+        configured_api_url = str(getattr(settings, "AI_API_URL", "")).strip()
+        self.api_url = configured_api_url or self.API_URL
         self.http_referer = getattr(settings, "AI_HTTP_REFERER", "")
         self.app_title = getattr(settings, "AI_APP_TITLE", "")
 
@@ -286,9 +288,10 @@ class OllamaProviderClient(AIProviderContract):
     API_URL = "http://localhost:11434/api/chat"
 
     def __init__(self) -> None:
-        self.model_name = settings.AI_MODEL_NAME
+        self.model_name = str(getattr(settings, "AI_MODEL_NAME", "")).strip() or "qwen2.5:1.5b"
         self.timeout = settings.AI_TIMEOUT
-        self.api_url = getattr(settings, "AI_API_URL", self.API_URL)
+        configured_api_url = str(getattr(settings, "AI_API_URL", "")).strip()
+        self.api_url = configured_api_url or self.API_URL
 
     def _build_chat_payload(self, messages: list[dict[str, str]]) -> dict[str, Any]:
         return {
@@ -429,12 +432,235 @@ class OllamaProviderClient(AIProviderContract):
         return self._call_chat(messages)
 
 
+class AnthropicProviderClient(AIProviderContract):
+    API_URL = "https://api.anthropic.com/v1/messages"
+
+    def __init__(self) -> None:
+        configured_api_key = str(getattr(settings, "AI_API_KEY", "")).strip()
+        self.api_key = configured_api_key or os.getenv("ANTHROPIC_API_KEY", "").strip()
+        self.model_name = str(getattr(settings, "AI_MODEL_NAME", "")).strip()
+        self.timeout = int(getattr(settings, "AI_TIMEOUT", 60))
+        self.max_tokens = int(getattr(settings, "AI_MAX_TOKENS", 4096))
+        self.temperature = float(getattr(settings, "AI_TEMPERATURE", 0.2))
+        configured_api_url = str(getattr(settings, "AI_API_URL", "")).strip()
+        self.api_url = configured_api_url or self.API_URL
+        configured_version = str(getattr(settings, "ANTHROPIC_VERSION", "2023-06-01")).strip()
+        self.anthropic_version = configured_version or "2023-06-01"
+
+    def _build_headers(self) -> dict[str, str]:
+        if not self.api_key:
+            raise ImproperlyConfigured(
+                "AI_API_KEY is not configured for anthropic provider. "
+                "Set AI_API_KEY before calling provider."
+            )
+        return {
+            "x-api-key": self.api_key,
+            "anthropic-version": self.anthropic_version,
+            "content-type": "application/json",
+        }
+
+    @staticmethod
+    def _convert_messages(messages: list[dict[str, str]]) -> tuple[str, list[dict[str, str]]]:
+        system_parts: list[str] = []
+        transformed_messages: list[dict[str, str]] = []
+
+        for message in messages:
+            role = str(message.get("role", "")).strip().lower()
+            content = message.get("content", "")
+
+            if not isinstance(content, str):
+                content = json.dumps(content, ensure_ascii=False)
+
+            normalized_content = content.strip()
+            if not normalized_content:
+                continue
+
+            if role == "system":
+                system_parts.append(normalized_content)
+                continue
+
+            if role in {"user", "assistant"}:
+                transformed_messages.append(
+                    {
+                        "role": role,
+                        "content": normalized_content,
+                    }
+                )
+
+        system_text = "\n\n".join(system_parts)
+        if not transformed_messages:
+            fallback_content = system_text or "Generate the requested store draft in valid JSON."
+            transformed_messages.append({"role": "user", "content": fallback_content})
+
+        return system_text, transformed_messages
+
+    def _build_messages_payload(self, messages: list[dict[str, str]]) -> dict[str, Any]:
+        system_text, transformed_messages = self._convert_messages(messages)
+        return {
+            "model": self.model_name,
+            "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
+            "system": system_text,
+            "messages": transformed_messages,
+        }
+
+    @staticmethod
+    def _sanitize_error_message(error_body: str) -> str:
+        normalized = (error_body or "").strip()
+        if not normalized:
+            return "Unknown provider error."
+
+        try:
+            parsed = json.loads(normalized)
+        except json.JSONDecodeError:
+            return normalized[:500]
+
+        if isinstance(parsed, Mapping):
+            nested_error = parsed.get("error")
+            if isinstance(nested_error, Mapping):
+                message = nested_error.get("message")
+                if isinstance(message, str) and message.strip():
+                    return message.strip()[:500]
+
+            message = parsed.get("message")
+            if isinstance(message, str) and message.strip():
+                return message.strip()[:500]
+
+        return normalized[:500]
+
+    @staticmethod
+    def _normalize_to_chat_completions_shape(raw_response: Mapping[str, Any]) -> ProviderRawResponse:
+        content = raw_response.get("content")
+        text_parts: list[str] = []
+
+        if isinstance(content, list):
+            for block in content:
+                if not isinstance(block, Mapping):
+                    continue
+                if block.get("type") != "text":
+                    continue
+                block_text = block.get("text")
+                if isinstance(block_text, str) and block_text.strip():
+                    text_parts.append(block_text)
+        elif isinstance(content, str) and content.strip():
+            text_parts.append(content)
+
+        if not text_parts:
+            raise RuntimeError("Anthropic response format is unsupported or missing text content.")
+
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": "\n".join(text_parts),
+                    }
+                }
+            ]
+        }
+
+    def _call_messages_api(self, messages: list[dict[str, str]]) -> ProviderRawResponse:
+        payload = self._build_messages_payload(messages)
+
+        try:
+            raw_response = _post_json_request(
+                url=self.api_url,
+                payload=payload,
+                headers=self._build_headers(),
+                timeout=self.timeout,
+            )
+            return self._normalize_to_chat_completions_shape(raw_response)
+        except HTTPError as exc:
+            error_body = exc.read().decode("utf-8", errors="replace")
+            sanitized_message = self._sanitize_error_message(error_body)
+            raise RuntimeError(f"Provider HTTP error {exc.code}: {sanitized_message}") from exc
+        except URLError as exc:
+            raise RuntimeError(f"Provider connection error: {exc.reason}") from exc
+
+    def generate_store_draft(
+        self,
+        *,
+        tenant_id: int,
+        store_id: int,
+        user_store_description: str,
+        available_theme_templates: Sequence[str],
+    ) -> ProviderRawResponse:
+        messages = build_generate_store_draft_messages(
+            tenant_id=tenant_id,
+            store_id=store_id,
+            user_store_description=user_store_description,
+            available_theme_templates=available_theme_templates,
+        )
+        return self._call_messages_api(messages)
+
+    def clarify_store_draft(
+        self,
+        *,
+        tenant_id: int,
+        store_id: int,
+        current_draft: Mapping[str, Any],
+        prompt: str,
+        context: Mapping[str, Any] | None = None,
+    ) -> ProviderRawResponse:
+        messages = build_clarify_store_draft_messages(
+            tenant_id=tenant_id,
+            store_id=store_id,
+            current_draft=current_draft,
+            prompt=prompt,
+            context=context,
+        )
+        return self._call_messages_api(messages)
+
+    def regenerate_store_draft(
+        self,
+        *,
+        tenant_id: int,
+        store_id: int,
+        original_store_description: str,
+        current_draft: Mapping[str, Any],
+        clarification_context: Mapping[str, Any] | Sequence[Any] | None = None,
+        available_theme_templates: Sequence[str] | None = None,
+    ) -> ProviderRawResponse:
+        messages = build_regenerate_store_draft_messages(
+            tenant_id=tenant_id,
+            store_id=store_id,
+            original_store_description=original_store_description,
+            current_draft=current_draft,
+            clarification_context=clarification_context,
+            available_theme_templates=available_theme_templates,
+        )
+        return self._call_messages_api(messages)
+
+    def regenerate_store_draft_section(
+        self,
+        *,
+        tenant_id: int,
+        store_id: int,
+        target_section: str,
+        original_store_description: str,
+        current_draft: Mapping[str, Any],
+        clarification_context: Mapping[str, Any] | Sequence[Any] | None = None,
+        available_theme_templates: Sequence[str] | None = None,
+    ) -> ProviderRawResponse:
+        messages = build_regenerate_store_draft_section_messages(
+            tenant_id=tenant_id,
+            store_id=store_id,
+            target_section=target_section,
+            original_store_description=original_store_description,
+            current_draft=current_draft,
+            clarification_context=clarification_context,
+            available_theme_templates=available_theme_templates,
+        )
+        return self._call_messages_api(messages)
+
+
 def get_ai_provider_client() -> AIProviderContract:
-    provider_name = str(getattr(settings, "AI_PROVIDER", "openai")).strip().lower()
+    provider_name = str(getattr(settings, "AI_PROVIDER", "ollama")).strip().lower()
     if provider_name == "ollama":
         return OllamaProviderClient()
+    if provider_name == "anthropic":
+        return AnthropicProviderClient()
     if provider_name != "openai":
         raise ImproperlyConfigured(
-            "Unsupported AI_PROVIDER value. Supported values: 'openai', 'ollama'."
+            "Unsupported AI_PROVIDER value. Supported values: 'openai', 'ollama', 'anthropic'."
         )
     return OpenAIProviderClient()

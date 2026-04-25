@@ -4,8 +4,8 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.core.cache import cache
-from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.core.exceptions import ImproperlyConfigured, ValidationError
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient
 
@@ -17,6 +17,7 @@ from themes.models import StoreThemeConfig, ThemeTemplate
 from .draft_store import get_ai_draft, get_ai_draft_meta, save_ai_draft, save_ai_draft_meta
 from .models import AIStoreAuditLog
 from .prompts import build_clarify_store_draft_messages, build_generate_store_draft_messages
+from .providers import AnthropicProviderClient, get_ai_provider_client
 from .services import (
     apply_current_ai_draft_categories,
     apply_current_ai_draft_products,
@@ -34,6 +35,108 @@ from .services import (
 from .validators import build_ai_fallback_payload
 
 User = get_user_model()
+
+
+class AIProviderSelectionTests(TestCase):
+    @override_settings(AI_PROVIDER="anthropic")
+    def test_factory_returns_anthropic_provider(self):
+        provider = get_ai_provider_client()
+        self.assertIsInstance(provider, AnthropicProviderClient)
+
+    @override_settings(
+        AI_PROVIDER="anthropic",
+        AI_API_KEY="test-anthropic-key",
+        AI_API_URL="https://api.anthropic.com/v1/messages",
+        AI_MODEL_NAME="claude-3-5-sonnet-latest",
+        AI_MAX_TOKENS=4096,
+        AI_TEMPERATURE=0.2,
+        ANTHROPIC_VERSION="2023-06-01",
+    )
+    @patch("AI_Store_Creation_Service.providers._post_json_request")
+    def test_anthropic_request_headers_and_body_contract(self, mock_post_json_request):
+        mock_post_json_request.return_value = {
+            "content": [{"type": "text", "text": '{"ok": true}'}]
+        }
+        provider = AnthropicProviderClient()
+
+        provider.generate_store_draft(
+            tenant_id=101,
+            store_id=77,
+            user_store_description="Build a modern beauty store",
+            available_theme_templates=["Modern", "Classic"],
+        )
+
+        call_kwargs = mock_post_json_request.call_args.kwargs
+        headers = call_kwargs["headers"]
+        payload = call_kwargs["payload"]
+
+        self.assertEqual(headers["x-api-key"], "test-anthropic-key")
+        self.assertEqual(headers["anthropic-version"], "2023-06-01")
+        self.assertEqual(headers["content-type"], "application/json")
+
+        self.assertEqual(payload["model"], "claude-3-5-sonnet-latest")
+        self.assertEqual(payload["max_tokens"], 4096)
+        self.assertEqual(payload["temperature"], 0.2)
+        self.assertIn("system", payload)
+        self.assertIsInstance(payload["messages"], list)
+        self.assertTrue(payload["messages"])
+
+    @override_settings(
+        AI_PROVIDER="anthropic",
+        AI_API_KEY="test-anthropic-key",
+        AI_MODEL_NAME="claude-3-5-sonnet-latest",
+        AI_API_URL="https://api.anthropic.com/v1/messages",
+    )
+    def test_anthropic_converts_system_messages_to_top_level_system(self):
+        provider = AnthropicProviderClient()
+
+        payload = provider._build_messages_payload(
+            [
+                {"role": "system", "content": "System A"},
+                {"role": "system", "content": "System B"},
+                {"role": "user", "content": "Hello"},
+                {"role": "assistant", "content": "Hi"},
+            ]
+        )
+
+        self.assertEqual(payload["system"], "System A\n\nSystem B")
+        self.assertEqual(
+            payload["messages"],
+            [
+                {"role": "user", "content": "Hello"},
+                {"role": "assistant", "content": "Hi"},
+            ],
+        )
+
+    def test_anthropic_response_is_normalized_to_existing_parser_shape(self):
+        normalized = AnthropicProviderClient._normalize_to_chat_completions_shape(
+            {
+                "content": [
+                    {"type": "text", "text": '{"store": {}, "clarification_needed": true}'},
+                    {"type": "text", "text": '{"more": "data"}'},
+                ]
+            }
+        )
+
+        self.assertIn("choices", normalized)
+        self.assertEqual(len(normalized["choices"]), 1)
+        self.assertIn("message", normalized["choices"][0])
+        self.assertIn("content", normalized["choices"][0]["message"])
+        self.assertIn('{"store": {}, "clarification_needed": true}', normalized["choices"][0]["message"]["content"])
+
+    @override_settings(
+        AI_PROVIDER="anthropic",
+        AI_API_KEY="",
+        AI_MODEL_NAME="claude-3-5-sonnet-latest",
+        AI_API_URL="https://api.anthropic.com/v1/messages",
+    )
+    def test_anthropic_missing_api_key_raises_clear_error(self):
+        provider = AnthropicProviderClient()
+
+        with self.assertRaises(ImproperlyConfigured) as ctx:
+            provider._build_headers()
+
+        self.assertIn("AI_API_KEY is not configured", str(ctx.exception))
 
 
 class AIWorkflowBaseMixin:

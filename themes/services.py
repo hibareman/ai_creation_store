@@ -343,7 +343,20 @@ def upload_store_logo_asset(
 
     config = selectors.get_store_theme_config(store)
     if config is None:
-        raise ValidationError("Store appearance configuration does not exist.")
+        default_template = selectors.get_first_active_theme_template()
+        if default_template is None:
+            raise ValidationError("No theme templates are available.")
+
+        with transaction.atomic():
+            config = StoreThemeConfig.objects.create(
+                store=store,
+                theme_template=default_template,
+                primary_color=DEFAULT_THEME_PRIMARY_COLOR,
+                secondary_color=DEFAULT_THEME_SECONDARY_COLOR,
+                font_family=DEFAULT_THEME_FONT_FAMILY,
+                logo_url="",
+                banner_url="",
+            )
 
     file_token = uuid.uuid4().hex
     ext = _resolve_image_extension(getattr(file_obj, "name", ""), mime_type)

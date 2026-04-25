@@ -9,7 +9,14 @@ from drf_spectacular.utils import (
     inline_serializer,
 )
 
-from .serializers import RegisterSerializer, LoginSerializer, CurrentUserSerializer
+from .serializers import (
+    ActivateSuccessResponseSerializer,
+    CurrentUserBootstrapResponseSerializer,
+    CurrentUserSerializer,
+    LoginSerializer,
+    LoginSuccessResponseSerializer,
+    RegisterSerializer,
+)
 from .services import (
     register_user,
     login_user,
@@ -81,7 +88,7 @@ class RegisterView(generics.GenericAPIView):
         request=LoginSerializer,
         examples=[
             OpenApiExample(
-                name="Login Success",
+                name="Login Success With Store",
                 value={
                     "access": "<jwt-access-token>",
                     "refresh": "<jwt-refresh-token>",
@@ -93,32 +100,59 @@ class RegisterView(generics.GenericAPIView):
                             "id": 1,
                             "name": "My Store",
                             "slug": "my-store",
-                            "subdomain": "my-store",
+                            "subdomain": "live-shop",
                         }
                     ],
                     "current_store": {
                         "id": 1,
                         "name": "My Store",
                         "slug": "my-store",
-                        "subdomain": "my-store",
+                        "subdomain": "live-shop",
                     },
+                },
+                response_only=True,
+            ),
+            OpenApiExample(
+                name="Login Success Without Store Subdomain",
+                value={
+                    "access": "<jwt-access-token>",
+                    "refresh": "<jwt-refresh-token>",
+                    "user_id": 13,
+                    "role": "Store Owner",
+                    "tenant_id": 13,
+                    "stores": [
+                        {
+                            "id": 2,
+                            "name": "Draft Store",
+                            "slug": "draft-store",
+                            "subdomain": None,
+                        }
+                    ],
+                    "current_store": {
+                        "id": 2,
+                        "name": "Draft Store",
+                        "slug": "draft-store",
+                        "subdomain": None,
+                    },
+                },
+                response_only=True,
+            ),
+            OpenApiExample(
+                name="Super Admin Login Success",
+                value={
+                    "access": "<jwt-access-token>",
+                    "refresh": "<jwt-refresh-token>",
+                    "user_id": 1,
+                    "role": "Super Admin",
+                    "tenant_id": None,
+                    "stores": [],
+                    "current_store": None,
                 },
                 response_only=True,
             ),
         ],
         responses={
-            200: inline_serializer(
-                name="LoginSuccessResponse",
-                fields={
-                    "access": drf_serializers.CharField(),
-                    "refresh": drf_serializers.CharField(),
-                    "user_id": drf_serializers.IntegerField(),
-                    "role": drf_serializers.CharField(),
-                    "tenant_id": drf_serializers.IntegerField(allow_null=True),
-                    "stores": drf_serializers.ListField(),
-                    "current_store": drf_serializers.JSONField(allow_null=True),
-                },
-            ),
+            200: LoginSuccessResponseSerializer,
             **DOC_ERROR_RESPONSES,
         },
     ),
@@ -162,33 +196,21 @@ class LoginView(generics.GenericAPIView):
                             "id": 1,
                             "name": "My Store",
                             "slug": "my-store",
-                            "subdomain": "my-store",
+                            "subdomain": None,
                         }
                     ],
                     "current_store": {
                         "id": 1,
                         "name": "My Store",
                         "slug": "my-store",
-                        "subdomain": "my-store",
+                        "subdomain": None,
                     },
                 },
                 response_only=True,
             ),
         ],
         responses={
-            200: inline_serializer(
-                name="ActivateSuccessResponse",
-                fields={
-                    "detail": drf_serializers.CharField(),
-                    "access": drf_serializers.CharField(),
-                    "refresh": drf_serializers.CharField(),
-                    "user_id": drf_serializers.IntegerField(),
-                    "role": drf_serializers.CharField(),
-                    "tenant_id": drf_serializers.IntegerField(allow_null=True),
-                    "stores": drf_serializers.ListField(),
-                    "current_store": drf_serializers.JSONField(allow_null=True),
-                },
-            ),
+            200: ActivateSuccessResponseSerializer,
             **DOC_ERROR_RESPONSES,
         },
     ),
@@ -230,7 +252,7 @@ class MeView(generics.GenericAPIView):
         description="Return identity data for the currently authenticated user session.",
         tags=["Auth"],
         responses={
-            200: CurrentUserSerializer,
+            200: CurrentUserBootstrapResponseSerializer,
             **DOC_ERROR_RESPONSES,
         },
     )

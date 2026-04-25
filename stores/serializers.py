@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from .models import Store, StoreSettings, StoreDomain
 
 class StoreSerializer(serializers.ModelSerializer):
@@ -74,6 +76,7 @@ class StoreSettingsSerializer(serializers.Serializer):
     store_id = serializers.SerializerMethodField()
     settings = StoreSettingsDataSerializer(source='*', read_only=True)
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_store_id(self, obj):
         store = getattr(obj, 'store', None)
         if not store:

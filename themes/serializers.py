@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 
 from .models import StoreThemeConfig, ThemeTemplate
 
@@ -127,6 +129,7 @@ class AppearanceDataSerializer(serializers.Serializer):
     style = serializers.SerializerMethodField()
     logoUrl = serializers.CharField(source="logo_url", read_only=True)
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_style(self, obj):
         template = getattr(obj, "theme_template", None)
         if not template or not getattr(template, "name", None):
@@ -138,6 +141,7 @@ class StoreAppearanceSerializer(serializers.Serializer):
     store_id = serializers.SerializerMethodField()
     appearance = AppearanceDataSerializer(source="*", read_only=True)
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_store_id(self, obj):
         store = getattr(obj, "store", None)
         if not store:

@@ -184,9 +184,12 @@ CORS_ALLOW_ALL_ORIGINS=True
 
 AI_API_KEY=
 AI_PROVIDER=ollama
-AI_MODEL_NAME=qwen2.5:1.5b
-AI_TIMEOUT=240
 AI_API_URL=http://localhost:11434/api/chat
+AI_MODEL_NAME=qwen2.5:1.5b
+AI_TIMEOUT=60
+AI_MAX_TOKENS=4096
+AI_TEMPERATURE=0.2
+ANTHROPIC_VERSION=2023-06-01
 AI_HTTP_REFERER=http://localhost:8000
 AI_APP_TITLE=AI Store Backend
 
@@ -214,6 +217,17 @@ CACHE_KEY_PREFIX=ai_store_creation
 * `AI_PROVIDER=openai`
   * uses OpenAI-compatible chat completions endpoint
   * requires `AI_API_KEY`
+* `AI_PROVIDER=anthropic`
+  * uses Claude Messages API (`https://api.anthropic.com/v1/messages`)
+  * requires `AI_API_KEY`
+  * example:
+    * `AI_PROVIDER=anthropic`
+    * `AI_API_URL=https://api.anthropic.com/v1/messages`
+    * `AI_API_KEY=your_anthropic_api_key`
+    * `AI_MODEL_NAME=claude-3-5-sonnet-latest`
+    * `AI_MAX_TOKENS=4096`
+    * `AI_TEMPERATURE=0.2`
+    * `ANTHROPIC_VERSION=2023-06-01`
 
 ---
 

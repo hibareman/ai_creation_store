@@ -54,17 +54,20 @@ class OwnerStoreScopedSEOMixin:
 @extend_schema_view(
     get=extend_schema(
         summary="Get owner store SEO",
+        description="Retrieve SEO metadata for a tenant-owned store.",
         tags=["SEO"],
         responses={200: StoreSEOResponseSerializer, **DOC_ERROR_RESPONSES},
     ),
     put=extend_schema(
         summary="Update owner store SEO",
+        description="Replace SEO metadata for a tenant-owned store.",
         tags=["SEO"],
         request=SEOUpdateRequestSerializer,
         responses={200: StoreSEOResponseSerializer, **DOC_ERROR_RESPONSES},
     ),
     patch=extend_schema(
         summary="Partially update owner store SEO",
+        description="Partially update SEO metadata for a tenant-owned store.",
         tags=["SEO"],
         request=SEOUpdateRequestSerializer,
         responses={200: StoreSEOResponseSerializer, **DOC_ERROR_RESPONSES},
@@ -101,17 +104,20 @@ class StoreSEODetailView(OwnerStoreScopedSEOMixin, generics.GenericAPIView):
 @extend_schema_view(
     get=extend_schema(
         summary="Get owner product SEO",
+        description="Retrieve SEO metadata for one product in a tenant-owned store.",
         tags=["SEO"],
         responses={200: ProductSEOResponseSerializer, **DOC_ERROR_RESPONSES},
     ),
     put=extend_schema(
         summary="Update owner product SEO",
+        description="Replace SEO metadata for one product in a tenant-owned store.",
         tags=["SEO"],
         request=SEOUpdateRequestSerializer,
         responses={200: ProductSEOResponseSerializer, **DOC_ERROR_RESPONSES},
     ),
     patch=extend_schema(
         summary="Partially update owner product SEO",
+        description="Partially update SEO metadata for one product in a tenant-owned store.",
         tags=["SEO"],
         request=SEOUpdateRequestSerializer,
         responses={200: ProductSEOResponseSerializer, **DOC_ERROR_RESPONSES},
@@ -162,17 +168,20 @@ class ProductSEODetailView(OwnerStoreScopedSEOMixin, generics.GenericAPIView):
 @extend_schema_view(
     get=extend_schema(
         summary="Get owner category SEO",
+        description="Retrieve SEO metadata for one category in a tenant-owned store.",
         tags=["SEO"],
         responses={200: CategorySEOResponseSerializer, **DOC_ERROR_RESPONSES},
     ),
     put=extend_schema(
         summary="Update owner category SEO",
+        description="Replace SEO metadata for one category in a tenant-owned store.",
         tags=["SEO"],
         request=SEOUpdateRequestSerializer,
         responses={200: CategorySEOResponseSerializer, **DOC_ERROR_RESPONSES},
     ),
     patch=extend_schema(
         summary="Partially update owner category SEO",
+        description="Partially update SEO metadata for one category in a tenant-owned store.",
         tags=["SEO"],
         request=SEOUpdateRequestSerializer,
         responses={200: CategorySEOResponseSerializer, **DOC_ERROR_RESPONSES},
@@ -223,6 +232,7 @@ class CategorySEODetailView(OwnerStoreScopedSEOMixin, generics.GenericAPIView):
 @extend_schema_view(
     get=extend_schema(
         summary="Get public store SEO",
+        description="Return public-safe SEO metadata for a published active store resolved by subdomain.",
         tags=["Public SEO"],
         responses={200: StoreSEOResponseSerializer, 404: OpenApiResponse(description="Not found")},
     ),
@@ -239,6 +249,7 @@ class PublicStoreSEOView(generics.GenericAPIView):
 @extend_schema_view(
     get=extend_schema(
         summary="Get public product SEO",
+        description="Return public-safe SEO metadata for one active product in a published active store resolved by subdomain.",
         tags=["Public SEO"],
         responses={200: ProductSEOResponseSerializer, 404: OpenApiResponse(description="Not found")},
     ),

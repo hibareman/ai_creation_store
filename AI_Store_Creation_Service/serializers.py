@@ -7,6 +7,7 @@ They intentionally do not include business logic, DB access, or workflow orchest
 
 from __future__ import annotations
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 
@@ -47,6 +48,16 @@ class AIDraftStateResponseSerializer(serializers.Serializer):
     draft_metadata = serializers.JSONField()
 
 
+@extend_schema_field(
+    {
+        "oneOf": [
+            {"type": "string"},
+            {"type": "object"},
+            {"type": "array", "items": {}},
+        ],
+        "description": "Non-empty clarification answer as a string, object, or list.",
+    }
+)
 class ClarificationAnswersField(serializers.Field):
     """
     Accept either:
