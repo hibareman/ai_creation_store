@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 
 from .models import Order, OrderItem
 
@@ -50,22 +52,26 @@ class OwnerOrderSerializer(serializers.ModelSerializer):
             "items",
         ]
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_customer_name(self, obj):
         if obj.customer_id and obj.customer:
             return obj.customer.name
         return None
 
+    @extend_schema_field(OpenApiTypes.EMAIL)
     def get_email(self, obj):
         if obj.customer_id and obj.customer:
             return obj.customer.email
         return None
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_phone(self, obj):
         if obj.customer_id and obj.customer:
             phone = getattr(obj.customer, "phone", "")
             return phone or None
         return None
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_address(self, obj):
         if not obj.customer_id or not obj.customer:
             return None
@@ -81,6 +87,21 @@ class OwnerOrderSerializer(serializers.ModelSerializer):
 
         parts = [first_address.country, first_address.city, first_address.street]
         return ", ".join([part for part in parts if part])
+
+
+class OwnerOrderDetailCustomerSerializer(serializers.Serializer):
+    id = serializers.IntegerField(allow_null=True)
+    name = serializers.CharField()
+    email = serializers.EmailField(allow_blank=True)
+    phone = serializers.CharField(allow_blank=True)
+
+
+class OwnerOrderDetailShippingAddressSerializer(serializers.Serializer):
+    country = serializers.CharField(allow_blank=True)
+    city = serializers.CharField(allow_blank=True)
+    address_line_1 = serializers.CharField(allow_blank=True)
+    address_line_2 = serializers.CharField(allow_blank=True)
+    postal_code = serializers.CharField(allow_blank=True)
 
 
 class OwnerOrderDetailItemSerializer(serializers.ModelSerializer):
@@ -105,14 +126,17 @@ class OwnerOrderDetailItemSerializer(serializers.ModelSerializer):
             "line_total",
         ]
 
+    @extend_schema_field(OpenApiTypes.INT)
     def get_product_id(self, obj):
         return obj.product_id or 0
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_sku(self, obj):
         if obj.product_id and obj.product:
             return obj.product.sku or ""
         return ""
 
+    @extend_schema_field(OpenApiTypes.URI)
     def get_image_url(self, obj):
         if not obj.product_id or not obj.product:
             return ""
@@ -139,9 +163,11 @@ class OwnerOrderDetailItemSerializer(serializers.ModelSerializer):
 
         return image.image_url or ""
 
+    @extend_schema_field(OpenApiTypes.FLOAT)
     def get_unit_price(self, obj):
         return float(obj.product_price or 0)
 
+    @extend_schema_field(OpenApiTypes.FLOAT)
     def get_line_total(self, obj):
         return float((obj.product_price or 0) * obj.quantity)
 
@@ -185,31 +211,39 @@ class OwnerOrderDetailSerializer(serializers.ModelSerializer):
             "items",
         ]
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_order_number(self, obj):
         return f"ORD-{obj.id}"
 
+    @extend_schema_field(OpenApiTypes.FLOAT)
     def get_subtotal(self, obj):
         return float(obj.total_price or 0)
 
+    @extend_schema_field(OpenApiTypes.FLOAT)
     def get_shipping_fee(self, obj):
         # MVP: fee is not persisted yet, so return zero in numeric format.
         return 0.0
 
+    @extend_schema_field(OpenApiTypes.FLOAT)
     def get_discount(self, obj):
         # MVP: discount is not persisted yet, so return zero in numeric format.
         return 0.0
 
+    @extend_schema_field(OpenApiTypes.FLOAT)
     def get_total(self, obj):
         return float(obj.total_price or 0)
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_payment_method(self, obj):
         # MVP placeholder until payment method persistence is introduced.
         return ""
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_notes(self, obj):
         # MVP placeholder until order notes persistence is introduced.
         return ""
 
+    @extend_schema_field(OwnerOrderDetailCustomerSerializer)
     def get_customer(self, obj):
         if not obj.customer_id or not obj.customer:
             return {
@@ -226,6 +260,7 @@ class OwnerOrderDetailSerializer(serializers.ModelSerializer):
             "phone": getattr(obj.customer, "phone", "") or "",
         }
 
+    @extend_schema_field(OwnerOrderDetailShippingAddressSerializer)
     def get_shipping_address(self, obj):
         if not obj.customer_id or not obj.customer:
             return {
@@ -287,6 +322,7 @@ class OwnerCustomerSerializer(serializers.Serializer):
     avatar_url = serializers.SerializerMethodField()
     orders_count = serializers.IntegerField(read_only=True)
 
+    @extend_schema_field(OpenApiTypes.URI)
     def get_avatar_url(self, obj):
         avatar_url = getattr(obj, "avatar_url", "")
         return avatar_url or None

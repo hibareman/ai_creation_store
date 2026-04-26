@@ -85,6 +85,7 @@ class ProductStoreAccessMixin:
 
 @extend_schema_view(
     get=extend_schema(
+        operation_id="public_store_products_list",
         summary="List public store products",
         description="Return active public products for a published active store by subdomain.",
         tags=["Public Products"],
@@ -120,6 +121,7 @@ class PublicStoreProductsListView(generics.GenericAPIView):
 
 @extend_schema_view(
     get=extend_schema(
+        operation_id="public_store_product_detail",
         summary="Get public product detail",
         description="Return one active public product in a published active store by subdomain and product ID.",
         tags=["Public Products"],

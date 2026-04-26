@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from .models import User
 from django.contrib.auth import get_user_model
 
@@ -138,6 +140,47 @@ class CurrentUserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_display_name(self, obj):
         full_name = f"{obj.first_name} {obj.last_name}".strip()
         return full_name or obj.username
+
+
+class AuthStoreSummarySerializer(serializers.Serializer):
+    """Store summary returned in auth/bootstrap responses."""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    slug = serializers.CharField()
+    subdomain = serializers.CharField(allow_null=True)
+
+
+class AuthBootstrapResponseSerializer(serializers.Serializer):
+    """Shared auth bootstrap payload with store context."""
+
+    stores = AuthStoreSummarySerializer(many=True)
+    current_store = AuthStoreSummarySerializer(allow_null=True)
+
+
+class LoginSuccessResponseSerializer(AuthBootstrapResponseSerializer):
+    access = serializers.CharField()
+    refresh = serializers.CharField()
+    user_id = serializers.IntegerField()
+    role = serializers.CharField()
+    tenant_id = serializers.IntegerField(allow_null=True)
+
+
+class ActivateSuccessResponseSerializer(LoginSuccessResponseSerializer):
+    detail = serializers.CharField()
+
+
+class CurrentUserBootstrapResponseSerializer(CurrentUserSerializer):
+    stores = AuthStoreSummarySerializer(many=True)
+    current_store = AuthStoreSummarySerializer(allow_null=True)
+
+    class Meta(CurrentUserSerializer.Meta):
+        fields = CurrentUserSerializer.Meta.fields + [
+            "stores",
+            "current_store",
+        ]
+        read_only_fields = fields

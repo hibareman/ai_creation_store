@@ -114,6 +114,7 @@ class StoreOwnerCustomersListView(OwnerStoreScopedMixin, generics.GenericAPIView
 
 @extend_schema_view(
     get=extend_schema(
+        operation_id="owner_store_orders_list",
         summary="List owner store orders",
         description="Return orders for the authenticated owner's tenant-scoped store.",
         tags=["Orders"],
@@ -139,6 +140,7 @@ class StoreOwnerOrdersListView(OwnerStoreScopedMixin, generics.GenericAPIView):
 
 @extend_schema_view(
     get=extend_schema(
+        operation_id="owner_store_order_detail",
         summary="Get owner order detail",
         description="Return one order detail for the authenticated owner's tenant-scoped store.",
         tags=["Orders"],
@@ -290,12 +292,9 @@ class PublicStoreCartMixin:
     ),
     delete=extend_schema(
         summary="Clear public cart",
-        description="Clear all items from a store-scoped public cart.",
+        description="Clear all items from a store-scoped public cart and return the refreshed empty cart payload.",
         tags=["Orders"],
-        responses={
-            204: OpenApiResponse(description="Cart cleared successfully."),
-            **DOC_ERROR_RESPONSES,
-        },
+        responses={200: PublicCartResponseSerializer, **DOC_ERROR_RESPONSES},
     ),
 )
 class PublicStoreCartView(PublicStoreCartMixin, generics.GenericAPIView):
@@ -367,12 +366,9 @@ class PublicStoreCartItemsView(PublicStoreCartMixin, generics.GenericAPIView):
     ),
     delete=extend_schema(
         summary="Remove item from public cart",
-        description="Remove one product from a store-scoped public cart.",
+        description="Remove one product from a store-scoped public cart and return the refreshed cart payload.",
         tags=["Orders"],
-        responses={
-            204: OpenApiResponse(description="Cart item removed successfully."),
-            **DOC_ERROR_RESPONSES,
-        },
+        responses={200: PublicCartResponseSerializer, **DOC_ERROR_RESPONSES},
     ),
 )
 class PublicStoreCartItemDetailView(PublicStoreCartMixin, generics.GenericAPIView):

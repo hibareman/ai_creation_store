@@ -337,7 +337,10 @@ class PublicStoreDetailView(generics.GenericAPIView):
 @extend_schema_view(
     patch=extend_schema(
         summary="Set store subdomain",
-        description="Set or update the subdomain for a tenant-owned store.",
+        description=(
+            "Set or update only the public subdomain for a tenant-owned store. "
+            "This endpoint does not modify slug/storeUrl. Duplicate, invalid, or blank subdomains return 400."
+        ),
         tags=["Stores"],
         request=SetStoreSubdomainRequestSerializer,
         responses={
@@ -399,7 +402,11 @@ class SetStoreSubdomainView(generics.GenericAPIView):
 @extend_schema_view(
     patch=extend_schema(
         summary="Publish or unpublish store",
-        description="Execute publish action for a tenant-owned store using requested action.",
+        description=(
+            "Publish or unpublish a tenant-owned store. Request action must be publish or unpublish. "
+            "Publishing requires a valid name, subdomain, active status, and at least one active product. "
+            "Response includes current is_published and published_at state."
+        ),
         tags=["Stores"],
         request=PublishStoreRequestSerializer,
         responses={
@@ -451,7 +458,10 @@ class StorePublishActionView(generics.GenericAPIView):
 @extend_schema_view(
     get=extend_schema(
         summary="Get store settings",
-        description="Retrieve settings for a tenant-owned store.",
+        description=(
+            "Retrieve settings for a tenant-owned store. storeUrl maps to the store slug, "
+            "while storeSubdomain maps to the real public subdomain and can be null."
+        ),
         tags=["Stores"],
         responses={200: StoreSettingsSerializer, **DOC_ERROR_RESPONSES},
     ),
@@ -538,7 +548,10 @@ class RetrieveUpdateStoreSettingsView(StoreAccessMixin, generics.GenericAPIView)
     ),
     post=extend_schema(
         summary="Create store domain",
-        description="Create a new domain for a tenant-owned store.",
+        description=(
+            "Create a new domain for a tenant-owned store. If is_primary is true, existing primary "
+            "domains for the store are unset. Duplicate domain values fail because domains are globally unique."
+        ),
         tags=["Stores"],
         request=StoreDomainSerializer,
         responses={201: StoreDomainSerializer, **DOC_ERROR_RESPONSES},
@@ -583,14 +596,20 @@ class ListCreateStoreDomainView(StoreAccessMixin, generics.ListCreateAPIView):
     ),
     put=extend_schema(
         summary="Update store domain",
-        description="Replace a domain configuration for a tenant-owned store.",
+        description=(
+            "Replace a domain configuration for a tenant-owned store. If is_primary is true, existing "
+            "primary domains for the store are unset."
+        ),
         tags=["Stores"],
         request=StoreDomainSerializer,
         responses={200: StoreDomainSerializer, **DOC_ERROR_RESPONSES},
     ),
     patch=extend_schema(
         summary="Partially update store domain",
-        description="Partially update a domain configuration for a tenant-owned store.",
+        description=(
+            "Partially update a domain configuration for a tenant-owned store. If is_primary is true, "
+            "existing primary domains for the store are unset."
+        ),
         tags=["Stores"],
         request=StoreDomainSerializer,
         responses={200: StoreDomainSerializer, **DOC_ERROR_RESPONSES},

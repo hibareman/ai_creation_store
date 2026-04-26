@@ -20,12 +20,14 @@ from users.models import User
 
 
 RUN_LIVE_AI_TESTS = os.getenv("RUN_LIVE_AI_TESTS") == "1"
-HAS_AI_API_KEY = bool(os.getenv("AI_API_KEY", "").strip())
+HAS_AI_API_KEY = bool(
+    os.getenv("AI_API_KEY", "").strip() or os.getenv("ANTHROPIC_API_KEY", "").strip()
+)
 
 
 @skipUnless(
     RUN_LIVE_AI_TESTS and HAS_AI_API_KEY,
-    "Live AI tests are disabled. Set RUN_LIVE_AI_TESTS=1 and AI_API_KEY to enable.",
+    "Live AI tests are disabled. Set RUN_LIVE_AI_TESTS=1 and AI_API_KEY (or ANTHROPIC_API_KEY) to enable.",
 )
 class AILiveProviderIntegrationTests(TestCase):
     """

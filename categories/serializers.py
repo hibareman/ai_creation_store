@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from .models import Category
 
 
@@ -58,6 +60,7 @@ class CategorySerializer(serializers.ModelSerializer):
             },
         }
 
+    @extend_schema_field(OpenApiTypes.URI)
     def get_image_url(self, obj):
         """
         Placeholder field for frontend contract compatibility.
@@ -65,6 +68,7 @@ class CategorySerializer(serializers.ModelSerializer):
         """
         return None
 
+    @extend_schema_field(OpenApiTypes.INT)
     def get_product_count(self, obj):
         """
         Return linked products count.
