@@ -1,6 +1,7 @@
 from rest_framework import generics, status, serializers as drf_serializers
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework_simplejwt.views import TokenRefreshView
 from drf_spectacular.utils import (
     OpenApiExample,
     OpenApiResponse,
@@ -153,6 +154,7 @@ class RegisterView(generics.GenericAPIView):
         ],
         responses={
             200: LoginSuccessResponseSerializer,
+            401: OpenApiResponse(description="Invalid credentials"),
             **DOC_ERROR_RESPONSES,
         },
     ),
@@ -253,6 +255,7 @@ class MeView(generics.GenericAPIView):
         tags=["Auth"],
         responses={
             200: CurrentUserBootstrapResponseSerializer,
+            401: OpenApiResponse(description="Authentication credentials were not provided or invalid."),
             **DOC_ERROR_RESPONSES,
         },
     )
@@ -261,3 +264,28 @@ class MeView(generics.GenericAPIView):
         payload = dict(serializer.data)
         payload.update(get_auth_bootstrap_store_payload(request.user))
         return Response(payload, status=status.HTTP_200_OK)
+
+
+class DocumentedTokenRefreshView(TokenRefreshView):
+    @extend_schema(
+        summary="Refresh JWT access token",
+        description="Return a new JWT access token from a valid refresh token.",
+        tags=["Auth"],
+        request=inline_serializer(
+            name="TokenRefreshRequest",
+            fields={
+                "refresh": drf_serializers.CharField(),
+            },
+        ),
+        responses={
+            200: inline_serializer(
+                name="TokenRefreshSuccessResponse",
+                fields={
+                    "access": drf_serializers.CharField(),
+                },
+            ),
+            401: OpenApiResponse(description="Refresh token is invalid or expired."),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
