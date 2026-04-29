@@ -1,417 +1,275 @@
-# AI Store Backend
+# AI Store Creation Backend
 
-A multi-tenant e-commerce backend built with **Django** and **Django REST Framework**, designed to support store creation, store management, product/catalog operations, order management, public storefront flows, and AI-assisted draft store setup.
+## Project Overview
 
----
+Multi-tenant, AI-assisted e-commerce store creation backend built with Django REST Framework. The platform supports Store Owners and Super Admins, with APIs for AI draft generation, store management, products, categories, themes, orders, SEO, and platform administration.
 
-## Overview
+Swagger is the source of truth for full request and response schemas:
 
-This project provides the backend for an AI-powered store platform where each store owner manages their own isolated store data, while public visitors can browse products, use a mock cart, and place orders.
+- Swagger UI: http://localhost:8000/api/docs/
+- ReDoc: http://localhost:8000/api/redoc/
+- OpenAPI schema: http://localhost:8000/api/schema/
 
-The system is built with a **layered architecture**:
+## Getting Started
 
-- **Views** → request/response orchestration
-- **Services** → business logic
-- **Selectors** → read/query layer
-- **Models** → persistence layer
+```powershell
+git clone <repo-url>
+cd ai_store_creation
 
-It also enforces **strict multi-tenant isolation** using `tenant_id` and store ownership checks.
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 
----
-
-## Main Features
-
-### Authentication & Users
-- User registration
-- Email activation
-- JWT login
-- Current authenticated user endpoint
-- Role-based access (`Store Owner`, `Super Admin`)
-
-### Multi-Tenant Store Management
-- Store creation and update
-- Store settings
-- Store publish / unpublish
-- Store subdomain support
-- Public store detail by subdomain
-- Appearance / branding endpoints
-
-### Categories & Products
-- Category CRUD
-- Product CRUD
-- Product inventory update
-- Product image management
-- Public store products list
-- Public product detail by store subdomain
-- Unified product response DTOs for frontend usage
-
-### Orders
-#### Owner Side
-- Store dashboard
-- Customers list
-- Orders list
-- Order detail
-- Order status update
-
-#### Public Side
-- Public direct order creation
-- Mock cart
-- Checkout from cart
-
-### AI Store Creation Workflow
-- Start AI draft
-- Clarification rounds
-- Full regenerate
-- Partial regenerate
-- Apply draft to store
-
-### API Documentation
-- OpenAPI schema
-- Swagger UI
-- ReDoc
-
----
-
-## Tech Stack
-
-- **Python**
-- **Django**
-- **Django REST Framework**
-- **SimpleJWT**
-- **drf-spectacular**
-- **PostgreSQL**
-- **Redis / LocMemCache fallback**
-- **Pillow**
-
-Optional AI provider support:
-- **OpenRouter**
-- Local fallback/cache-based draft flow
-
----
-
-## Architecture
-
-The project follows a layered, maintainable backend architecture:
-
-```text
-views.py       -> HTTP handling only
-services.py    -> business logic
-selectors.py   -> read/query logic
-models.py      -> database models
-serializers.py -> validation + DTO formatting
-````
-
-### Key Rules
-
-* No business logic inside serializers
-* No DB query logic inside views
-* Every owner-scoped query must respect:
-
-  * `tenant_id`
-  * `store_id`
-  * `owner_id` where required
-* Public endpoints only expose published / active store data
-
----
-
-## Project Structure
-
-```text
-AI Store Backend
-├── users/
-├── stores/
-├── categories/
-├── products/
-├── orders/
-├── themes/
-├── AI_Store_Creation_Service/
-├── config/
-└── utils/
+pip install -r requirements.txt
 ```
 
----
+Create a `.env` file from an example if available, or add the required values manually. Configure PostgreSQL with either `DATABASE_URL` or the `DB_*` variables.
 
-## Implemented Modules
+```powershell
+python manage.py migrate
+python manage.py check
+python manage.py bootstrap_superadmin --password "ChangeMeStrong123!"
+python manage.py runserver
+```
 
-### `users`
-
-Authentication, activation, login, identity endpoints.
-
-### `stores`
-
-Store CRUD, settings, publish flow, subdomain, public store detail.
-
-### `themes`
-
-Store appearance / branding configuration.
-
-### `categories`
-
-Store category management.
-
-### `products`
-
-Product CRUD, images, inventory, public product browsing.
-
-### `orders`
-
-Owner dashboard, owner orders/customers, public order creation, mock cart, checkout.
-
-### `AI_Store_Creation_Service`
-
-AI-assisted temporary draft generation and application workflow.
-
----
+Then open http://localhost:8000/api/docs/.
 
 ## Environment Variables
 
-Create a `.env` file in the project root.
-
-Example:
+Important `.env` values only:
 
 ```env
-SECRET_KEY=your-secret-key
+SECRET_KEY=change-me
 DEBUG=True
 
+DATABASE_URL=postgres://postgres:password@localhost:5432/ai_store_db
+# Or:
 DB_ENGINE=django.db.backends.postgresql
 DB_NAME=ai_store_db
 DB_USER=postgres
-DB_PASSWORD=1234
+DB_PASSWORD=password
 DB_HOST=localhost
-DB_PORT=5433
+DB_PORT=5432
 
-CORS_ALLOW_ALL_ORIGINS=True
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 
-AI_API_KEY=
 AI_PROVIDER=ollama
+AI_API_KEY=
 AI_API_URL=http://localhost:11434/api/chat
 AI_MODEL_NAME=qwen2.5:1.5b
 AI_TIMEOUT=60
 AI_MAX_TOKENS=4096
 AI_TEMPERATURE=0.2
 ANTHROPIC_VERSION=2023-06-01
-AI_HTTP_REFERER=http://localhost:8000
-AI_APP_TITLE=AI Store Backend
 
+CACHE_BACKEND=locmem
+REDIS_URL=redis://127.0.0.1:6379/1
 AI_DRAFT_TTL=3600
 AI_DRAFT_PREFIX=ai_draft
-
-REDIS_URL=
-CACHE_KEY_PREFIX=ai_store_creation
 ```
 
-### Notes
+### Ollama Local Example
 
-* If `REDIS_URL` is not provided, the project uses **LocMemCache** as a safe local fallback.
-* If `AI_API_KEY` is not configured, AI draft flow may fall back to clarification mode depending on the current provider behavior.
-* For local Ollama usage:
-  * run `ollama serve`
-  * pull model once: `ollama pull qwen2.5:1.5b`
-  * keep `AI_PROVIDER=ollama` and `AI_API_URL=http://localhost:11434/api/chat`
-
-### AI Provider Options
-
-* `AI_PROVIDER=ollama` (default in this project)
-  * uses local Ollama endpoint
-  * does not require `AI_API_KEY`
-* `AI_PROVIDER=openai`
-  * uses OpenAI-compatible chat completions endpoint
-  * requires `AI_API_KEY`
-* `AI_PROVIDER=anthropic`
-  * uses Claude Messages API (`https://api.anthropic.com/v1/messages`)
-  * requires `AI_API_KEY`
-  * example:
-    * `AI_PROVIDER=anthropic`
-    * `AI_API_URL=https://api.anthropic.com/v1/messages`
-    * `AI_API_KEY=your_anthropic_api_key`
-    * `AI_MODEL_NAME=claude-3-5-sonnet-latest`
-    * `AI_MAX_TOKENS=4096`
-    * `AI_TEMPERATURE=0.2`
-    * `ANTHROPIC_VERSION=2023-06-01`
-
----
-
-## Installation
-
-### 1. Clone the repository
-
-```bash
-git clone <your-repo-url>
-cd <your-project-folder>
+```env
+AI_PROVIDER=ollama
+AI_API_URL=http://localhost:11434/api/chat
+AI_MODEL_NAME=qwen2.5:1.5b
+AI_API_KEY=
 ```
 
-### 2. Create virtual environment
+Run Ollama separately and pull the model once:
 
-```bash
-python -m venv .venv
+```powershell
+ollama serve
+ollama pull qwen2.5:1.5b
 ```
 
-### 3. Activate virtual environment
+### Anthropic / Claude Example
 
-#### Windows
-
-```bash
-.venv\Scripts\activate
+```env
+AI_PROVIDER=anthropic
+AI_API_URL=https://api.anthropic.com/v1/messages
+AI_API_KEY=your-api-key
+AI_MODEL_NAME=claude-3-5-sonnet-latest
+AI_TIMEOUT=240
+AI_MAX_TOKENS=4096
+AI_TEMPERATURE=0.2
+ANTHROPIC_VERSION=2023-06-01
 ```
 
-#### Linux / macOS
+Do not commit real secrets.
 
-```bash
-source .venv/bin/activate
+## Technologies Used
+
+- Python
+- Django
+- Django REST Framework
+- SimpleJWT
+- drf-spectacular / Swagger
+- PostgreSQL
+- Redis / Django cache
+- Ollama / OpenAI-compatible providers / Anthropic Claude
+- Pillow
+- Git / GitHub
+
+## Main Features
+
+- JWT authentication and email activation
+- Super Admin bootstrap and login
+- Multi-tenant store isolation using `tenant_id`
+- Store CRUD, settings, publishing, slug, subdomain, and domain management
+- Product, category, inventory, and image management
+- Theme and appearance management
+- Public store APIs
+- Cart, checkout, and order APIs
+- SEO APIs
+- AI-assisted store draft workflow
+- Clarification questions
+- Full and partial AI regeneration
+- AI fallback and temporary draft storage
+- Super Admin dashboard, stores, users, and settings APIs
+- Swagger API documentation
+
+## Project Structure
+
+| Path | Purpose |
+|---|---|
+| `users/` | Auth, activation, JWT login, roles, permissions |
+| `stores/` | Store CRUD, settings, domains, slug, subdomain, publish flow |
+| `categories/` | Store category endpoints |
+| `products/` | Products, images, inventory, public product browsing |
+| `orders/` | Owner orders, customers, public cart and checkout |
+| `themes/` | Theme templates, appearance, logo upload |
+| `seo/` | Store, product, category, and public SEO metadata |
+| `AI_Store_Creation_Service/` | AI draft generation and apply workflow |
+| `platform_admin/` | Super Admin dashboard, stores, users, settings |
+| `config/` | Django settings, root URLs, ASGI/WSGI |
+| `utils/` | Shared utilities and middleware |
+| `docs/` | Project documentation assets |
+| `media/` | Uploaded media files |
+
+## API Endpoints Summary
+
+Protected endpoints require:
+
+```http
+Authorization: Bearer <access_token>
 ```
 
-### 4. Install dependencies
+Use Swagger for complete schemas, validation rules, and examples.
 
-```bash
-pip install -r requirements.txt
-```
+### Auth
 
-### 5. Apply migrations
+| Method | URL | Description | Body | Response |
+|---|---|---|---|---|
+| POST | `/api/auth/register/` | Register Store Owner and send activation email | User registration fields | Activation message |
+| POST | `/api/auth/login/` | Login with email/password | `email`, `password` | JWT tokens and user bootstrap data |
+| GET | `/api/auth/me/` | Current authenticated identity | None | User identity and store bootstrap data |
+| GET | `/api/auth/activate/{token}/` | Activate account by email token | None | Activation message and JWT data |
+| POST | `/api/auth/token/refresh/` | Refresh JWT access token | `refresh` | New `access` token |
 
-```bash
-python manage.py migrate
-```
+### Stores
 
-### 6. Run development server
+| Method | URL | Description | Body | Response |
+|---|---|---|---|---|
+| GET | `/api/stores/` | List owner stores | None | Store list |
+| POST | `/api/stores/` | Create store | Store payload | Created store |
+| PUT/PATCH | `/api/stores/{id}/` | Update store | Store fields | Updated store |
+| DELETE | `/api/stores/{id}/delete/` | Delete store | None | Empty/delete response |
+| POST | `/api/stores/slug/check/` | Check slug availability | Slug payload | Availability result |
+| POST | `/api/stores/slug/suggest/` | Suggest slug | Name payload | Suggested slug |
+| GET | `/api/stores/public/store/{subdomain}/` | Public store detail | None | Public store data |
+| PATCH | `/api/stores/{store_id}/subdomain/` | Set store subdomain | Subdomain payload | Updated store/subdomain data |
+| PATCH | `/api/stores/{store_id}/publish/` | Publish or unpublish store | Publish action | Updated publish state |
+| GET/PUT/PATCH | `/api/stores/{store_id}/settings/` | Store settings | Settings payload for updates | Store settings |
+| GET/POST | `/api/stores/{store_id}/domains/` | List or add domains | Domain payload for create | Domain list or created domain |
+| GET/PUT/PATCH/DELETE | `/api/stores/{store_id}/domains/{domain_id}/` | Domain detail/update/delete | Domain payload for updates | Domain data or delete response |
 
-```bash
-python manage.py runserver
-```
+### Themes
 
----
+| Method | URL | Description | Body | Response |
+|---|---|---|---|---|
+| GET | `/api/stores/{store_id}/themes/templates/` | List theme templates | None | Theme templates |
+| GET/PATCH | `/api/stores/{store_id}/theme/` | Get or update active theme config | Theme config fields | Theme config |
+| GET/PUT/PATCH | `/api/stores/{store_id}/appearance/` | Store appearance settings | Appearance fields | Appearance config |
+| POST | `/api/stores/{store_id}/assets/logo/` | Upload store logo | Multipart logo file | Updated logo data |
 
-## Running Tests
+### Products and Categories
 
-Run all tests:
+| Method | URL | Description | Body | Response |
+|---|---|---|---|---|
+| GET/POST | `/api/stores/{store_id}/categories/` | List or create categories | Category payload for create | Category list or created category |
+| GET/PUT/PATCH/DELETE | `/api/stores/{store_id}/categories/{category_id}/` | Category detail/update/delete | Category fields for updates | Category data or delete response |
+| GET/POST | `/api/products/{store_id}/products/` | List or create products | Product payload for create | Product list or created product |
+| GET/PUT/PATCH/DELETE | `/api/products/{store_id}/products/{product_id}/` | Product detail/update/delete | Product fields for updates | Product data or delete response |
+| GET/POST | `/api/products/{store_id}/products/{product_id}/images/` | List or upload product images | Image payload | Image list or created image |
+| DELETE | `/api/products/{store_id}/products/{product_id}/images/{image_id}/` | Delete product image | None | Delete response |
+| PUT/PATCH | `/api/products/{store_id}/products/{product_id}/inventory/` | Update inventory | Inventory fields | Updated inventory |
+| GET | `/api/products/public/store/{subdomain}/products/` | Public products list | None | Public product list |
+| GET | `/api/products/public/store/{subdomain}/products/{product_id}/` | Public product detail | None | Public product data |
 
-```bash
-python manage.py test
-```
+### Orders and Cart
 
-Run a specific app:
+| Method | URL | Description | Body | Response |
+|---|---|---|---|---|
+| GET | `/api/stores/{store_id}/dashboard/` | Owner order dashboard | None | Dashboard metrics |
+| GET | `/api/stores/{store_id}/customers/` | Owner customers list | None | Customers list |
+| GET | `/api/stores/{store_id}/orders/` | Owner orders list | None | Orders list |
+| GET | `/api/stores/{store_id}/orders/{order_id}/` | Owner order detail | None | Order detail |
+| PATCH | `/api/stores/{store_id}/orders/{order_id}/status/` | Update owner order status | Status payload | Updated order |
+| POST | `/api/public/store/{subdomain}/orders/` | Public direct order creation | Order payload | Created order |
+| GET/DELETE | `/api/public/store/{subdomain}/cart/` | Get or clear public cart | None | Cart data or clear result |
+| POST | `/api/public/store/{subdomain}/cart/items/` | Add cart item | Item payload | Updated cart |
+| PATCH/DELETE | `/api/public/store/{subdomain}/cart/items/{product_id}/` | Update or remove cart item | Quantity payload for patch | Updated cart or remove result |
+| POST | `/api/public/store/{subdomain}/cart/checkout/` | Checkout from cart | Checkout payload | Created order |
 
-```bash
-python manage.py test orders
-```
+### SEO
 
-Run system checks:
+| Method | URL | Description | Body | Response |
+|---|---|---|---|---|
+| GET/PUT/PATCH | `/api/stores/{store_id}/seo/` | Store SEO metadata | SEO fields for updates | Store SEO |
+| GET/PUT/PATCH | `/api/products/{store_id}/products/{product_id}/seo/` | Product SEO metadata | SEO fields for updates | Product SEO |
+| GET/PUT/PATCH | `/api/categories/{store_id}/categories/{category_id}/seo/` | Category SEO metadata | SEO fields for updates | Category SEO |
+| GET | `/api/public/store/{subdomain}/seo/` | Public store SEO | None | Public SEO metadata |
+| GET | `/api/public/store/{subdomain}/products/{product_id}/seo/` | Public product SEO | None | Public product SEO metadata |
 
-```bash
+### AI Store Creation
+
+| Method | URL | Description | Body | Response |
+|---|---|---|---|---|
+| POST | `/api/ai/stores/draft/start/` | Start AI draft | Store brief/prompt | Draft response |
+| GET | `/api/ai/stores/{store_id}/draft/` | Get current draft | None | Current draft |
+| POST | `/api/ai/stores/{store_id}/draft/clarify/` | Answer clarification questions | Clarification answers | Updated draft state |
+| POST | `/api/ai/stores/{store_id}/draft/regenerate/` | Regenerate full draft | Regeneration payload | New draft |
+| POST | `/api/ai/stores/{store_id}/draft/regenerate-section/` | Regenerate one section | Section payload | Updated section |
+| POST | `/api/ai/stores/{store_id}/draft/apply/` | Apply draft to store | Apply payload | Applied store data |
+
+### Super Admin
+
+| Method | URL | Description | Body | Response |
+|---|---|---|---|---|
+| GET | `/api/admin/dashboard/` | Platform metrics and recent stores | None | Dashboard summary |
+| GET | `/api/admin/stores/` | Manage stores list | Optional query params | Store admin summaries |
+| PATCH | `/api/admin/stores/{store_id}/status/` | Update admin store status | `status` | Updated store summary |
+| GET | `/api/admin/users/` | Manage users list | Optional `search` query | User admin summaries |
+| GET | `/api/admin/settings/` | Get platform settings | None | Platform settings |
+| PATCH | `/api/admin/settings/` | Update platform settings | Settings wrapper | Updated platform settings |
+
+## Testing
+
+```powershell
 python manage.py check
+python manage.py test
+python manage.py spectacular --file schema.yaml --validate
 ```
 
----
+## Notes
 
-## API Documentation
-
-After running the server, API docs are available at:
-
-* **Swagger UI**: `/api/docs/`
-* **ReDoc**: `/api/redoc/`
-* **OpenAPI Schema**: `/api/schema/`
-
----
-
-## Example API Areas
-
-### Owner Store Settings
-
-* `GET /api/stores/{store_id}/settings/`
-* `PATCH /api/stores/{store_id}/settings/`
-
-### Owner Appearance
-
-* `GET /api/stores/{store_id}/appearance/`
-* `PATCH /api/stores/{store_id}/appearance/`
-
-### Owner Orders
-
-* `GET /api/stores/{store_id}/orders/`
-* `GET /api/stores/{store_id}/orders/{order_id}/`
-* `PATCH /api/stores/{store_id}/orders/{order_id}/status/`
-
-### Public Store / Products
-
-* `GET /api/public/store/{subdomain}/`
-* `GET /api/public/store/{subdomain}/products/`
-* `GET /api/public/store/{subdomain}/products/{product_id}/`
-
-### Public Cart
-
-* `GET /api/public/store/{subdomain}/cart/`
-* `POST /api/public/store/{subdomain}/cart/items/`
-* `PATCH /api/public/store/{subdomain}/cart/items/{product_id}/`
-* `DELETE /api/public/store/{subdomain}/cart/items/{product_id}/`
-* `DELETE /api/public/store/{subdomain}/cart/`
-
-### Public Checkout
-
-* `POST /api/public/store/{subdomain}/cart/checkout/`
-* `POST /api/public/store/{subdomain}/orders/`
-
-### AI Draft Workflow
-
-* `POST /api/ai/stores/draft/start/`
-* `GET /api/ai/stores/{store_id}/draft/`
-* `POST /api/ai/stores/{store_id}/draft/clarify/`
-* `POST /api/ai/stores/{store_id}/draft/regenerate/`
-* `POST /api/ai/stores/{store_id}/draft/regenerate-section/`
-* `POST /api/ai/stores/{store_id}/draft/apply/`
-
----
-
-## Current Status
-
-### Completed
-
-* Authentication
-* Multi-tenant store isolation
-* Store settings
-* Appearance / branding
-* Categories
-* Products
-* Public product browsing
-* Owner dashboard and order management
-* Public direct order creation
-* Mock cart
-* Checkout from cart
-* AI draft workflow
-* Large test coverage for orders and AI flows
-* API documentation improvements
-
-### Planned / Future Work
-
-* SEO module expansion
-* Super Admin dashboard
-* Billing / subscriptions
-* Logo upload endpoint refinement
-* Sitemap / robots / advanced SEO
-* Additional analytics
-
----
-
-## Multi-Tenant Security Notes
-
-This project enforces isolation using:
-
-* `tenant_id`
-* store ownership checks
-* public-store resolution only through published/active store lookup
-
-All sensitive owner endpoints are protected and scoped to the authenticated store owner.
-
----
-
-## Development Notes
-
-* Use the existing layered structure for any new feature.
-* Keep response contracts stable for frontend integration.
-* Prefer minimal safe changes over broad refactors.
-* Reuse existing services/selectors before introducing new patterns.
-
----
+- All protected endpoints require `Authorization: Bearer <access_token>`.
+- Super Admin endpoints require `role = "Super Admin"`.
+- Store Owner endpoints are scoped by tenant and store ownership.
+- AI provider behavior is controlled by `AI_PROVIDER`.
+- Swagger is the source of truth for detailed schemas.
 
 ## License
 
-This project is for academic / educational / prototype use unless otherwise specified.
-
+This project is for academic, educational, or prototype use unless another license is provided.
