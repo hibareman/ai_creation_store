@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     'themes',
     'seo',
     'AI_Store_Creation_Service',
+    'platform_admin',
 ]
 
 
@@ -194,6 +195,10 @@ SPECTACULAR_SETTINGS = {
     - `/api/auth/` - User authentication
     - `/api/auth/me/` - Protected current-user identity endpoint (Bearer token required)
     - `/api/auth/register/` - Public self-registration endpoint (no authentication required)
+    - `/api/admin/dashboard/` - Super Admin dashboard metrics
+    - `/api/admin/stores/` - Super Admin stores management
+    - `/api/admin/users/` - Super Admin users management
+    - `/api/admin/settings/` - Super Admin platform settings
     - `/api/stores/` - Store management
     - `/api/` - Products and Categories
     - `/api/docs/` - Swagger UI (this page)

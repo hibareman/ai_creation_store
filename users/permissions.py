@@ -1,4 +1,19 @@
 from rest_framework import permissions
+from rest_framework.permissions import BasePermission
+
+
+class IsSuperAdmin(BasePermission):
+    message = "You do not have permission to perform this action."
+
+    def has_permission(self, request, view):
+        user = getattr(request, "user", None)
+        return bool(
+            user
+            and getattr(user, "is_authenticated", False)
+            and getattr(user, "is_active", False)
+            and getattr(user, "role", None) == "Super Admin"
+        )
+
 
 class TenantAuthenticated(permissions.BasePermission):
     """

@@ -246,6 +246,80 @@ class UserApiTests(TestCase):
         self.assertEqual(payload["stores"], [])
         self.assertIsNone(payload["current_store"])
 
+    def test_superadmin_login_returns_required_auth_payload(self):
+        user = User.objects.create_user(
+            username="admin",
+            email="superadmin@gmail.com",
+            password="secret",
+            role="Super Admin",
+            is_active=True,
+            tenant_id=None,
+            first_name="Admin",
+            last_name="User",
+        )
+        Store.objects.create(
+            owner=user,
+            name="Ignored Admin Store",
+            tenant_id=9999,
+            subdomain="ignored-admin-store",
+        )
+
+        response = self.client.post(
+            "/api/auth/login/",
+            {
+                "email": "superadmin@gmail.com",
+                "password": "secret",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self.assertIn("access", payload)
+        self.assertIn("refresh", payload)
+        self.assertEqual(payload["user_id"], user.id)
+        self.assertEqual(payload["role"], "Super Admin")
+        self.assertIsNone(payload["tenant_id"])
+        self.assertEqual(payload["stores"], [])
+        self.assertIsNone(payload["current_store"])
+
+    def test_store_owner_login_payload_still_unchanged(self):
+        user = User.objects.create_user(
+            username="contract_owner_login",
+            email="contract_owner_login@example.com",
+            password="StrongPass123!",
+            role="Store Owner",
+            is_active=True,
+            tenant_id=8101,
+        )
+        store = Store.objects.create(
+            owner=user,
+            name="Contract Owner Login Store",
+            tenant_id=user.tenant_id,
+            subdomain="contract-owner-login",
+        )
+
+        response = self.client.post(
+            "/api/auth/login/",
+            {
+                "email": "contract_owner_login@example.com",
+                "password": "StrongPass123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self.assertIn("access", payload)
+        self.assertIn("refresh", payload)
+        self.assertEqual(payload["user_id"], user.id)
+        self.assertEqual(payload["role"], "Store Owner")
+        self.assertEqual(payload["tenant_id"], user.tenant_id)
+        self.assertEqual(len(payload["stores"]), 1)
+        self.assertEqual(payload["current_store"]["id"], store.id)
+        self.assertEqual(payload["current_store"]["slug"], store.slug)
+        self.assertEqual(payload["current_store"]["subdomain"], "contract-owner-login")
+
     def test_login_payload_includes_current_store_slug_and_subdomain(self):
         user = User.objects.create_user(
             username="storelogin",
@@ -398,6 +472,108 @@ class UserApiTests(TestCase):
         self.assertIn("current_store", payload)
         self.assertEqual(payload["stores"], [])
         self.assertIsNone(payload["current_store"])
+
+    def test_superadmin_me_returns_required_identity_payload(self):
+        user = User.objects.create_user(
+            username="admin",
+            email="superadmin@gmail.com",
+            password="secret",
+            role="Super Admin",
+            is_active=True,
+            tenant_id=None,
+            first_name="Admin",
+            last_name="User",
+        )
+        Store.objects.create(
+            owner=user,
+            name="Ignored Admin Store",
+            tenant_id=9999,
+            subdomain="ignored-admin-store",
+        )
+
+        response = self.client.get(
+            "/api/auth/me/",
+            HTTP_AUTHORIZATION=self._auth_header(user),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self.assertEqual(payload["user_id"], user.id)
+        self.assertEqual(payload["username"], "admin")
+        self.assertEqual(payload["email"], "superadmin@gmail.com")
+        self.assertEqual(payload["role"], "Super Admin")
+        self.assertIsNone(payload["tenant_id"])
+        self.assertTrue(payload["is_active"])
+        self.assertEqual(payload["display_name"], "Admin User")
+        self.assertIn("created_at", payload)
+        self.assertIn("updated_at", payload)
+        self.assertEqual(payload["stores"], [])
+        self.assertIsNone(payload["current_store"])
+        self.assertNotIn("access", payload)
+        self.assertNotIn("refresh", payload)
+
+    def test_superadmin_token_refresh_returns_new_access_token(self):
+        user = User.objects.create_user(
+            username="refreshadmin",
+            email="superadmin@gmail.com",
+            password="secret",
+            role="Super Admin",
+            is_active=True,
+            tenant_id=None,
+        )
+        refresh = RefreshToken.for_user(user)
+
+        response = self.client.post(
+            "/api/auth/token/refresh/",
+            {"refresh": str(refresh)},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self.assertIn("access", payload)
+        self.assertNotIn("tenant_id", payload)
+
+    def test_store_owner_me_payload_still_unchanged(self):
+        user = User.objects.create_user(
+            username="contract_owner_me",
+            email="contract_owner_me@example.com",
+            password="StrongPass123!",
+            role="Store Owner",
+            is_active=True,
+            tenant_id=8102,
+            first_name="Contract",
+            last_name="Owner",
+        )
+        store = Store.objects.create(
+            owner=user,
+            name="Contract Owner Me Store",
+            tenant_id=user.tenant_id,
+            subdomain="contract-owner-me",
+        )
+
+        response = self.client.get(
+            "/api/auth/me/",
+            HTTP_AUTHORIZATION=self._auth_header(user),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self.assertEqual(payload["user_id"], user.id)
+        self.assertEqual(payload["username"], "contract_owner_me")
+        self.assertEqual(payload["email"], "contract_owner_me@example.com")
+        self.assertEqual(payload["role"], "Store Owner")
+        self.assertEqual(payload["tenant_id"], user.tenant_id)
+        self.assertTrue(payload["is_active"])
+        self.assertEqual(payload["display_name"], "Contract Owner")
+        self.assertIn("created_at", payload)
+        self.assertIn("updated_at", payload)
+        self.assertNotIn("access", payload)
+        self.assertNotIn("refresh", payload)
+        self.assertEqual(len(payload["stores"]), 1)
+        self.assertEqual(payload["current_store"]["id"], store.id)
+        self.assertEqual(payload["current_store"]["slug"], store.slug)
+        self.assertEqual(payload["current_store"]["subdomain"], "contract-owner-me")
 
     def test_me_includes_current_store_slug_and_subdomain(self):
         user = User.objects.create_user(
