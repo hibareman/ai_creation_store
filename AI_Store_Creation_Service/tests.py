@@ -957,6 +957,81 @@ class AICreationServicesTests(AIWorkflowBaseMixin, TestCase):
         self.assertEqual(meta["mode"], "draft_ready")
         self.assertEqual(meta["clarification_round_count"], 1)
 
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_process_clarification_round_final_round_generates_draft_ready_when_ai_asks_again(
+        self,
+        mock_get_provider,
+    ):
+        store = self._create_store()
+        self._seed_templates()
+        self._prepare_clarification_state(store, round_count=2)
+
+        clarification_payload = self._clarification_payload()
+        final_payload = self._valid_full_draft_payload()
+        provider = mock_get_provider.return_value
+        provider.clarify_store_draft.return_value = self._as_provider_response(clarification_payload)
+        provider.regenerate_store_draft.return_value = self._as_provider_response(final_payload)
+
+        result = process_clarification_round(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            clarification_answers={
+                "secondary_color": "#FFFFFF",
+                "font_family": "Inter",
+            },
+        )
+
+        self.assertEqual(result, final_payload)
+        self.assertEqual(get_ai_draft(store.id), final_payload)
+        provider.regenerate_store_draft.assert_called_once()
+
+        meta = get_ai_draft_meta(store.id)
+        self.assertEqual(meta["status"], "draft_ready")
+        self.assertEqual(meta["mode"], "draft_ready")
+        self.assertFalse(meta["is_fallback"])
+        self.assertEqual(meta["clarification_round_count"], 3)
+        self.assertTrue(meta["final_clarification_round"])
+
+    @patch("AI_Store_Creation_Service.services.get_ai_provider_client")
+    def test_process_clarification_round_final_round_repairs_invalid_final_payload(
+        self,
+        mock_get_provider,
+    ):
+        store = self._create_store()
+        self._seed_templates()
+        self._prepare_clarification_state(store, round_count=2)
+
+        clarification_payload = self._clarification_payload()
+        invalid_final_payload = self._valid_full_draft_payload()
+        invalid_final_payload["categories"] = []
+        final_payload = self._valid_full_draft_payload()
+        provider = mock_get_provider.return_value
+        provider.clarify_store_draft.return_value = self._as_provider_response(clarification_payload)
+        provider.regenerate_store_draft.side_effect = [
+            self._as_provider_response(invalid_final_payload),
+            self._as_provider_response(final_payload),
+        ]
+
+        result = process_clarification_round(
+            store_id=store.id,
+            user=self.user,
+            tenant_id=101,
+            clarification_answers={
+                "theme_template": "Modern",
+                "secondary_color": "#FFFFFF",
+                "timezone": "UTC",
+            },
+        )
+
+        self.assertEqual(result, final_payload)
+        self.assertEqual(provider.regenerate_store_draft.call_count, 2)
+
+        meta = get_ai_draft_meta(store.id)
+        self.assertEqual(meta["status"], "draft_ready")
+        self.assertFalse(meta["is_fallback"])
+        self.assertEqual(meta["clarification_round_count"], 3)
+
     def test_process_clarification_round_enforces_round_limit(self):
         store = self._create_store()
         self._prepare_clarification_state(store, round_count=3)

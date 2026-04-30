@@ -288,10 +288,34 @@ class OllamaProviderClient(AIProviderContract):
     API_URL = "http://localhost:11434/api/chat"
 
     def __init__(self) -> None:
-        self.model_name = str(getattr(settings, "AI_MODEL_NAME", "")).strip() or "qwen2.5:1.5b"
+        self.api_key = (
+            str(getattr(settings, "AI_API_KEY", "")).strip()
+            or os.getenv("OLLAMA_API_KEY", "").strip()
+        )
+        self.model_name = (
+            str(getattr(settings, "AI_MODEL_NAME", "")).strip()
+            or "gpt-oss:120b"
+        )
         self.timeout = settings.AI_TIMEOUT
         configured_api_url = str(getattr(settings, "AI_API_URL", "")).strip()
         self.api_url = configured_api_url or self.API_URL
+        self.temperature = float(getattr(settings, "AI_TEMPERATURE", 0.2))
+
+    def _build_headers(self) -> dict[str, str]:
+        headers = {
+            "Content-Type": "application/json",
+        }
+
+        # Direct Ollama Cloud API requires Bearer authentication.
+        # Local Ollama at localhost does not require an API key.
+        if self.api_url.startswith("https://ollama.com"):
+            if not self.api_key:
+                raise ImproperlyConfigured(
+                    "AI_API_KEY or OLLAMA_API_KEY is required for Ollama Cloud."
+                )
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        return headers
 
     def _build_chat_payload(self, messages: list[dict[str, str]]) -> dict[str, Any]:
         return {
@@ -300,19 +324,18 @@ class OllamaProviderClient(AIProviderContract):
             "stream": False,
             "format": "json",
             "options": {
-                # Lower temperature to improve JSON compliance on small local models.
-                "temperature": 0,
+                "temperature": self.temperature,
             },
         }
 
     @staticmethod
     def _normalize_to_chat_completions_shape(raw_response: Mapping[str, Any]) -> ProviderRawResponse:
-        # If caller points to Ollama OpenAI-compatible endpoint, keep as-is.
+        # If the provider returns OpenAI-compatible shape, keep it as-is.
         choices = raw_response.get("choices")
         if isinstance(choices, list) and choices:
             return dict(raw_response)
 
-        # Native /api/chat shape.
+        # Native Ollama /api/chat shape.
         message = raw_response.get("message")
         if isinstance(message, Mapping) and "content" in message:
             return {
@@ -341,11 +364,12 @@ class OllamaProviderClient(AIProviderContract):
 
     def _call_chat(self, messages: list[dict[str, str]]) -> ProviderRawResponse:
         payload = self._build_chat_payload(messages)
+
         try:
             raw_response = _post_json_request(
                 url=self.api_url,
                 payload=payload,
-                headers={"Content-Type": "application/json"},
+                headers=self._build_headers(),
                 timeout=self.timeout,
             )
             return self._normalize_to_chat_completions_shape(raw_response)
@@ -430,8 +454,6 @@ class OllamaProviderClient(AIProviderContract):
             available_theme_templates=available_theme_templates,
         )
         return self._call_chat(messages)
-
-
 class AnthropicProviderClient(AIProviderContract):
     API_URL = "https://api.anthropic.com/v1/messages"
 

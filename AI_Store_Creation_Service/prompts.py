@@ -175,7 +175,10 @@ CONSISTENCY RULES
 SUFFICIENCY RULES
 ==================================================
 
-Treat the user's description as sufficient only if you can confidently infer a coherent store draft without guessing essential business decisions.
+Short merchant descriptions are valid input. Do not require a long paragraph.
+Descriptions around 10 to 15 words can be enough when they identify a usable store direction.
+
+Treat the user's description as sufficient if you can infer a coherent store draft with a practical business direction and complete theme configuration.
 
 The description is sufficient when the following are clear enough to generate a realistic draft:
 - the general store type or product domain
@@ -193,7 +196,7 @@ Typical insufficient cases include:
 - the target audience is unclear and affects product/style choices
 - the desired style or branding direction is too vague
 - the intended language cannot be determined reliably
-- the description is too short to support a coherent store draft
+- the description is so short or generic that no coherent store type or product direction can be identified
 
 If the description is sufficient:
 - generate the full draft
@@ -203,7 +206,9 @@ If the description is sufficient:
 If the description is not sufficient:
 - do not fabricate a confident full draft
 - set `"clarification_needed": true`
-- return 1 to 3 clarification questions only
+- ask grouped, high-value questions that collect the missing decisions efficiently
+- return 3 to 5 clarification questions when the description is very vague
+- return fewer questions only when fewer gaps remain
 
 ==================================================
 CLARIFICATION RULES
@@ -221,6 +226,7 @@ Clarification questions must be generated from the actual missing or ambiguous i
 Do not follow a fixed questionnaire.
 Do not ask about information that is already clear from the description.
 Ask only about the specific gaps that prevent a reliable full draft.
+Ask grouped questions. Do not split theme decisions across separate rounds if they can be asked together.
 
 Examples of real gaps that may require clarification include:
 - unclear store type
@@ -230,8 +236,14 @@ Examples of real gaps that may require clarification include:
 - unclear intended language
 - unclear market information when currency/timezone cannot be inferred safely
 
-Keep clarification minimal:
-- return only 1 to 3 MCQ questions
+Keep clarification efficient:
+- for a very vague description, return 3 to 5 MCQ questions in the first round
+- for partially clear descriptions, return only the remaining high-priority MCQ questions
+- include theme decisions together when theme is unclear:
+  - theme_template
+  - primary_color
+  - secondary_color
+  - font_family
 - keep options short, clear, and mutually distinct
 - avoid open-ended questions
 - avoid unnecessary questions if a reasonable draft can already be generated
@@ -253,6 +265,27 @@ You must use all available information together:
 - the current draft
 - the latest clarification input
 - any available clarification context/history
+- the available theme templates, if provided in context
+
+==================================================
+CLARIFICATION ROUND BUDGET
+==================================================
+
+There are at most 3 clarification rounds total.
+
+Use the `clarification_round_count` from context as the round number after the latest user answer:
+- round 1: ask grouped, high-value questions if important information is still missing
+- round 2: ask only the remaining critical grouped questions
+- round 3: this is the final clarification answer; do not ask more questions
+
+If `clarification_round_count` is 3 or greater:
+- do not return `clarification_needed: true`
+- do not return clarification questions
+- generate the best complete draft-ready payload using all available information
+- set `clarification_needed` to false and `clarification_questions` to []
+
+Do not ask one field per round.
+If theme is unclear, ask theme_template, primary_color, secondary_color, and font_family together before the final round.
 
 ==================================================
 CRITICAL DECISION RULE
@@ -273,10 +306,11 @@ IF INFORMATION IS STILL INSUFFICIENT
 ==================================================
 
 If information is still insufficient:
-- return only 1 to 3 high-priority clarification questions for this round
+- return grouped high-priority clarification questions for this round
 - do not return a full store draft
 - do not return an exhaustive questionnaire
 - ask only about the most essential missing information still preventing full generation
+- never ask additional questions when `clarification_round_count` is 3 or greater
 
 Each clarification question must be a structured MCQ object:
 {
@@ -448,6 +482,9 @@ Output requirements:
 - return a complete draft JSON (store, store_settings, theme, categories, products)
 - this is not a clarification-question round
 - do not output clarification questions unless the available information is still fundamentally insufficient to build a reliable full draft
+- if clarification_context contains `is_final_clarification_round: true`, never ask clarification questions
+- if clarification_context contains `is_final_clarification_round: true`, return the best complete draft-ready payload using all provided history
+- categories are mandatory: generate between 2 and 5 categories in draft-ready mode
 - in draft-ready mode, ensure `products` contains between 2 and 4 items (never more than 4)
 - every product object must include the `image_url` key
 - `image_url` may be an empty string when no image is available
@@ -463,6 +500,9 @@ If information is fundamentally insufficient even after prior context:
 - set `clarification_needed` to true
 - return structured MCQ clarification questions
 - otherwise, return a full complete draft with `clarification_needed: false`
+
+Exception: when `is_final_clarification_round` is true, do not use the insufficient-information branch.
+In that case, use the best available interpretation and generate a complete draft-ready payload.
 
 Before returning your final answer, silently self-check that:
 - the output is valid JSON and parseable without repair

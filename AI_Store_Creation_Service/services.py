@@ -1071,6 +1071,7 @@ def process_clarification_round(
 
     try:
         provider = get_ai_provider_client()
+        available_theme_templates = get_available_theme_template_names()
         payload = _parse_provider_response_with_single_retry(
             provider_call=lambda: provider.clarify_store_draft(
                 tenant_id=normalized_tenant_id,
@@ -1082,6 +1083,8 @@ def process_clarification_round(
                     "clarification_round_count": next_round_count,
                     "latest_clarification_input": clarification_input,
                     "clarification_history": updated_history,
+                    "available_theme_templates": available_theme_templates,
+                    "is_final_clarification_round": next_round_count >= 3,
                 },
             ),
             action="clarification_round",
@@ -1093,7 +1096,6 @@ def process_clarification_round(
         new_round_count = next_round_count
 
         if mode == "draft_ready":
-            available_theme_templates = get_available_theme_template_names()
             if not available_theme_templates:
                 raise AIDraftSchemaValidationError("No available theme templates found")
             payload = _apply_targeted_prevalidation_repairs(
@@ -1136,17 +1138,89 @@ def process_clarification_round(
             return payload
 
         if new_round_count >= 3:
-            fallback_payload = build_ai_fallback_payload()
-            save_ai_draft(store.id, fallback_payload)
+            if not available_theme_templates:
+                raise AIDraftSchemaValidationError("No available theme templates found")
+
+            final_context = {
+                "clarification_round_count": new_round_count,
+                "latest_clarification_input": clarification_input,
+                "clarification_history": updated_history,
+                "available_theme_templates": available_theme_templates,
+                "is_final_clarification_round": True,
+                "instruction": (
+                    "The clarification round limit has been reached after the latest answer. "
+                    "Do not ask more clarification questions. Generate the best complete "
+                    "draft-ready payload now using all available information."
+                ),
+            }
+
+            def _request_final_payload(extra_context: Mapping[str, Any] | None = None) -> dict[str, Any]:
+                context = dict(final_context)
+                if extra_context:
+                    context.update(extra_context)
+                return _parse_provider_response_with_single_retry(
+                    provider_call=lambda: provider.regenerate_store_draft(
+                        tenant_id=normalized_tenant_id,
+                        store_id=store.id,
+                        original_store_description=original_description,
+                        current_draft=current_draft,
+                        clarification_context=context,
+                        available_theme_templates=available_theme_templates,
+                    ),
+                    action="clarification_round_finalization",
+                    store_id=store.id,
+                )
+
+            def _validate_final_payload(candidate_payload: dict[str, Any]) -> dict[str, Any]:
+                candidate_payload = _apply_targeted_prevalidation_repairs(
+                    candidate_payload,
+                    available_theme_templates=available_theme_templates,
+                )
+                candidate_payload = validate_basic_draft_schema(candidate_payload)
+                if detect_ai_response_mode(candidate_payload) != "draft_ready":
+                    raise AIDraftSchemaValidationError(
+                        "Final clarification round must return a draft-ready payload"
+                    )
+                validate_store_section(candidate_payload["store"])
+                validate_store_settings_section(candidate_payload["store_settings"])
+                validate_theme_section(candidate_payload["theme"])
+                _ensure_theme_template_is_available(
+                    candidate_payload["theme"],
+                    available_theme_templates,
+                )
+                validated_categories = validate_categories_section(candidate_payload["categories"])
+                category_names = [item["name"] for item in validated_categories]
+                validate_products_section(candidate_payload["products"], category_names)
+                return candidate_payload
+
+            final_payload = _request_final_payload()
+            try:
+                final_payload = _validate_final_payload(final_payload)
+            except AIDraftSchemaValidationError as final_exc:
+                final_payload = _request_final_payload(
+                    {
+                        "previous_finalization_error": str(final_exc),
+                        "previous_invalid_payload": final_payload,
+                        "repair_instruction": (
+                            "Your previous final-round response was invalid. "
+                            "Return one complete draft-ready JSON object now. "
+                            "Do not ask questions. Include 2 to 5 categories, "
+                            "2 to 4 products, and a complete theme."
+                        ),
+                    }
+                )
+                final_payload = _validate_final_payload(final_payload)
+
+            save_ai_draft(store.id, final_payload)
             save_ai_draft_meta(
                 store.id,
                 {
-                    "status": "failed",
-                    "current_step": "analyzing_description",
-                    "mode": "clarification",
-                    "is_fallback": True,
-                    "reason": "Clarification round limit reached",
+                    "status": "draft_ready",
+                    "current_step": "setting_up_store_configuration",
+                    "mode": "draft_ready",
+                    "is_fallback": False,
                     "clarification_round_count": new_round_count,
+                    "final_clarification_round": True,
                     "original_user_store_description": original_description,
                     "latest_clarification_input": clarification_input,
                     "clarification_history": updated_history,
@@ -1157,10 +1231,10 @@ def process_clarification_round(
                 store_id=store.id,
                 actor_id=getattr(user, "id", None),
                 action="clarification_round",
-                status="failed",
-                message="Clarification round limit reached.",
+                status="completed",
+                message="Final clarification round completed with draft_ready mode.",
             )
-            return fallback_payload
+            return final_payload
 
         save_ai_draft(store.id, payload)
         save_ai_draft_meta(
