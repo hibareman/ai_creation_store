@@ -1,3 +1,6 @@
+
+"""يقرأ التوكن ويجهز request.user
+ و request.tenant_id"""
 from django.utils.deprecation import MiddlewareMixin
 from rest_framework_simplejwt.tokens import UntypedToken
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
