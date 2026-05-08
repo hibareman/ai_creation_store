@@ -590,6 +590,8 @@ def derive_store_name_from_description(user_description: str) -> str:
     return cleaned_fallback or "My Store"
 
 
+
+
 def create_draft_store_for_ai_flow(
     user,
     tenant_id: int | None,

@@ -58,7 +58,16 @@ DOC_ERROR_RESPONSES = {
     ),
 )
 class RegisterView(generics.GenericAPIView):
+    """
+    generics.GenericAPIView is a class from diango rest framework that provides the core functionality for building API views. 
+    It allows you to define custom behavior for handling HTTP requests (like GET, POST, etc.) while providing features like request parsing, authentication, and response rendering. 
+    In this code snippet, RegisterView inherits from GenericAPIView to 
+    create a custom view for user registration, where the post method is defined to handle the registration logic.
 
+    """
+    """RegisterSerializer -> use RegisterSerializer from generics.GenericAPIView
+    permission_classes = [AllowAny] -> ont need to login
+    """
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
 
@@ -173,7 +182,7 @@ class LoginView(generics.GenericAPIView):
         if not user.is_active:
             return Response({"detail": "Email not verified. Please activate your account."}, 
                           status=status.HTTP_403_FORBIDDEN)
-
+        """login from services.py -> login_user(user) -> get_auth_bootstrap_store_payload(user)"""
         token_data = login_user(user)
         return Response(token_data)
 
