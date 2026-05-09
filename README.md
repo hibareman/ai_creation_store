@@ -1,8 +1,8 @@
-# 🛍️ AI Store Creation Backend
+# 🛍️ Souq Engine
 
-Backend API for a multi-tenant e-commerce platform where store owners can create, manage, and publish online stores. The project includes an AI-powered workflow that turns a merchant's natural store description into a ready draft containing store details, theme, categories, and starter products.
+Souq Engine is a multi-tenant e-commerce platform where store owners can create, manage, and publish online stores. The system includes a Django REST backend, a Next.js frontend, and an AI-powered workflow that turns a merchant's natural store description into a ready draft containing store details, theme, categories, and starter products.
 
-API documentation is available after running the server:
+API documentation is available after running the backend server:
 
 - Swagger UI: `http://localhost:8000/api/docs/`
 - ReDoc: `http://localhost:8000/api/redoc/`
@@ -10,29 +10,31 @@ API documentation is available after running the server:
 
 ## 🚀 Getting Started
 
-### 1. Clone and enter the project
+### ⚙️ Backend setup
+
+#### 1. Clone and enter the backend project
 
 ```powershell
-git clone <repo-url>
+git clone <backend-repo-url>
 cd ai_store_creation
 ```
 
-### 2. Create and activate a virtual environment
+#### 2. Create and activate a virtual environment
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-### 3. Install dependencies
+#### 3. Install dependencies
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-### 4. Create `.env`
+#### 4. Create `.env`
 
-Create a `.env` file in the project root:
+Create a `.env` file in the backend project root:
 
 ```env
 SECRET_KEY=change-me
@@ -63,20 +65,20 @@ REDIS_URL=redis://127.0.0.1:6379/1
 
 Never commit real secrets.
 
-### 5. Prepare the database
+#### 5. Prepare the database
 
 ```powershell
 python manage.py migrate
 python manage.py check
 ```
 
-### 6. Create a Super Admin
+#### 6. Create a Super Admin
 
 ```powershell
 python manage.py bootstrap_superadmin --password "ChangeMeStrong123!"
 ```
 
-### 7. Run the server
+#### 7. Run the backend server
 
 ```powershell
 python manage.py runserver
@@ -88,6 +90,43 @@ Open:
 http://localhost:8000/api/docs/
 ```
 
+### 🎨 Frontend setup
+
+#### 1. Clone and enter the frontend project
+
+```powershell
+git clone <frontend-repo-url>
+cd SouqEnginFrontEnd-main
+```
+
+#### 2. Install dependencies
+
+```powershell
+npm install
+```
+
+#### 3. Create `.env.local`
+
+Create a `.env.local` file in the frontend project root:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api
+NEXT_PUBLIC_DATA_SOURCE=backend
+NEXT_PUBLIC_USE_MOCK_API=false
+```
+
+#### 4. Run the frontend server
+
+```powershell
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
 ## ✨ Key Features
 
 - JWT authentication with email activation
@@ -95,16 +134,19 @@ http://localhost:8000/api/docs/
 - Store CRUD, settings, domains, subdomains, and publishing flow
 - Category, product, image, and inventory management
 - Theme templates and store appearance configuration
-- Public store browsing APIs
+- Public store browsing APIs and storefront UI
 - Cart, checkout, customers, and order management
 - SEO metadata APIs for stores, products, and categories
 - AI store draft generation with clarification questions
 - Full draft regeneration and section regeneration
 - Safe AI draft cache before applying data to the database
+- Store owner dashboard for products, categories, orders, customers, appearance, and AI generation
 - Super Admin dashboard, store management, user management, and settings
 - Swagger/OpenAPI documentation
 
 ## 🧰 Tech Stack
+
+### ⚙️ Backend
 
 - Python
 - Django
@@ -113,13 +155,30 @@ http://localhost:8000/api/docs/
 - drf-spectacular / Swagger
 - PostgreSQL
 - Redis / Django cache
-- Ollama / OpenAI-compatible providers / Anthropic
+- Ollama 
 - Pillow
 - django-cors-headers
+
+### 🎨 Frontend
+
+- TypeScript
+- Next.js
+- React
+- Tailwind CSS
+- Radix UI
+- TanStack Query
+- Zustand
+- React Hook Form
+- Zod
+- Lucide React
+- Vitest
+- Playwright
+
+### 🤝 Shared
+
 - Git / GitHub
 
-
-## 🗂️ Project Structure
+## 🗂️ Backend Project Structure
 
 | Path | What it does |
 |---|---|
@@ -137,12 +196,37 @@ http://localhost:8000/api/docs/
 | `docs/` | Project documentation assets |
 | `media/` | Uploaded media files |
 
+## 🧩 Frontend Project Structure
+
+| Path | What it does |
+|---|---|
+| `src/app/` | Next.js routes, layouts, and route composition |
+| `src/features/` | Domain screens and feature logic |
+| `src/features/ai-generator/` | AI store generation UI |
+| `src/features/admin/` | Super Admin frontend screens |
+| `src/features/dashboard/` | Store owner dashboard screens |
+| `src/features/products/` | Product management UI |
+| `src/features/categories/` | Category management UI |
+| `src/features/orders/` | Order management UI |
+| `src/features/customers/` | Customer management UI |
+| `src/features/appearance/` | Store theme and appearance UI |
+| `src/features/storefront/` | Public storefront UI |
+| `src/components/ui/` | Reusable design-system primitives |
+| `src/components/layouts/` | Dashboard, admin, and storefront shells |
+| `src/components/shared/` | Shared app-specific components |
+| `src/services/` | API client, data source, and query integration |
+| `src/lib/` | Providers, storage, and framework helpers |
+| `src/types/` | Shared TypeScript types and API contracts |
+| `src/config/` | Runtime configuration |
+| `public/` | Static public assets |
+| `tests/` | End-to-end tests |
+
 ## 🤖 AI Workflow
 
 The AI flow is intentionally layered:
 
 ```text
-View → Service → Provider → Prompt → AI → Parser → Validator → Cache → Apply to DB
+View -> Service -> Provider -> Prompt -> AI -> Parser -> Validator -> Cache -> Apply to DB
 ```
 
 - `prompts.py` builds the instructions sent to the AI provider.
@@ -164,20 +248,33 @@ Store Owner endpoints are scoped by tenant and store ownership. Super Admin endp
 
 ## 🧪 Useful Commands
 
+### ⚙️ Backend
+
 ```powershell
 python manage.py check
 python manage.py test
 python manage.py spectacular --file schema.yaml --validate
 ```
 
+### 🎨 Frontend
+
+```powershell
+npm run lint
+npm run typecheck
+npm run test
+npm run test:e2e
+npm run build
+```
+
 ## 📌 Notes for Developers
 
+- Run the backend on `http://localhost:8000` and the frontend on `http://localhost:3000` during local development.
 - Swagger is the source of truth for full request/response schemas.
 - AI drafts are temporary and are applied only after user approval.
 - Draft cleanup happens after a successful database commit.
 - Use `CACHE_BACKEND=locmem` for simple local development.
 - Use Redis for shared or production-like draft storage.
-- Keep `.env` secrets out of Git.
+- Keep `.env` and `.env.local` secrets out of Git.
 
 ## 📄 License
 
