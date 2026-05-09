@@ -180,46 +180,55 @@ http://localhost:3000
 
 ## 🗂️ Backend Project Structure
 
-| Path | What it does |
-|---|---|
-| `users/` | Authentication, activation, roles, permissions, tenant context |
-| `stores/` | Store CRUD, settings, domains, subdomains, publish flow |
-| `categories/` | Store category APIs |
-| `products/` | Products, images, inventory, and public product browsing |
-| `orders/` | Public cart, checkout, customers, and owner order management |
-| `themes/` | Theme templates and store appearance configuration |
-| `seo/` | SEO metadata for stores, products, categories, and public pages |
-| `AI_Store_Creation_Service/` | AI draft generation, clarification, regeneration, and apply workflow |
-| `platform_admin/` | Super Admin dashboard, users, stores, and settings |
-| `config/` | Django settings, root URLs, ASGI, WSGI |
-| `utils/` | Shared middleware, exceptions, logging, and response helpers |
-| `docs/` | Project documentation assets |
-| `media/` | Uploaded media files |
+```text
+ai_store_creation/
+├─ users/                      # Authentication, activation, roles, permissions, tenant context
+├─ stores/                     # Store CRUD, settings, domains, subdomains, publish flow
+├─ categories/                 # Store category APIs
+├─ products/                   # Products, images, inventory, and public product browsing
+├─ orders/                     # Public cart, checkout, customers, and owner order management
+├─ themes/                     # Theme templates and store appearance configuration
+├─ seo/                        # SEO metadata for stores, products, categories, and public pages
+├─ AI_Store_Creation_Service/  # AI draft generation, clarification, regeneration, and apply workflow
+├─ platform_admin/             # Super Admin dashboard, users, stores, and settings
+├─ config/                     # Django settings, root URLs, ASGI, WSGI
+├─ utils/                      # Shared middleware, exceptions, logging, and response helpers
+├─ docs/                       # Project documentation assets
+└─ media/                      # Uploaded media files
+```
 
 ## 🧩 Frontend Project Structure
 
-| Path | What it does |
-|---|---|
-| `src/app/` | Next.js routes, layouts, and route composition |
-| `src/features/` | Domain screens and feature logic |
-| `src/features/ai-generator/` | AI store generation UI |
-| `src/features/admin/` | Super Admin frontend screens |
-| `src/features/dashboard/` | Store owner dashboard screens |
-| `src/features/products/` | Product management UI |
-| `src/features/categories/` | Category management UI |
-| `src/features/orders/` | Order management UI |
-| `src/features/customers/` | Customer management UI |
-| `src/features/appearance/` | Store theme and appearance UI |
-| `src/features/storefront/` | Public storefront UI |
-| `src/components/ui/` | Reusable design-system primitives |
-| `src/components/layouts/` | Dashboard, admin, and storefront shells |
-| `src/components/shared/` | Shared app-specific components |
-| `src/services/` | API client, data source, and query integration |
-| `src/lib/` | Providers, storage, and framework helpers |
-| `src/types/` | Shared TypeScript types and API contracts |
-| `src/config/` | Runtime configuration |
-| `public/` | Static public assets |
-| `tests/` | End-to-end tests |
+```text
+SouqEnginFrontEnd-main/
+├─ src/
+│  ├─ app/                    # Next.js routes, layouts, and route composition
+│  ├─ features/               # Domain screens and feature logic
+│  │  ├─ ai-generator/        # AI store generation UI
+│  │  ├─ admin/               # Super Admin frontend screens
+│  │  ├─ dashboard/           # Store owner dashboard screens
+│  │  ├─ products/            # Product management UI
+│  │  ├─ categories/          # Category management UI
+│  │  ├─ orders/              # Order management UI
+│  │  ├─ customers/           # Customer management UI
+│  │  ├─ appearance/          # Store theme and appearance UI
+│  │  └─ storefront/          # Public storefront UI
+│  ├─ components/             # Shared UI and layout components
+│  │  ├─ ui/                  # Reusable design-system primitives
+│  │  ├─ layouts/             # Dashboard, admin, and storefront shells
+│  │  └─ shared/              # Shared app-specific components
+│  ├─ services/               # API client, data source, and query integration
+│  ├─ lib/                    # Providers, storage, and framework helpers
+│  ├─ hooks/                  # Shared React hooks
+│  ├─ types/                  # Shared TypeScript types and API contracts
+│  ├─ utils/                  # Pure utilities
+│  ├─ config/                 # Runtime configuration
+│  ├─ constants/              # App-wide constants
+│  ├─ styles/                 # Shared style files
+│  └─ assets/                 # Source-controlled static imports
+├─ public/                    # Static public assets
+└─ tests/                     # End-to-end tests
+```
 
 ## 🤖 AI Workflow
 
