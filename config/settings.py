@@ -300,6 +300,7 @@ LOGGING = CUSTOM_LOGGING
 
 
 # AI Store Creation configuration (foundation only)
+AI_AGENTIC_WORKFLOW_ENABLED = False
 AI_PROVIDER = os.getenv("AI_PROVIDER", "ollama").strip().lower()
 AI_API_KEY = os.getenv("AI_API_KEY", "")
 AI_API_URL = os.getenv("AI_API_URL", "")

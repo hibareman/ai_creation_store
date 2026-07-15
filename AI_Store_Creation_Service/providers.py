@@ -8,6 +8,9 @@ from urllib.request import Request, urlopen
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from .prompts import (
+    build_analyze_store_description_messages,
+    build_generate_agentic_store_draft_messages,
+    build_generate_clarification_questions_messages,
     build_generate_store_draft_messages,
     build_clarify_store_draft_messages,
     build_regenerate_store_draft_messages,
@@ -20,7 +23,42 @@ ProviderRawResponse = dict[str, Any]
 
 class AIProviderContract(ABC):
     @abstractmethod
+    def analyze_store_description(
+        self,
+        *,
+        tenant_id: int,
+        store_id: int,
+        normalized_description: str,
+        clarification_context: Mapping[str, Any] | None = None,
+    ) -> ProviderRawResponse:
+        raise NotImplementedError
+
+    @abstractmethod
+    def generate_clarification_questions(
+        self,
+        *,
+        tenant_id: int,
+        store_id: int,
+        normalized_description: str,
+        semantic_analysis: Mapping[str, Any],
+        clarification_round_count: int,
+        clarification_context: Mapping[str, Any] | None = None,
+    ) -> ProviderRawResponse:
+        raise NotImplementedError
+
+    @abstractmethod
     def generate_store_draft(
+        self,
+        *,
+        tenant_id: int,
+        store_id: int,
+        user_store_description: str,
+        available_theme_templates: Sequence[str],
+    ) -> ProviderRawResponse:
+        raise NotImplementedError
+
+    @abstractmethod
+    def generate_agentic_store_draft(
         self,
         *,
         tenant_id: int,
@@ -182,6 +220,23 @@ class OllamaProviderClient(AIProviderContract):
         except URLError as exc:
             raise RuntimeError(f"Ollama connection error: {exc.reason}") from exc
 
+
+    def analyze_store_description(
+        self,
+        *,
+        tenant_id: int,
+        store_id: int,
+        normalized_description: str,
+        clarification_context: Mapping[str, Any] | None = None,
+    ) -> ProviderRawResponse:
+        messages = build_analyze_store_description_messages(
+            tenant_id=tenant_id,
+            store_id=store_id,
+            normalized_description=normalized_description,
+            clarification_context=clarification_context,
+        )
+        return self._call_chat(messages)
+
     def generate_store_draft(
         self,
         *,
@@ -195,6 +250,42 @@ class OllamaProviderClient(AIProviderContract):
             store_id=store_id,
             user_store_description=user_store_description,
             available_theme_templates=available_theme_templates,
+        )
+        return self._call_chat(messages)
+
+    def generate_agentic_store_draft(
+        self,
+        *,
+        tenant_id: int,
+        store_id: int,
+        user_store_description: str,
+        available_theme_templates: Sequence[str],
+    ) -> ProviderRawResponse:
+        messages = build_generate_agentic_store_draft_messages(
+            tenant_id=tenant_id,
+            store_id=store_id,
+            user_store_description=user_store_description,
+            available_theme_templates=available_theme_templates,
+        )
+        return self._call_chat(messages)
+
+    def generate_clarification_questions(
+        self,
+        *,
+        tenant_id: int,
+        store_id: int,
+        normalized_description: str,
+        semantic_analysis: Mapping[str, Any],
+        clarification_round_count: int,
+        clarification_context: Mapping[str, Any] | None = None,
+    ) -> ProviderRawResponse:
+        messages = build_generate_clarification_questions_messages(
+            tenant_id=tenant_id,
+            store_id=store_id,
+            normalized_description=normalized_description,
+            semantic_analysis=semantic_analysis,
+            clarification_round_count=clarification_round_count,
+            clarification_context=clarification_context,
         )
         return self._call_chat(messages)
 

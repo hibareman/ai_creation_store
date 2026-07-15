@@ -7,6 +7,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, extend_schema_view
 
+from .constants import (
+    WORKFLOW_STATUS_APPLIED,
+    WORKFLOW_STATUS_FAILED_RECOVERABLE,
+    WORKFLOW_STATUS_READY_FOR_REVIEW,
+)
 from .serializers import (
     AIApplyDraftResponseSerializer,
     AIClarificationRequestSerializer,
@@ -73,7 +78,8 @@ class AIBaseAPIView(GenericAPIView):
             "Create a draft store immediately and generate the initial temporary AI draft state. "
             "Request prefers user_description; deprecated user_store_description is accepted as a fallback. "
             "A name field is not required. Response includes store_id, draft_payload, and draft_metadata. "
-            "draft_metadata.status can include processing, needs_clarification, draft_ready, failed, or applied."
+            "draft_metadata.status can include processing, needs_clarification, ready_for_review, "
+            "failed_recoverable, or applied."
         ),
         tags=["AI Store Creation"],
         request=AIStartDraftRequestSerializer,
@@ -82,8 +88,34 @@ class AIBaseAPIView(GenericAPIView):
                 name="Start Draft Success",
                 value={
                     "store_id": 10,
-                    "draft_payload": {"clarification_needed": True, "clarification_questions": []},
-                    "draft_metadata": {"status": "needs_clarification", "mode": "clarification"},
+                    "draft_payload": {"clarification_needed": False, "clarification_questions": []},
+                    "draft_metadata": {
+                        "status": WORKFLOW_STATUS_READY_FOR_REVIEW,
+                        "mode": "draft_ready",
+                    },
+                },
+                response_only=True,
+            ),
+            OpenApiExample(
+                name="Recoverable Failure",
+                value={
+                    "store_id": 10,
+                    "draft_payload": {
+                        "clarification_needed": False,
+                        "clarification_questions": [],
+                        "error_code": "ai_generation_failed",
+                        "user_message": (
+                            "We could not complete AI generation right now. "
+                            "You can retry or edit the draft manually."
+                        ),
+                        "retry_allowed": True,
+                        "manual_edit_allowed": True,
+                    },
+                    "draft_metadata": {
+                        "status": WORKFLOW_STATUS_FAILED_RECOVERABLE,
+                        "mode": WORKFLOW_STATUS_FAILED_RECOVERABLE,
+                        "is_fallback": True,
+                    },
                 },
                 response_only=True,
             ),
@@ -164,7 +196,10 @@ class AICurrentDraftAPIView(AIBaseAPIView):
                 value={
                     "store_id": 10,
                     "draft_payload": {"clarification_needed": False, "clarification_questions": []},
-                    "draft_metadata": {"status": "draft_ready", "mode": "draft_ready"},
+                    "draft_metadata": {
+                        "status": WORKFLOW_STATUS_READY_FOR_REVIEW,
+                        "mode": "draft_ready",
+                    },
                 },
                 response_only=True,
             ),
@@ -251,7 +286,7 @@ class AIRegenerateDraftAPIView(AIBaseAPIView):
         summary="Regenerate AI draft section",
         description=(
             "Regenerate one section of the current AI draft payload. target_section must be one of "
-            "theme, categories, or products. Partial regeneration requires draft_ready state and keeps "
+            "theme, categories, or products. Partial regeneration requires ready_for_review state and keeps "
             "the existing draft unchanged if regeneration fails."
         ),
         tags=["AI Store Creation"],
@@ -295,7 +330,7 @@ class AIRegenerateSectionAPIView(AIBaseAPIView):
     post=extend_schema(
         summary="Apply current AI draft",
         description=(
-            "Apply the current draft_ready AI draft to store configuration, categories, and products, "
+            "Apply the current ready_for_review AI draft to store configuration, categories, and products, "
             "then schedule temporary draft cleanup after the successful database commit."
         ),
         tags=["AI Store Creation"],
@@ -305,7 +340,8 @@ class AIRegenerateSectionAPIView(AIBaseAPIView):
                 name="Apply Draft Success",
                 value={
                     "store_id": 10,
-                    "final_status": "setup",
+                    "workflow_status": WORKFLOW_STATUS_APPLIED,
+                    "store_status": "setup",
                     "store_core_applied": True,
                     "categories": {"created": ["Clothes"], "skipped": []},
                     "products": {"created": ["SKU-1"], "skipped": []},

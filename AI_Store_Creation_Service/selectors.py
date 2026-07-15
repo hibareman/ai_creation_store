@@ -6,8 +6,14 @@ from __future__ import annotations
 
 from categories.models import Category
 from products.models import Product
-from stores.models import Store
+from stores.models import Store, StoreSettings
 from themes.models import StoreThemeConfig, ThemeTemplate
+
+
+def _positive_int_or_none(value):
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        return None
+    return value
 
 
 def get_store_for_ai_flow(store_id: int, user, tenant_id: int | None):
@@ -22,14 +28,24 @@ def get_store_for_ai_flow(store_id: int, user, tenant_id: int | None):
     is_authenticated = bool(getattr(user, "is_authenticated", False))
     user_id = getattr(user, "id", None)
 
-    if not is_authenticated or user_id is None or tenant_id is None:
+    normalized_store_id = _positive_int_or_none(store_id)
+    normalized_user_id = _positive_int_or_none(user_id)
+    normalized_tenant_id = _positive_int_or_none(tenant_id)
+
+    if (
+        not is_authenticated
+        or normalized_user_id is None
+        or normalized_tenant_id is None
+        or normalized_store_id is None
+        or getattr(user, "tenant_id", None) != normalized_tenant_id
+    ):
         return None
 
     return (
         Store.objects.filter(
-            id=store_id,
-            tenant_id=tenant_id,
-            owner_id=user_id,
+            id=normalized_store_id,
+            tenant_id=normalized_tenant_id,
+            owner_id=normalized_user_id,
         )
         .select_related("owner")
         .first()
@@ -58,6 +74,33 @@ def get_store_theme_config_for_ai_flow(store_id: int, user, tenant_id: int | Non
             store__owner_id=user_id,
         )
         .select_related("store", "theme_template")
+        .first()
+    )
+
+
+def get_store_settings_for_ai_flow(store_id: int, user, tenant_id: int | None):
+    """
+    Return StoreSettings only if store access is valid for user + trusted tenant context.
+
+    Multi-tenant access rules enforced at query level:
+    - target store exists
+    - store.tenant_id == request.tenant_id (trusted middleware context)
+    - store.owner_id == request.user.id
+    - settings belongs to the selected store
+    """
+    is_authenticated = bool(getattr(user, "is_authenticated", False))
+    user_id = getattr(user, "id", None)
+
+    if not is_authenticated or user_id is None or tenant_id is None:
+        return None
+
+    return (
+        StoreSettings.objects.filter(
+            store_id=store_id,
+            store__tenant_id=tenant_id,
+            store__owner_id=user_id,
+        )
+        .select_related("store")
         .first()
     )
 

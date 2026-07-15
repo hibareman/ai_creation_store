@@ -7,8 +7,12 @@ They intentionally do not include business logic, DB access, or workflow orchest
 
 from __future__ import annotations
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
+
+from .constants import AI_WORKFLOW_STATUSES
+from .validators import validate_initial_description
 
 
 class AIStartDraftRequestSerializer(serializers.Serializer):
@@ -27,16 +31,19 @@ class AIStartDraftRequestSerializer(serializers.Serializer):
         preferred = attrs.get("user_description")
         deprecated = attrs.get("user_store_description")
 
-        normalized_user_description = None
         if isinstance(preferred, str) and preferred.strip():
-            normalized_user_description = preferred.strip()
-        elif isinstance(deprecated, str) and deprecated.strip():
-            normalized_user_description = deprecated.strip()
+            description_candidate = preferred
+        else:
+            description_candidate = deprecated
 
-        if not normalized_user_description:
-            raise serializers.ValidationError(
-                "Either 'user_description' or deprecated 'user_store_description' must be provided."
+        try:
+            normalized_user_description = validate_initial_description(
+                description_candidate if description_candidate is not None else ""
             )
+        except DjangoValidationError as exc:
+            messages = getattr(exc, "messages", None)
+            message = str(messages[0]) if messages else str(exc)
+            raise serializers.ValidationError(message) from exc
 
         attrs["normalized_user_description"] = normalized_user_description
         return attrs
@@ -45,7 +52,12 @@ class AIStartDraftRequestSerializer(serializers.Serializer):
 class AIDraftStateResponseSerializer(serializers.Serializer):
     store_id = serializers.IntegerField()
     draft_payload = serializers.JSONField()
-    draft_metadata = serializers.JSONField()
+    draft_metadata = serializers.JSONField(
+        help_text=(
+            "Workflow metadata. Public status is one of: "
+            f"{', '.join(sorted(AI_WORKFLOW_STATUSES))}."
+        )
+    )
 
 
 @extend_schema_field(
@@ -137,7 +149,8 @@ class AIApplyItemsResultSerializer(serializers.Serializer):
 
 class AIApplyDraftResponseSerializer(serializers.Serializer):
     store_id = serializers.IntegerField()
-    final_status = serializers.CharField()
+    workflow_status = serializers.CharField()
+    store_status = serializers.CharField()
     store_core_applied = serializers.BooleanField()
     categories = AIApplyItemsResultSerializer()
     products = AIApplyItemsResultSerializer()

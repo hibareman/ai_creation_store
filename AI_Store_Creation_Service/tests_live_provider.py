@@ -20,14 +20,18 @@ from users.models import User
 
 
 RUN_LIVE_AI_TESTS = os.getenv("RUN_LIVE_AI_TESTS") == "1"
-HAS_AI_API_KEY = bool(
-    os.getenv("AI_API_KEY", "").strip() or os.getenv("ANTHROPIC_API_KEY", "").strip()
+USES_OLLAMA_PROVIDER = os.getenv("AI_PROVIDER", "ollama").strip().lower() == "ollama"
+HAS_OLLAMA_API_KEY = bool(
+    os.getenv("AI_API_KEY", "").strip() or os.getenv("OLLAMA_API_KEY", "").strip()
 )
 
 
 @skipUnless(
-    RUN_LIVE_AI_TESTS and HAS_AI_API_KEY,
-    "Live AI tests are disabled. Set RUN_LIVE_AI_TESTS=1 and AI_API_KEY (or ANTHROPIC_API_KEY) to enable.",
+    RUN_LIVE_AI_TESTS and USES_OLLAMA_PROVIDER and HAS_OLLAMA_API_KEY,
+    (
+        "Live AI tests are disabled. Set RUN_LIVE_AI_TESTS=1, "
+        "AI_PROVIDER=ollama, and AI_API_KEY or OLLAMA_API_KEY to enable."
+    ),
 )
 class AILiveProviderIntegrationTests(TestCase):
     """
@@ -74,17 +78,62 @@ class AILiveProviderIntegrationTests(TestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_201_CREATED,
+            f"Expected start-draft to return 201, got {response.status_code}: {response.content!r}",
+        )
 
-        envelope = self._payload(response)
-        self.assertEqual(envelope.get("status"), "success")
-        data = envelope.get("data") or {}
+        data = self._payload(response)
+        draft_payload = data.get("draft_payload") or {}
         metadata = data.get("draft_metadata") or {}
 
-        self.assertIsInstance(data.get("store_id"), int)
-        self.assertIsInstance(data.get("draft_payload"), dict)
-        self.assertIn(metadata.get("status"), {"draft_ready", "needs_clarification"})
+        self.assertIsInstance(
+            data.get("store_id"),
+            int,
+            f"Expected top-level integer store_id, got response: {data!r}",
+        )
+        self.assertIsInstance(
+            draft_payload,
+            dict,
+            f"Expected top-level draft_payload object, got response: {data!r}",
+        )
+        self.assertIsInstance(
+            metadata,
+            dict,
+            f"Expected top-level draft_metadata object, got response: {data!r}",
+        )
+        self.assertIn(
+            metadata.get("status"),
+            {"ready_for_review", "needs_clarification"},
+            f"Expected live draft status to be ready_for_review or needs_clarification, got: {metadata!r}",
+        )
         self.assertFalse(
             metadata.get("is_fallback"),
             "Live provider returned fallback payload. Check AI_API_KEY/model/provider compatibility.",
         )
+
+        if metadata.get("status") == "ready_for_review":
+            self.assertFalse(
+                draft_payload.get("clarification_needed"),
+                f"ready_for_review payload must not request clarification: {draft_payload!r}",
+            )
+            self.assertEqual(
+                draft_payload.get("clarification_questions"),
+                [],
+                f"ready_for_review payload must contain no clarification questions: {draft_payload!r}",
+            )
+        elif metadata.get("status") == "needs_clarification":
+            self.assertTrue(
+                draft_payload.get("clarification_needed"),
+                f"needs_clarification payload must request clarification: {draft_payload!r}",
+            )
+            self.assertIsInstance(
+                draft_payload.get("clarification_questions"),
+                list,
+                f"needs_clarification questions must be a list: {draft_payload!r}",
+            )
+            self.assertTrue(
+                draft_payload.get("clarification_questions"),
+                f"needs_clarification payload must include at least one question: {draft_payload!r}",
+            )

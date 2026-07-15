@@ -6,6 +6,10 @@ import re
 from numbers import Real
 from typing import Any, Literal, Mapping, Sequence
 
+from django.core.exceptions import ValidationError
+
+from .constants import RECOVERABLE_FAILURE_ERROR_CODE, RECOVERABLE_FAILURE_USER_MESSAGE
+
 
 class AIDraftSchemaValidationError(ValueError):
     """Raised when parsed AI draft payload fails basic top-level schema checks."""
@@ -41,6 +45,25 @@ _DEFAULT_CLARIFICATION_QUESTIONS = [
         "options": ["Fashion", "Electronics", "Food & Grocery", "Other"],
     }
 ]
+
+
+def validate_initial_description(description: str) -> str:
+    """
+    Validate and normalize the user's initial store description.
+
+    The initial description must be meaningful enough to start the AI draft flow.
+    """
+    if not isinstance(description, str):
+        raise ValidationError("Store description must be a text value.")
+
+    normalized = " ".join(description.strip().split())
+    if not normalized:
+        raise ValidationError("Store description is required.")
+
+    if len(normalized.split()) < 5:
+        raise ValidationError("Store description must contain at least 5 words.")
+
+    return normalized
 
 
 def _ensure_key_of_type(
@@ -485,11 +508,13 @@ def build_ai_fallback_payload(
     clarification_questions: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """
-    Build the official clarification-style fallback payload for unusable AI responses.
+    Build a legacy clarification payload.
 
     Decision note:
-    - Fallback in AI Store Creation is clarification-style (not template-style).
-    - The payload intentionally requests clarification with structured MCQ objects.
+    - This is only suitable when the workflow intentionally wants real
+      clarification questions.
+    - Provider, parsing, and validation failures must use
+      build_ai_recoverable_failure_payload instead.
     """
     default_questions = [
         {
@@ -516,3 +541,29 @@ def build_ai_fallback_payload(
         fallback_payload["clarification_questions"] = default_questions
 
     return fallback_payload
+
+
+def build_ai_recoverable_failure_payload(
+    *,
+    error_code: str = RECOVERABLE_FAILURE_ERROR_CODE,
+    user_message: str = RECOVERABLE_FAILURE_USER_MESSAGE,
+) -> dict[str, Any]:
+    """
+    Build the frontend-visible payload for recoverable technical AI failures.
+
+    This intentionally does not ask clarification questions. The user can retry
+    the AI operation or continue by editing manually.
+    """
+    return {
+        "store": {},
+        "store_settings": {},
+        "theme": {},
+        "categories": [],
+        "products": [],
+        "clarification_needed": False,
+        "clarification_questions": [],
+        "error_code": error_code,
+        "user_message": user_message,
+        "retry_allowed": True,
+        "manual_edit_allowed": True,
+    }
