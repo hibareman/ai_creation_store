@@ -90,6 +90,11 @@ AGENTIC_OPERATION_NOT_AVAILABLE_USER_MESSAGE = (
     "This operation is not available for the current AI session yet."
 )
 
+AGENTIC_CLARIFICATION_INVALID_ERROR_CODE = "invalid_clarification_answers"
+AGENTIC_CLARIFICATION_INVALID_USER_MESSAGE = (
+    "The clarification answers are invalid or do not match the current questions."
+)
+
 
 def _normalize_store_id(store_id: int) -> int:
     """

@@ -60,14 +60,41 @@ class AIDraftStateResponseSerializer(serializers.Serializer):
     )
 
 
+class AIAgenticClarificationAnswerSerializer(serializers.Serializer):
+    question_key = serializers.CharField(trim_whitespace=True, allow_blank=False)
+    selected_option = serializers.CharField(trim_whitespace=True, allow_blank=False)
+
+
+class AIAgenticClarificationRequestSerializer(serializers.Serializer):
+    clarification_answers = AIAgenticClarificationAnswerSerializer(
+        many=True,
+        allow_empty=False,
+    )
+
+
 @extend_schema_field(
     {
         "oneOf": [
             {"type": "string"},
             {"type": "object"},
-            {"type": "array", "items": {}},
+            {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["question_key", "selected_option"],
+                    "additionalProperties": False,
+                    "properties": {
+                        "question_key": {"type": "string"},
+                        "selected_option": {"type": "string"},
+                    },
+                },
+            },
         ],
-        "description": "Non-empty clarification answer as a string, object, or list.",
+        "description": (
+            "Legacy sessions accept a non-empty string, object, or list. "
+            "Agentic sessions require a non-empty MCQ answer list with question_key "
+            "and selected_option."
+        ),
     }
 )
 class ClarificationAnswersField(serializers.Field):

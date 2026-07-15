@@ -41,9 +41,9 @@ def merge_clarification_answers(
     if facts != derived_facts:
         raise AIMergeValidationError("clarification_facts must match history.")
 
-    answers = normalize_clarification_answers(
-        clarification_answers,
-        questions=questions,
+    answers = validate_clarification_answer_submission(
+        clarification_questions=questions,
+        clarification_answers=clarification_answers,
     )
     resolved_facts = {
         answer["question_key"]: answer["selected_option"] for answer in answers
@@ -66,6 +66,19 @@ def merge_clarification_answers(
         "canonical_answers": answers,
     }
     return _json_defensive_copy(output)
+
+
+def validate_clarification_answer_submission(
+    *,
+    clarification_questions: Any,
+    clarification_answers: Any,
+) -> list[dict[str, str]]:
+    questions = normalize_clarification_questions(clarification_questions)
+    answers = normalize_clarification_answers(
+        clarification_answers,
+        questions=questions,
+    )
+    return _json_defensive_copy(answers)
 
 
 def normalize_clarification_context(
@@ -305,4 +318,5 @@ __all__ = [
     "normalize_clarification_facts",
     "normalize_clarification_history",
     "normalize_clarification_questions",
+    "validate_clarification_answer_submission",
 ]

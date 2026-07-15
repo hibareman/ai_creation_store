@@ -8,6 +8,9 @@ from rest_framework.response import Response
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, extend_schema_view
 
 from .constants import (
+    AGENTIC_CLARIFICATION_INVALID_USER_MESSAGE,
+    AGENTIC_OPERATION_NOT_AVAILABLE_USER_MESSAGE,
+    WORKFLOW_STATUS_NEEDS_CLARIFICATION,
     WORKFLOW_STATUS_APPLIED,
     WORKFLOW_STATUS_FAILED_RECOVERABLE,
     WORKFLOW_STATUS_READY_FOR_REVIEW,
@@ -31,6 +34,7 @@ from .services import (
 
 DOC_ERROR_RESPONSES = {
     400: OpenApiResponse(description="Bad request"),
+    401: OpenApiResponse(description="Authentication credentials were not provided or invalid."),
     403: OpenApiResponse(description="Permission denied"),
     404: OpenApiResponse(description="Not found"),
 }
@@ -78,20 +82,45 @@ class AIBaseAPIView(GenericAPIView):
             "Create a draft store immediately and generate the initial temporary AI draft state. "
             "Request prefers user_description; deprecated user_store_description is accepted as a fallback. "
             "A name field is not required. Response includes store_id, draft_payload, and draft_metadata. "
-            "draft_metadata.status can include processing, needs_clarification, ready_for_review, "
-            "failed_recoverable, or applied."
+            "Agentic sessions are selected internally by feature flag and return terminal statuses only: "
+            "needs_clarification, ready_for_review, or failed_recoverable."
         ),
         tags=["AI Store Creation"],
         request=AIStartDraftRequestSerializer,
         examples=[
             OpenApiExample(
-                name="Start Draft Success",
+                name="Agentic Ready For Review",
                 value={
                     "store_id": 10,
                     "draft_payload": {"clarification_needed": False, "clarification_questions": []},
                     "draft_metadata": {
                         "status": WORKFLOW_STATUS_READY_FOR_REVIEW,
                         "mode": "draft_ready",
+                        "workflow_engine": "agentic",
+                        "clarification_round_count": 0,
+                    },
+                },
+                response_only=True,
+            ),
+            OpenApiExample(
+                name="Agentic Needs Clarification",
+                value={
+                    "store_id": 10,
+                    "draft_payload": {
+                        "clarification_needed": True,
+                        "clarification_questions": [
+                            {
+                                "question_key": "primary_store_domain",
+                                "question_text": "What type of store should be created?",
+                                "options": ["Coffee", "Fashion"],
+                            }
+                        ],
+                    },
+                    "draft_metadata": {
+                        "status": WORKFLOW_STATUS_NEEDS_CLARIFICATION,
+                        "mode": "clarification",
+                        "workflow_engine": "agentic",
+                        "clarification_round_count": 0,
                     },
                 },
                 response_only=True,
@@ -115,6 +144,7 @@ class AIBaseAPIView(GenericAPIView):
                         "status": WORKFLOW_STATUS_FAILED_RECOVERABLE,
                         "mode": WORKFLOW_STATUS_FAILED_RECOVERABLE,
                         "is_fallback": True,
+                        "workflow_engine": "agentic",
                     },
                 },
                 response_only=True,
@@ -186,22 +216,44 @@ class AICurrentDraftAPIView(AIBaseAPIView):
         summary="Submit clarification round",
         description=(
             "Submit one clarification input through clarification_answers and advance the AI draft workflow. "
-            "clarification_answers accepts a non-empty string, object, or list."
+            "Agentic sessions require an exact non-empty MCQ answer list containing question_key and "
+            "selected_option. Legacy sessions retain the older compatibility input contract that accepts "
+            "a non-empty string, object, or list."
         ),
         tags=["AI Store Creation"],
         request=AIClarificationRequestSerializer,
         examples=[
             OpenApiExample(
-                name="Clarification Success",
+                name="Agentic Clarification Request",
+                value={
+                    "clarification_answers": [
+                        {
+                            "question_key": "primary_store_domain",
+                            "selected_option": "Coffee",
+                        }
+                    ]
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Agentic Ready After Clarification",
                 value={
                     "store_id": 10,
                     "draft_payload": {"clarification_needed": False, "clarification_questions": []},
                     "draft_metadata": {
                         "status": WORKFLOW_STATUS_READY_FOR_REVIEW,
                         "mode": "draft_ready",
+                        "workflow_engine": "agentic",
+                        "clarification_round_count": 1,
                     },
                 },
                 response_only=True,
+            ),
+            OpenApiExample(
+                name="Invalid Agentic Answers",
+                value={"detail": AGENTIC_CLARIFICATION_INVALID_USER_MESSAGE},
+                response_only=True,
+                status_codes=["400"],
             ),
         ],
         responses={200: AIDraftStateResponseSerializer, **DOC_ERROR_RESPONSES},
@@ -244,7 +296,8 @@ class AIClarificationAPIView(AIBaseAPIView):
         summary="Regenerate full AI draft",
         description=(
             "Regenerate the full AI draft for the same store/session using the saved original description "
-            "and clarification context. No new free-text prompt is accepted."
+            "and clarification context. No new free-text prompt is accepted. Agentic sessions currently "
+            f"return 400 with: {AGENTIC_OPERATION_NOT_AVAILABLE_USER_MESSAGE}"
         ),
         tags=["AI Store Creation"],
         request=EmptySerializer,
@@ -331,7 +384,8 @@ class AIRegenerateSectionAPIView(AIBaseAPIView):
         summary="Apply current AI draft",
         description=(
             "Apply the current ready_for_review AI draft to store configuration, categories, and products, "
-            "then schedule temporary draft cleanup after the successful database commit."
+            "then schedule temporary draft cleanup after the successful database commit. Agentic sessions "
+            f"currently return 400 with: {AGENTIC_OPERATION_NOT_AVAILABLE_USER_MESSAGE}"
         ),
         tags=["AI Store Creation"],
         request=EmptySerializer,

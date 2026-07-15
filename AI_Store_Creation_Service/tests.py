@@ -2,6 +2,7 @@ import inspect
 import importlib
 import json
 import sys
+from contextlib import ExitStack
 from copy import deepcopy
 from importlib.metadata import version as package_version
 from typing import Any, get_args
@@ -74,6 +75,7 @@ from .agentic.state import (
 )
 from .draft_store import get_ai_draft, get_ai_draft_meta, save_ai_draft, save_ai_draft_meta
 from .constants import (
+    AGENTIC_CLARIFICATION_INVALID_USER_MESSAGE,
     AGENTIC_OPERATION_NOT_AVAILABLE_USER_MESSAGE,
     CATEGORY_APPLY_FAILED_USER_MESSAGE,
     AI_AGENTIC_STATE_MAX_BYTES,

@@ -9,12 +9,17 @@ from typing import Any
 
 from django.core.exceptions import ValidationError
 
+from .agentic.merging import (
+    AIMergeValidationError,
+    validate_clarification_answer_submission,
+)
 from .agentic_session_services import (
     get_cached_agentic_workflow,
     resume_cached_agentic_workflow,
     start_cached_agentic_workflow,
 )
 from .constants import (
+    AGENTIC_CLARIFICATION_INVALID_USER_MESSAGE,
     MAX_CLARIFICATION_ROUNDS,
     MAX_REPAIR_ATTEMPTS,
     RECOVERABLE_FAILURE_ERROR_CODE,
@@ -115,11 +120,19 @@ def process_agentic_clarification_round(
     if state is None:
         return build_ai_recoverable_failure_payload()
 
+    try:
+        canonical_answers = validate_clarification_answer_submission(
+            clarification_questions=state.get("clarification_questions"),
+            clarification_answers=clarification_answers,
+        )
+    except AIMergeValidationError as exc:
+        raise ValidationError(AGENTIC_CLARIFICATION_INVALID_USER_MESSAGE) from exc
+
     resumed_state = resume_cached_agentic_workflow(
         store_id=state["store_id"],
         tenant_id=state["tenant_id"],
         user_id=state["user_id"],
-        clarification_answers=clarification_answers,
+        clarification_answers=canonical_answers,
     )
     return _project_agentic_state_to_public_response(resumed_state)["draft_payload"]
 
