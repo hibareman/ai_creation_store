@@ -298,9 +298,32 @@ from utils.logging_config import LOGGING_CONFIG as CUSTOM_LOGGING  # noqa
 
 LOGGING = CUSTOM_LOGGING
 
+# Ensure AI workflow logs, raw provider responses, parsing errors,
+# validation errors, and tracebacks are printed in the terminal.
+LOGGING.setdefault("handlers", {})
+LOGGING["handlers"].setdefault(
+    "console",
+    {
+        "class": "logging.StreamHandler",
+        "formatter": "verbose",
+    },
+)
+
+LOGGING.setdefault("loggers", {})
+LOGGING["loggers"]["AI_Store_Creation_Service"] = {
+    "handlers": ["console"],
+    "level": "DEBUG",
+    "propagate": False,
+}
+
 
 # AI Store Creation configuration (foundation only)
-AI_AGENTIC_WORKFLOW_ENABLED = False
+AI_AGENTIC_WORKFLOW_ENABLED = (
+    os.getenv("AI_AGENTIC_WORKFLOW_ENABLED", "False")
+    .strip()
+    .lower()
+    in {"true", "1", "yes", "on"}
+)
 AI_PROVIDER = os.getenv("AI_PROVIDER", "ollama").strip().lower()
 AI_API_KEY = os.getenv("AI_API_KEY", "")
 AI_API_URL = os.getenv("AI_API_URL", "")
@@ -350,3 +373,11 @@ else:
             },
         }
     }
+
+
+
+LOGGING["loggers"]["AI_Store_Creation_Service"] = {
+    "handlers": ["console"],
+    "level": "DEBUG",
+    "propagate": False,
+}

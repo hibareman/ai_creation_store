@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     AIApplyDraftAPIView,
     AIClarificationAPIView,
+    AIGeneratedStoreAPIView,
     AICurrentDraftAPIView,
     AIRegenerateDraftAPIView,
     AIRegenerateSectionAPIView,
@@ -14,6 +15,11 @@ app_name = "ai_store_creation"
 
 
 urlpatterns = [
+    path(
+        "stores/<int:store_id>/generated/",
+        AIGeneratedStoreAPIView.as_view(),
+        name="generated-store",
+    ),
     path(
         "stores/draft/start/",
         AIStartDraftAPIView.as_view(),

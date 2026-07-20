@@ -23,7 +23,7 @@ def human_review_node(state: AIStoreAgentState) -> dict[str, Any]:
         status = WORKFLOW_STATUS_READY_FOR_REVIEW
 
     return {
-        "current_step": "human_review",
+        "current_step": "human_review" if mode == "clarification" else "ready_for_review",
         "mode": mode,
         "status": status,
         "route_decision": "human_review",

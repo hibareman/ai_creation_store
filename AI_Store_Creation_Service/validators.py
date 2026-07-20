@@ -151,6 +151,47 @@ def validate_basic_draft_schema(payload: Mapping[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+
+_REGENERATION_TOP_LEVEL_KEYS = {
+    "regeneration_summary", "store", "store_settings", "theme",
+    "categories", "products", "clarification_needed", "clarification_questions",
+}
+
+def validate_regeneration_summary(value: Any) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise AIDraftSchemaValidationError("'regeneration_summary' must be an object.")
+    if set(value.keys()) != {"title", "message", "highlights"}:
+        raise AIDraftSchemaValidationError("Invalid regeneration_summary structure.")
+    title = value.get("title")
+    message = value.get("message")
+    highlights = value.get("highlights")
+    if not isinstance(title, str) or not title.strip():
+        raise AIDraftSchemaValidationError("Regeneration summary title must be non-empty.")
+    if not isinstance(message, str) or not message.strip():
+        raise AIDraftSchemaValidationError("Regeneration summary message must be non-empty.")
+    lines = [line.strip() for line in message.splitlines() if line.strip()]
+    if not 3 <= len(lines) <= 6:
+        raise AIDraftSchemaValidationError("Regeneration summary message must contain 3 to 6 non-empty lines.")
+    if not isinstance(highlights, list) or not 3 <= len(highlights) <= 5:
+        raise AIDraftSchemaValidationError("Regeneration summary highlights must contain 3 to 5 items.")
+    if any(not isinstance(item, str) or not item.strip() for item in highlights):
+        raise AIDraftSchemaValidationError("Every regeneration summary highlight must be non-empty.")
+    return {"title": title.strip(), "message": "\n".join(lines), "highlights": [item.strip() for item in highlights]}
+
+def validate_regenerated_draft_schema(payload: Mapping[str, Any]) -> dict[str, Any]:
+    if not isinstance(payload, Mapping):
+        raise AIDraftSchemaValidationError("Regeneration payload must be an object.")
+    if set(payload.keys()) != _REGENERATION_TOP_LEVEL_KEYS:
+        missing = sorted(_REGENERATION_TOP_LEVEL_KEYS - set(payload.keys()))
+        extra = sorted(set(payload.keys()) - _REGENERATION_TOP_LEVEL_KEYS)
+        raise AIDraftSchemaValidationError(f"Invalid regeneration top-level contract; missing={missing}, extra={extra}.")
+    normalized = dict(payload)
+    normalized["regeneration_summary"] = validate_regeneration_summary(normalized["regeneration_summary"])
+    normalized = validate_basic_draft_schema(normalized)
+    if normalized["clarification_needed"] is not False or normalized["clarification_questions"] != []:
+        raise AIDraftSchemaValidationError("Regeneration must return clarification_needed=false and clarification_questions=[].")
+    return normalized
+
 def validate_store_section(store_data: Mapping[str, Any]) -> dict[str, Any]:
     """
     Validate draft `store` section at a practical level for draft-ready payloads.

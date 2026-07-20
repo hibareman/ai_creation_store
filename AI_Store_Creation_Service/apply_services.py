@@ -8,7 +8,8 @@ import logging
 from typing import Any
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import DatabaseError, IntegrityError, transaction
+from django.utils import timezone
 
 from categories.models import Category
 from products.models import Inventory, Product, ProductImage
@@ -32,6 +33,7 @@ from .draft_store import (
     delete_ai_draft_meta,
     get_ai_draft,
     get_ai_draft_meta,
+    save_ai_draft_meta,
 )
 from .exceptions import AIDraftSchemaValidationError
 from .metadata_services import _get_or_rebuild_draft_metadata
@@ -145,7 +147,7 @@ def apply_current_ai_draft_store_core(
         draft_meta=get_ai_draft_meta(store.id),
         rebuild_partial=True,
     )
-    if draft_meta.get("status") not in READY_FOR_REVIEW_WORKFLOW_STATUSES:
+    if draft_meta.get("status") not in (READY_FOR_REVIEW_WORKFLOW_STATUSES | {"completed"}):
         raise ValidationError("Current workflow state is not ready_for_review")
 
     try:
@@ -303,7 +305,7 @@ def apply_current_ai_draft_categories(
         draft_meta=get_ai_draft_meta(store.id),
         rebuild_partial=True,
     )
-    if draft_meta.get("status") not in READY_FOR_REVIEW_WORKFLOW_STATUSES:
+    if draft_meta.get("status") not in (READY_FOR_REVIEW_WORKFLOW_STATUSES | {"completed"}):
         raise ValidationError("Current workflow state is not ready_for_review")
 
     try:
@@ -407,7 +409,7 @@ def apply_current_ai_draft_products(
         draft_meta=get_ai_draft_meta(store.id),
         rebuild_partial=True,
     )
-    if draft_meta.get("status") not in READY_FOR_REVIEW_WORKFLOW_STATUSES:
+    if draft_meta.get("status") not in (READY_FOR_REVIEW_WORKFLOW_STATUSES | {"completed"}):
         raise ValidationError("Current workflow state is not ready_for_review")
 
     try:
@@ -517,144 +519,176 @@ def apply_current_ai_draft_to_store(
     user,
     tenant_id: int | None,
 ) -> dict[str, Any]:
-    """
-    Confirm/apply the current AI draft completely using existing sub-services.
-    """
+    """Persist the validated draft deterministically in one atomic transaction."""
     if not user or not getattr(user, "is_authenticated", False):
         raise ValidationError("Authentication required")
-
-    if tenant_id is None:
-        raise ValidationError("Trusted tenant context is required")
-
     try:
         normalized_tenant_id = int(tenant_id)
     except (TypeError, ValueError) as exc:
         raise ValidationError("Invalid trusted tenant context") from exc
-
-    if normalized_tenant_id <= 0:
-        raise ValidationError("Invalid trusted tenant context")
-
-    if getattr(user, "tenant_id", None) != normalized_tenant_id:
+    if normalized_tenant_id <= 0 or getattr(user, "tenant_id", None) != normalized_tenant_id:
         raise ValidationError("User tenant context does not match trusted tenant context")
 
-    store = get_store_for_ai_flow(store_id=store_id, user=user, tenant_id=normalized_tenant_id)
+    store = get_store_for_ai_flow(
+        store_id=store_id, user=user, tenant_id=normalized_tenant_id
+    )
     if not store:
         raise ValidationError("Store not found or access denied")
 
-    _write_ai_audit_log(
-        tenant_id=normalized_tenant_id,
-        store_id=store.id,
-        actor_id=getattr(user, "id", None),
-        action="apply_draft",
-        status="requested",
-        message="Apply current AI draft requested.",
-    )
-
     current_draft = get_ai_draft(store.id)
     if current_draft is None:
-        _write_ai_audit_log(
-            tenant_id=normalized_tenant_id,
-            store_id=store.id,
-            actor_id=getattr(user, "id", None),
-            action="apply_draft",
-            status="failed",
-            message="No temporary AI draft found for this store.",
-        )
         raise ValidationError("No temporary AI draft found for this store")
-
     draft_meta = _get_or_rebuild_draft_metadata(
         store=store,
         draft_payload=current_draft,
         draft_meta=get_ai_draft_meta(store.id),
         rebuild_partial=True,
     )
-    if draft_meta.get("status") not in READY_FOR_REVIEW_WORKFLOW_STATUSES:
-        _write_ai_audit_log(
-            tenant_id=normalized_tenant_id,
-            store_id=store.id,
-            actor_id=getattr(user, "id", None),
-            action="apply_draft",
-            status="failed",
-            message="Current workflow state is not ready_for_review.",
-        )
+    if draft_meta.get("status") not in (READY_FOR_REVIEW_WORKFLOW_STATUSES | {"completed"}):
         raise ValidationError("Current workflow state is not ready_for_review")
 
-    def _cleanup_draft_after_commit() -> None:
-        try:
-            delete_ai_draft(store.id)
-            delete_ai_draft_meta(store.id)
-        except Exception as exc:  # pragma: no cover
-            logger.warning(
-                "Draft cleanup after apply commit failed. store_id=%s, reason=%s",
-                store.id,
-                str(exc),
-            )
+    try:
+        draft = validate_basic_draft_schema(current_draft)
+        if detect_ai_response_mode(draft) != "draft_ready":
+            raise AIDraftSchemaValidationError("Current draft payload is not draft_ready")
+        store_data = validate_store_section(draft["store"])
+        settings_data = validate_store_settings_section(draft["store_settings"])
+        theme_data = validate_theme_section(draft["theme"])
+        categories_data = validate_categories_section(draft["categories"])
+        category_names = [item["name"] for item in categories_data]
+        products_data = validate_products_section(draft["products"], category_names)
+        available_templates = get_available_theme_template_names()
+        _ensure_theme_template_is_available(theme_data, available_templates)
+        theme_template = get_theme_template_by_exact_name(
+            str(theme_data["theme_template"]).strip()
+        )
+        if theme_template is None:
+            raise AIDraftSchemaValidationError("Theme template does not exist.")
+    except AIDraftSchemaValidationError as exc:
+        raise ValidationError(str(exc)) from exc
 
+    created_categories_count = 0
+    created_products_count = 0
+    completed_at = timezone.now()
     try:
         with transaction.atomic():
-            apply_current_ai_draft_store_core(
-                store_id=store.id,
-                user=user,
-                tenant_id=normalized_tenant_id,
+            locked_store = type(store).objects.select_for_update().get(
+                pk=store.id, tenant_id=normalized_tenant_id, owner=user
             )
-            categories_result = apply_current_ai_draft_categories(
-                store_id=store.id,
-                user=user,
-                tenant_id=normalized_tenant_id,
+            locked_store.name = str(store_data["name"]).strip()
+            locked_store.description = str(store_data["description"])
+            locked_store.status = "setup"
+            locked_store.save(update_fields=["name", "description", "status", "updated_at"])
+
+            StoreSettings.objects.update_or_create(
+                store=locked_store,
+                defaults={
+                    "currency": str(settings_data["currency"]).strip(),
+                    "language": str(settings_data["language"]).strip(),
+                    "timezone": str(settings_data["timezone"]).strip(),
+                },
             )
-            products_result = apply_current_ai_draft_products(
-                store_id=store.id,
-                user=user,
-                tenant_id=normalized_tenant_id,
+            StoreThemeConfig.objects.update_or_create(
+                store=locked_store,
+                defaults={
+                    "theme_template": theme_template,
+                    "primary_color": theme_data["primary_color"],
+                    "secondary_color": theme_data["secondary_color"],
+                    "font_family": theme_data["font_family"],
+                    "logo_url": theme_data["logo_url"],
+                    "banner_url": theme_data["banner_url"],
+                },
             )
 
-            store.status = "setup"
-            store.save(update_fields=["status", "updated_at"])
+            desired_category_names = []
+            category_map = {}
+            for item in categories_data:
+                name = _normalize_category_name_for_store(str(item["name"]))
+                desired_category_names.append(name)
+                category, created = Category.objects.update_or_create(
+                    store=locked_store,
+                    name=name,
+                    defaults={
+                        "tenant_id": normalized_tenant_id,
+                        "description": str(item.get("description", "")),
+                    },
+                )
+                created_categories_count += int(created)
+                category_map[_normalize_category_name_for_compare(name)] = category
 
-            transaction.on_commit(_cleanup_draft_after_commit)
+            desired_skus = []
+            for item in products_data:
+                sku = " ".join(str(item["sku"]).strip().split())
+                desired_skus.append(sku)
+                category = category_map[_normalize_category_name_for_compare(str(item["category_name"]))]
+                product, created = Product.objects.update_or_create(
+                    store=locked_store,
+                    sku=sku,
+                    defaults={
+                        "tenant_id": normalized_tenant_id,
+                        "category": category,
+                        "name": str(item["name"]).strip(),
+                        "description": str(item["description"]),
+                        "price": item["price"],
+                        "status": "active",
+                    },
+                )
+                created_products_count += int(created)
+                Inventory.objects.update_or_create(
+                    product=product, defaults={"stock_quantity": item["stock_quantity"]}
+                )
+                ProductImage.objects.filter(product=product).delete()
+                image_url = str(item["image_url"]).strip()
+                if image_url:
+                    ProductImage.objects.create(product=product, image_url=image_url)
+
+            Product.objects.filter(store=locked_store).exclude(sku__in=desired_skus).delete()
+            Category.objects.filter(store=locked_store).exclude(name__in=desired_category_names).delete()
+
+            completed_metadata = {
+                **draft_meta,
+                "status": "completed",
+                "current_step": "completed",
+                "mode": "completed",
+                "is_fallback": False,
+                "application_success": True,
+                "created_categories_count": created_categories_count,
+                "created_products_count": created_products_count,
+                "completed_at": completed_at.isoformat(),
+            }
+            transaction.on_commit(
+                lambda: save_ai_draft_meta(store.id, completed_metadata)
+            )
+    except (IntegrityError, DatabaseError, transaction.TransactionManagementError) as exc:
+        _log_and_audit_apply_failure(
+            action="apply_store", error_code=STORE_CORE_APPLY_FAILED_ERROR_CODE,
+            store=store, user=user, tenant_id=normalized_tenant_id, exc=exc,
+        )
+        raise ValidationError(STORE_CORE_APPLY_FAILED_USER_MESSAGE) from exc
     except Exception as exc:
-        technical_reason = _technical_exception_reason(exc)
-        logger.warning(
-            "Full AI draft apply failed. store_id=%s, tenant_id=%s, reason=%s",
-            store.id,
-            normalized_tenant_id,
-            technical_reason,
+        _log_and_audit_apply_failure(
+            action="apply_store", error_code=STORE_CORE_APPLY_FAILED_ERROR_CODE,
+            store=store, user=user, tenant_id=normalized_tenant_id, exc=exc,
         )
-        _write_ai_audit_log(
-            tenant_id=normalized_tenant_id,
-            store_id=store.id,
-            actor_id=getattr(user, "id", None),
-            action="apply_draft",
-            status="failed",
-            message=technical_reason,
-        )
-        if isinstance(exc, ValidationError):
-            raise
         raise ValidationError(STORE_CORE_APPLY_FAILED_USER_MESSAGE) from exc
 
-    _write_ai_audit_log(
-        tenant_id=normalized_tenant_id,
-        store_id=store.id,
-        actor_id=getattr(user, "id", None),
-        action="apply_draft",
-        status="completed",
-        message="Current AI draft applied successfully.",
-    )
-    return {
+    result = {
+        **draft_meta,
         "store_id": store.id,
-        "workflow_status": WORKFLOW_STATUS_APPLIED,
-        "store_status": "setup",
-        "store_core_applied": True,
-        "categories": {
-            "created": categories_result.get("created_categories", []),
-            "skipped": categories_result.get("skipped_categories", []),
-        },
-        "products": {
-            "created": products_result.get("created_products", []),
-            "skipped": products_result.get("skipped_products", []),
-        },
-        "draft_cleanup_scheduled": True,
+        "status": "completed",
+        "current_step": "completed",
+        "mode": "completed",
+        "is_fallback": False,
+        "application_success": True,
+        "created_categories_count": created_categories_count,
+        "created_products_count": created_products_count,
+        "completed_at": completed_at.isoformat(),
     }
+    _write_ai_audit_log(
+        tenant_id=normalized_tenant_id, store_id=store.id, actor_id=getattr(user, "id", None),
+        action="apply_store", status="completed", message="Validated AI draft applied atomically.",
+    )
+    return result
 
 
 __all__ = [

@@ -1,5 +1,5 @@
 """
-Redis workflow metadata helpers for AI Store Creation.
+Django cache workflow metadata helpers for AI Store Creation.
 """
 
 from __future__ import annotations

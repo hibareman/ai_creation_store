@@ -1,0 +1,583 @@
+{
+  "info": {
+    "_postman_id": "b6f5a001-1m00-4aa0-9000-agenticphase1m",
+    "name": "AI Store Agentic — Phase 1M",
+    "description": "Create account, activate it, login with JWT, then test Agentic AI store creation.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "1. Register Store Owner",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/register/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"role\": \"Store Owner\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Copy the UUID from the activation email into activation_token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Register returns 201', function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Activate Account",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/activate/{{activation_token}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "activate",
+                "{{activation_token}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Activation returns 200', function () { pm.response.to.have.status(200); });",
+                  "const data = pm.response.json();",
+                  "if (data.access) pm.environment.set('access_token', data.access);",
+                  "if (data.refresh) pm.environment.set('refresh_token', data.refresh);",
+                  "if (data.tenant_id) pm.environment.set('tenant_id', data.tenant_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login returns 200', function () { pm.response.to.have.status(200); });",
+                  "const data = pm.response.json();",
+                  "pm.expect(data).to.have.property('access');",
+                  "pm.environment.set('access_token', data.access);",
+                  "if (data.refresh) pm.environment.set('refresh_token', data.refresh);",
+                  "if (data.tenant_id) pm.environment.set('tenant_id', data.tenant_id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Agentic AI Store Creation",
+      "item": [
+        {
+          "name": "4. Start — Clear Description",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/ai/stores/draft/start/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "stores",
+                "draft",
+                "start"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_description\": \"Create a modern specialty coffee store for young professionals selling coffee beans and brewing equipment.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Start returns 201', function () { pm.response.to.have.status(201); });",
+                  "const data = pm.response.json();",
+                  "pm.expect(Object.keys(data).sort()).to.eql(['draft_metadata','draft_payload','store_id']);",
+                  "pm.environment.set('store_id', data.store_id);",
+                  "pm.test('Agentic engine is used', function () { pm.expect(data.draft_metadata.workflow_engine).to.eql('agentic'); });",
+                  "const questions = data.draft_payload && data.draft_payload.clarification_questions;",
+                  "if (Array.isArray(questions) && questions.length > 0) {",
+                  "  pm.environment.set('question_key', questions[0].question_key);",
+                  "  if (Array.isArray(questions[0].options) && questions[0].options.length > 0) {",
+                  "    pm.environment.set('selected_option', questions[0].options[0]);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Start — Vague Description",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/ai/stores/draft/start/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "stores",
+                "draft",
+                "start"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_description\": \"Create a beautiful modern online store for customers.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Start returns 201', function () { pm.response.to.have.status(201); });",
+                  "const data = pm.response.json();",
+                  "pm.expect(Object.keys(data).sort()).to.eql(['draft_metadata','draft_payload','store_id']);",
+                  "pm.environment.set('store_id', data.store_id);",
+                  "pm.test('Agentic engine is used', function () { pm.expect(data.draft_metadata.workflow_engine).to.eql('agentic'); });",
+                  "const questions = data.draft_payload && data.draft_payload.clarification_questions;",
+                  "if (Array.isArray(questions) && questions.length > 0) {",
+                  "  pm.environment.set('question_key', questions[0].question_key);",
+                  "  if (Array.isArray(questions[0].options) && questions[0].options.length > 0) {",
+                  "    pm.environment.set('selected_option', questions[0].options[0]);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. Get Current Draft",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/ai/stores/{{store_id}}/draft/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "stores",
+                "{{store_id}}",
+                "draft"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Get current returns 200', function () { pm.response.to.have.status(200); });",
+                  "const data = pm.response.json();",
+                  "pm.expect(data.store_id).to.eql(Number(pm.environment.get('store_id')));",
+                  "pm.expect(data.draft_metadata.workflow_engine).to.eql('agentic');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. Submit Clarification Answers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/ai/stores/{{store_id}}/draft/clarify/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "stores",
+                "{{store_id}}",
+                "draft",
+                "clarify"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clarification_answers\": [\n    {\n      \"question_key\": \"{{question_key}}\",\n      \"selected_option\": \"{{selected_option}}\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Clarification returns 200', function () { pm.response.to.have.status(200); });",
+                  "const data = pm.response.json();",
+                  "pm.expect(data.draft_metadata.workflow_engine).to.eql('agentic');",
+                  "pm.expect(['needs_clarification','ready_for_review','failed_recoverable']).to.include(data.draft_metadata.status);",
+                  "const questions = data.draft_payload && data.draft_payload.clarification_questions;",
+                  "if (Array.isArray(questions) && questions.length > 0) {",
+                  "  pm.environment.set('question_key', questions[0].question_key);",
+                  "  pm.environment.set('selected_option', questions[0].options[0]);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8. Get Updated Draft",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/ai/stores/{{store_id}}/draft/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "stores",
+                "{{store_id}}",
+                "draft"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Get current returns 200', function () { pm.response.to.have.status(200); });",
+                  "const data = pm.response.json();",
+                  "pm.expect(data.store_id).to.eql(Number(pm.environment.get('store_id')));",
+                  "pm.expect(data.draft_metadata.workflow_engine).to.eql('agentic');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "9. Regenerate — Expected Agentic Rejection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/ai/stores/{{store_id}}/draft/regenerate/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "stores",
+                "{{store_id}}",
+                "draft",
+                "regenerate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Agentic operation returns 400', function () { pm.response.to.have.status(400); });",
+                  "const data = pm.response.json();",
+                  "pm.expect(data.error_code).to.eql('agentic_operation_not_available');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. Apply — Expected Agentic Rejection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/ai/stores/{{store_id}}/draft/apply/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "stores",
+                "{{store_id}}",
+                "draft",
+                "apply"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Agentic operation returns 400', function () { pm.response.to.have.status(400); });",
+                  "const data = pm.response.json();",
+                  "pm.expect(data.error_code).to.eql('agentic_operation_not_available');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11. Unauthorized Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/ai/stores/{{store_id}}/draft/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "ai",
+                "stores",
+                "{{store_id}}",
+                "draft"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Missing token returns 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "username",
+      "value": "phase1m_owner"
+    },
+    {
+      "key": "email",
+      "value": "phase1m_owner@example.com"
+    },
+    {
+      "key": "password",
+      "value": "StrongPass123!"
+    },
+    {
+      "key": "activation_token",
+      "value": ""
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "refresh_token",
+      "value": ""
+    },
+    {
+      "key": "tenant_id",
+      "value": ""
+    },
+    {
+      "key": "store_id",
+      "value": ""
+    },
+    {
+      "key": "question_key",
+      "value": ""
+    },
+    {
+      "key": "selected_option",
+      "value": ""
+    }
+  ]
+}

@@ -1,0 +1,481 @@
+from __future__ import annotations
+
+from django.core.exceptions import ValidationError as DjangoValidationError
+from rest_framework import status
+from rest_framework.generics import GenericAPIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, extend_schema_view
+
+from .constants import (
+    AGENTIC_CLARIFICATION_INVALID_ERROR_CODE,
+    AGENTIC_CLARIFICATION_INVALID_USER_MESSAGE,
+    AGENTIC_OPERATION_NOT_AVAILABLE_ERROR_CODE,
+    AGENTIC_OPERATION_NOT_AVAILABLE_USER_MESSAGE,
+    WORKFLOW_STATUS_NEEDS_CLARIFICATION,
+    WORKFLOW_STATUS_APPLIED,
+    WORKFLOW_STATUS_FAILED_RECOVERABLE,
+    WORKFLOW_STATUS_READY_FOR_REVIEW,
+)
+from .serializers import (
+    AIApplyDraftResponseSerializer,
+    AIClarificationRequestSerializer,
+    AIDraftStateResponseSerializer,
+    AIRegenerateSectionRequestSerializer,
+    AIStartDraftRequestSerializer,
+    EmptySerializer,
+)
+from .services import (
+    apply_current_ai_draft_to_store,
+    get_current_ai_draft,
+    process_clarification_round,
+    regenerate_store_draft,
+    regenerate_store_draft_section,
+    start_ai_draft_workflow,
+)
+
+DOC_ERROR_RESPONSES = {
+    400: OpenApiResponse(description="Bad request"),
+    401: OpenApiResponse(description="Authentication credentials were not provided or invalid."),
+    403: OpenApiResponse(description="Permission denied"),
+    404: OpenApiResponse(description="Not found"),
+}
+
+
+class AIBaseAPIView(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    _NOT_FOUND_MESSAGES = {
+        "Store not found or access denied",
+        "No temporary AI draft found for this store",
+    }
+
+    @staticmethod
+    def _extract_validation_message(exc: DjangoValidationError) -> str:
+        messages = getattr(exc, "messages", None)
+        if isinstance(messages, list) and messages:
+            return str(messages[0])
+
+        message = str(exc)
+        if message.startswith("['") and message.endswith("']"):
+            return message[2:-2]
+        return message
+
+    def _validation_error_response(self, exc: DjangoValidationError) -> Response:
+        message = self._extract_validation_message(exc)
+        response_status = (
+            status.HTTP_404_NOT_FOUND
+            if message in self._NOT_FOUND_MESSAGES
+            else status.HTTP_400_BAD_REQUEST
+        )
+
+        payload = {"detail": message}
+        if message == AGENTIC_CLARIFICATION_INVALID_USER_MESSAGE:
+            payload["error_code"] = AGENTIC_CLARIFICATION_INVALID_ERROR_CODE
+        elif message == AGENTIC_OPERATION_NOT_AVAILABLE_USER_MESSAGE:
+            payload["error_code"] = AGENTIC_OPERATION_NOT_AVAILABLE_ERROR_CODE
+
+        return Response(payload, status=response_status)
+
+    @staticmethod
+    def _validated_response_payload(serializer_class, payload: dict) -> dict:
+        serializer = serializer_class(data=payload)
+        serializer.is_valid(raise_exception=True)
+        return serializer.validated_data
+
+
+@extend_schema_view(
+    post=extend_schema(
+        summary="Start AI draft workflow",
+        description=(
+            "Create a draft store immediately and generate the initial temporary AI draft state. "
+            "Request prefers user_description; deprecated user_store_description is accepted as a fallback. "
+            "A name field is not required. Response includes store_id, draft_payload, and draft_metadata. "
+            "Agentic sessions are selected internally by feature flag and return terminal statuses only: "
+            "needs_clarification, ready_for_review, or failed_recoverable."
+        ),
+        tags=["AI Store Creation"],
+        request=AIStartDraftRequestSerializer,
+        examples=[
+            OpenApiExample(
+                name="Agentic Ready For Review",
+                value={
+                    "store_id": 10,
+                    "draft_payload": {"clarification_needed": False, "clarification_questions": []},
+                    "draft_metadata": {
+                        "status": WORKFLOW_STATUS_READY_FOR_REVIEW,
+                        "mode": "draft_ready",
+                        "workflow_engine": "agentic",
+                        "clarification_round_count": 0,
+                        "personalization_progress": {
+                            "resolved_core_count": 10,
+                            "total_core_count": 10,
+                            "core_complete": True,
+                            "missing_core_keys": [],
+                        },
+                    },
+                },
+                response_only=True,
+            ),
+            OpenApiExample(
+                name="Agentic Needs Clarification",
+                value={
+                    "store_id": 10,
+                    "draft_payload": {
+                        "clarification_needed": True,
+                        "clarification_questions": [
+                            {
+                                "question_key": "price_positioning",
+                                "question_text": "How should prices be positioned?",
+                                "options": ["Affordable", "Premium", "Other"],
+                                "other_option": "Other",
+                            }
+                        ],
+                    },
+                    "draft_metadata": {
+                        "status": WORKFLOW_STATUS_NEEDS_CLARIFICATION,
+                        "mode": "clarification",
+                        "workflow_engine": "agentic",
+                        "clarification_round_count": 0,
+                        "personalization_progress": {
+                            "resolved_core_count": 6,
+                            "total_core_count": 10,
+                            "core_complete": False,
+                            "missing_core_keys": [
+                                "customer_problem",
+                                "unique_value_proposition",
+                                "brand_personality",
+                                "visual_preferences",
+                            ],
+                        },
+                    },
+                },
+                response_only=True,
+            ),
+            OpenApiExample(
+                name="Recoverable Failure",
+                value={
+                    "store_id": 10,
+                    "draft_payload": {
+                        "clarification_needed": False,
+                        "clarification_questions": [],
+                        "error_code": "ai_generation_failed",
+                        "user_message": (
+                            "We could not complete AI generation right now. "
+                            "You can retry or edit the draft manually."
+                        ),
+                        "retry_allowed": True,
+                        "manual_edit_allowed": True,
+                    },
+                    "draft_metadata": {
+                        "status": WORKFLOW_STATUS_FAILED_RECOVERABLE,
+                        "mode": WORKFLOW_STATUS_FAILED_RECOVERABLE,
+                        "is_fallback": True,
+                        "workflow_engine": "agentic",
+                    },
+                },
+                response_only=True,
+            ),
+        ],
+        responses={201: AIDraftStateResponseSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
+class AIStartDraftAPIView(AIBaseAPIView):
+    serializer_class = AIStartDraftRequestSerializer
+
+    def post(self, request, *args, **kwargs):
+        request_serializer = self.get_serializer(data=request.data)
+        request_serializer.is_valid(raise_exception=True)
+
+        tenant_id = getattr(request, "tenant_id", None)
+        normalized_user_description = request_serializer.validated_data[
+            "normalized_user_description"
+        ]
+
+        try:
+            draft_state = start_ai_draft_workflow(
+                user=request.user,
+                tenant_id=tenant_id,
+                user_store_description=normalized_user_description,
+            )
+        except DjangoValidationError as exc:
+            return self._validation_error_response(exc)
+
+        response_payload = self._validated_response_payload(
+            AIDraftStateResponseSerializer,
+            draft_state,
+        )
+        return Response(response_payload, status=status.HTTP_201_CREATED)
+
+
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get current AI draft state",
+        description="Return current temporary draft payload and metadata for a store.",
+        tags=["AI Store Creation"],
+        responses={200: AIDraftStateResponseSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
+class AICurrentDraftAPIView(AIBaseAPIView):
+    serializer_class = EmptySerializer
+
+    def get(self, request, store_id: int, *args, **kwargs):
+        tenant_id = getattr(request, "tenant_id", None)
+
+        try:
+            draft_state = get_current_ai_draft(
+                store_id=store_id,
+                user=request.user,
+                tenant_id=tenant_id,
+            )
+        except DjangoValidationError as exc:
+            return self._validation_error_response(exc)
+
+        response_payload = self._validated_response_payload(
+            AIDraftStateResponseSerializer,
+            draft_state,
+        )
+        return Response(response_payload, status=status.HTTP_200_OK)
+
+
+@extend_schema_view(
+    post=extend_schema(
+        summary="Submit clarification round",
+        description=(
+            "Submit one clarification input through clarification_answers and advance the AI draft workflow. "
+            "Agentic sessions require an exact non-empty MCQ answer list containing question_key and "
+            "selected_option. Legacy sessions retain the older compatibility input contract that accepts "
+            "a non-empty string, object, or list."
+        ),
+        tags=["AI Store Creation"],
+        request=AIClarificationRequestSerializer,
+        examples=[
+            OpenApiExample(
+                name="Agentic Normal Answer",
+                value={
+                    "clarification_answers": [
+                        {
+                            "question_key": "price_positioning",
+                            "selected_option": "Premium",
+                        }
+                    ]
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Agentic Other Answer",
+                value={
+                    "clarification_answers": [
+                        {
+                            "question_key": "product_offering",
+                            "selected_option": "Other",
+                            "custom_answer": "Handmade natural soaps",
+                        }
+                    ]
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Agentic Ready After Clarification",
+                value={
+                    "store_id": 10,
+                    "draft_payload": {"clarification_needed": False, "clarification_questions": []},
+                    "draft_metadata": {
+                        "status": WORKFLOW_STATUS_READY_FOR_REVIEW,
+                        "mode": "draft_ready",
+                        "workflow_engine": "agentic",
+                        "clarification_round_count": 1,
+                        "personalization_progress": {
+                            "resolved_core_count": 10,
+                            "total_core_count": 10,
+                            "core_complete": True,
+                            "missing_core_keys": [],
+                        },
+                    },
+                },
+                response_only=True,
+            ),
+            OpenApiExample(
+                name="Invalid Agentic Answers",
+                value={
+                    "detail": AGENTIC_CLARIFICATION_INVALID_USER_MESSAGE,
+                    "error_code": AGENTIC_CLARIFICATION_INVALID_ERROR_CODE,
+                },
+                response_only=True,
+                status_codes=["400"],
+            ),
+        ],
+        responses={200: AIDraftStateResponseSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
+class AIClarificationAPIView(AIBaseAPIView):
+    serializer_class = AIClarificationRequestSerializer
+
+    def post(self, request, store_id: int, *args, **kwargs):
+        request_serializer = self.get_serializer(data=request.data)
+        request_serializer.is_valid(raise_exception=True)
+
+        tenant_id = getattr(request, "tenant_id", None)
+        clarification_answers = request_serializer.validated_data["clarification_answers"]
+
+        try:
+            process_clarification_round(
+                store_id=store_id,
+                user=request.user,
+                tenant_id=tenant_id,
+                clarification_answers=clarification_answers,
+            )
+            draft_state = get_current_ai_draft(
+                store_id=store_id,
+                user=request.user,
+                tenant_id=tenant_id,
+            )
+        except DjangoValidationError as exc:
+            return self._validation_error_response(exc)
+
+        response_payload = self._validated_response_payload(
+            AIDraftStateResponseSerializer,
+            draft_state,
+        )
+        return Response(response_payload, status=status.HTTP_200_OK)
+
+
+@extend_schema_view(
+    post=extend_schema(
+        summary="Regenerate full AI draft",
+        description=(
+            "Regenerate the full AI draft for the same store/session using the saved original description "
+            "and clarification context. No new free-text prompt is accepted. Agentic sessions currently "
+            f"return 400 with: {AGENTIC_OPERATION_NOT_AVAILABLE_USER_MESSAGE}"
+        ),
+        tags=["AI Store Creation"],
+        request=EmptySerializer,
+        responses={200: AIDraftStateResponseSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
+class AIRegenerateDraftAPIView(AIBaseAPIView):
+    serializer_class = EmptySerializer
+
+    def post(self, request, store_id: int, *args, **kwargs):
+        request_serializer = self.get_serializer(data=request.data)
+        request_serializer.is_valid(raise_exception=True)
+
+        tenant_id = getattr(request, "tenant_id", None)
+
+        try:
+            regenerate_store_draft(
+                store_id=store_id,
+                user=request.user,
+                tenant_id=tenant_id,
+            )
+            draft_state = get_current_ai_draft(
+                store_id=store_id,
+                user=request.user,
+                tenant_id=tenant_id,
+            )
+        except DjangoValidationError as exc:
+            return self._validation_error_response(exc)
+
+        response_payload = self._validated_response_payload(
+            AIDraftStateResponseSerializer,
+            draft_state,
+        )
+        return Response(response_payload, status=status.HTTP_200_OK)
+
+
+@extend_schema_view(
+    post=extend_schema(
+        summary="Regenerate AI draft section",
+        description=(
+            "Regenerate one section of the current AI draft payload. target_section must be one of "
+            "theme, categories, or products. Partial regeneration requires ready_for_review state and keeps "
+            "the existing draft unchanged if regeneration fails."
+        ),
+        tags=["AI Store Creation"],
+        request=AIRegenerateSectionRequestSerializer,
+        responses={200: AIDraftStateResponseSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
+class AIRegenerateSectionAPIView(AIBaseAPIView):
+    serializer_class = AIRegenerateSectionRequestSerializer
+
+    def post(self, request, store_id: int, *args, **kwargs):
+        request_serializer = self.get_serializer(data=request.data)
+        request_serializer.is_valid(raise_exception=True)
+
+        tenant_id = getattr(request, "tenant_id", None)
+        target_section = request_serializer.validated_data["target_section"]
+
+        try:
+            regenerate_store_draft_section(
+                store_id=store_id,
+                user=request.user,
+                tenant_id=tenant_id,
+                target_section=target_section,
+            )
+            draft_state = get_current_ai_draft(
+                store_id=store_id,
+                user=request.user,
+                tenant_id=tenant_id,
+            )
+        except DjangoValidationError as exc:
+            return self._validation_error_response(exc)
+
+        response_payload = self._validated_response_payload(
+            AIDraftStateResponseSerializer,
+            draft_state,
+        )
+        return Response(response_payload, status=status.HTTP_200_OK)
+
+
+@extend_schema_view(
+    post=extend_schema(
+        summary="Apply current AI draft",
+        description=(
+            "Apply the current ready_for_review AI draft to store configuration, categories, and products, "
+            "then schedule temporary draft cleanup after the successful database commit. Agentic sessions "
+            f"currently return 400 with: {AGENTIC_OPERATION_NOT_AVAILABLE_USER_MESSAGE}"
+        ),
+        tags=["AI Store Creation"],
+        request=EmptySerializer,
+        examples=[
+            OpenApiExample(
+                name="Apply Draft Success",
+                value={
+                    "store_id": 10,
+                    "workflow_status": WORKFLOW_STATUS_APPLIED,
+                    "store_status": "setup",
+                    "store_core_applied": True,
+                    "categories": {"created": ["Clothes"], "skipped": []},
+                    "products": {"created": ["SKU-1"], "skipped": []},
+                    "draft_cleanup_scheduled": True,
+                },
+                response_only=True,
+            ),
+        ],
+        responses={200: AIApplyDraftResponseSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
+class AIApplyDraftAPIView(AIBaseAPIView):
+    serializer_class = EmptySerializer
+
+    def post(self, request, store_id: int, *args, **kwargs):
+        request_serializer = self.get_serializer(data=request.data)
+        request_serializer.is_valid(raise_exception=True)
+
+        tenant_id = getattr(request, "tenant_id", None)
+
+        try:
+            apply_result = apply_current_ai_draft_to_store(
+                store_id=store_id,
+                user=request.user,
+                tenant_id=tenant_id,
+            )
+        except DjangoValidationError as exc:
+            return self._validation_error_response(exc)
+
+        response_payload = self._validated_response_payload(
+            AIApplyDraftResponseSerializer,
+            apply_result,
+        )
+        return Response(response_payload, status=status.HTTP_200_OK)

@@ -14,7 +14,7 @@ from ..parsers import parse_provider_raw_response_to_dict
 from ..providers import get_ai_provider_client
 
 RepairStrategy = Literal["section", "full"]
-RepairSection = Literal["theme", "categories", "products"]
+RepairSection = Literal["store", "store_settings", "theme", "categories", "products"]
 ValidatedExpectedMode = Literal["draft_ready", "clarification"]
 
 _ISSUE_KEYS = {"path", "code", "message", "repairable"}
@@ -22,18 +22,23 @@ _FULL_REPAIR_CODES = {
     "draft_payload_invalid",
     "response_mode_invalid",
     "clarification_questions_invalid",
-    "store_section_invalid",
-    "store_settings_section_invalid",
 }
 _SECTION_REPAIR_CODE_TO_SECTION: dict[str, RepairSection] = {
+    "store_section_invalid": "store",
+    "store_settings_section_invalid": "store_settings",
     "theme_section_invalid": "theme",
     "theme_template_unavailable": "theme",
     "categories_section_invalid": "categories",
     "products_section_invalid": "products",
 }
-_ALLOWED_REPAIR_CODES = _FULL_REPAIR_CODES | set(_SECTION_REPAIR_CODE_TO_SECTION)
+_PERSONALIZATION_REPAIR_CODES: set[str] = set()
+_ALLOWED_REPAIR_CODES = _FULL_REPAIR_CODES | set(_SECTION_REPAIR_CODE_TO_SECTION) | _PERSONALIZATION_REPAIR_CODES
 _REPAIR_INSTRUCTION = (
     "Repair only the listed validation problems. Preserve valid existing data. "
+    "Treat the Blueprint, effective personalization context, and locked user "
+    "decisions as immutable constraints. Never replace confirmed target market, "
+    "pricing, brand personality, language, currency, visual preferences, "
+    "clarification facts, or custom answers. "
     "The expected_mode value is included in this repair context and must be preserved. "
     "Do not change response mode by yourself. If expected_mode is draft_ready, "
     "clarification_needed must be false, clarification_questions must be an empty list, "
@@ -64,6 +69,10 @@ def repair_draft_payload(
     validation_errors: Any,
     available_theme_templates: Any,
     repair_attempt_count: Any,
+    blueprint: Any = None,
+    effective_personalization_context: Any = None,
+    locked_user_decisions: Any = None,
+    require_personalization_constraints: bool = False,
 ) -> dict[str, Any]:
     normalized_store_id = _validate_positive_int(store_id)
     normalized_tenant_id = _validate_positive_int(tenant_id)
@@ -74,12 +83,20 @@ def repair_draft_payload(
     issue_list = _validate_validation_errors(validation_errors)
     theme_templates = _normalize_theme_template_names(available_theme_templates)
     current_attempt_count = _validate_repair_attempt_count(repair_attempt_count)
+    constraints = _validate_constraints(
+        blueprint,
+        effective_personalization_context,
+        locked_user_decisions,
+        required=require_personalization_constraints,
+    )
     next_attempt_count = current_attempt_count + 1
     strategy, target_section = _choose_repair_strategy(issue_list)
+    selected_issues = _issues_for_repair(issue_list, strategy, target_section)
     repair_context = _build_repair_context(
         expected_mode=mode,
-        validation_errors=issue_list,
+        validation_errors=selected_issues,
         next_attempt_count=next_attempt_count,
+        constraints=constraints,
     )
 
     provider = get_ai_provider_client()
@@ -110,10 +127,35 @@ def repair_draft_payload(
             )
         )
 
-    return _normalize_repaired_candidate(
+    normalized = _normalize_repaired_candidate(
         candidate,
         available_theme_templates=theme_templates,
     )
+    if constraints:
+        return _preserve_locked_draft_values(draft_copy, normalized, selected_issues)
+    return normalized
+
+
+def _validate_constraints(
+    blueprint: Any,
+    effective: Any,
+    decisions: Any,
+    *,
+    required: bool,
+) -> dict[str, Any]:
+    if not required and blueprint is None and effective is None:
+        return {}
+    values = {
+        "blueprint": blueprint,
+        "effective_personalization_context": effective,
+        "locked_user_decisions": decisions,
+    }
+    for key, value in values.items():
+        if not isinstance(value, Mapping):
+            raise RepairInputError(f"Repair {key} must be an object.")
+    copied = deepcopy(values)
+    _assert_json_serializable(copied)
+    return copied
 
 
 def _validate_positive_int(value: Any) -> int:
@@ -203,18 +245,24 @@ def _validate_repair_attempt_count(value: Any) -> int:
 def _choose_repair_strategy(
     validation_errors: list[dict[str, Any]],
 ) -> tuple[RepairStrategy, RepairSection | None]:
-    target_sections = {
+    priority = ("store", "store_settings", "theme", "categories", "products")
+    sections = {
         _SECTION_REPAIR_CODE_TO_SECTION[issue["code"]]
         for issue in validation_errors
         if issue["code"] in _SECTION_REPAIR_CODE_TO_SECTION
     }
-    all_issues_are_section_scoped = all(
-        issue["code"] in _SECTION_REPAIR_CODE_TO_SECTION
-        for issue in validation_errors
-    )
-    if all_issues_are_section_scoped and len(target_sections) == 1:
-        return "section", next(iter(target_sections))
+    if sections:
+        return "section", next(section for section in priority if section in sections)
     return "full", None
+
+
+def _issues_for_repair(validation_errors, strategy, target_section):
+    if strategy == "full":
+        return deepcopy(validation_errors)
+    return [
+        deepcopy(issue) for issue in validation_errors
+        if _SECTION_REPAIR_CODE_TO_SECTION.get(issue["code"]) == target_section
+    ]
 
 
 def _build_repair_context(
@@ -222,6 +270,7 @@ def _build_repair_context(
     expected_mode: ValidatedExpectedMode,
     validation_errors: list[dict[str, Any]],
     next_attempt_count: int,
+    constraints: dict[str, Any],
 ) -> dict[str, Any]:
     context = {
         "operation": "agentic_validation_repair",
@@ -230,9 +279,37 @@ def _build_repair_context(
         "max_repair_attempts": MAX_REPAIR_ATTEMPTS,
         "validation_errors": deepcopy(validation_errors),
         "repair_instruction": _REPAIR_INSTRUCTION,
+        **deepcopy(constraints),
     }
     _assert_json_serializable(context)
     return context
+
+
+def _preserve_locked_draft_values(
+    current: dict[str, Any], candidate: dict[str, Any], issues: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Accept provider changes only for top-level sections named by issues."""
+    if any(issue["code"] in {"draft_payload_invalid", "response_mode_invalid", "clarification_questions_invalid"} for issue in issues):
+        return candidate
+    result = deepcopy(current)
+    for issue in issues:
+        path_parts = issue["path"].split(".")
+        section = path_parts[0]
+        if len(path_parts) == 1:
+            if section in candidate:
+                result[section] = deepcopy(candidate[section])
+            continue
+        if (
+            len(path_parts) == 2
+            and isinstance(result.get(section), Mapping)
+            and isinstance(candidate.get(section), Mapping)
+            and path_parts[1] in candidate[section]
+        ):
+            result[section][path_parts[1]] = deepcopy(
+                candidate[section][path_parts[1]]
+            )
+    _assert_json_serializable(result)
+    return result
 
 
 def _repair_section(
@@ -241,7 +318,7 @@ def _repair_section(
     current_draft: dict[str, Any],
     target_section: RepairSection | None,
 ) -> dict[str, Any]:
-    if target_section not in {"theme", "categories", "products"}:
+    if target_section not in {"store", "store_settings", "theme", "categories", "products"}:
         raise RepairOutputError("Repair target section is invalid.")
     replacement_payload = _parse_provider_response_with_single_retry(provider_call)
     replacement = _extract_section_replacement(replacement_payload, target_section)

@@ -8,7 +8,9 @@ from rest_framework.response import Response
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, extend_schema_view
 
 from .constants import (
+    AGENTIC_CLARIFICATION_INVALID_ERROR_CODE,
     AGENTIC_CLARIFICATION_INVALID_USER_MESSAGE,
+    AGENTIC_OPERATION_NOT_AVAILABLE_ERROR_CODE,
     AGENTIC_OPERATION_NOT_AVAILABLE_USER_MESSAGE,
     WORKFLOW_STATUS_NEEDS_CLARIFICATION,
     WORKFLOW_STATUS_APPLIED,
@@ -17,12 +19,14 @@ from .constants import (
 )
 from .serializers import (
     AIApplyDraftResponseSerializer,
+    AIGeneratedStoreResponseSerializer,
     AIClarificationRequestSerializer,
     AIDraftStateResponseSerializer,
     AIRegenerateSectionRequestSerializer,
     AIStartDraftRequestSerializer,
     EmptySerializer,
 )
+from .generated_store_services import get_applied_ai_store_details
 from .services import (
     apply_current_ai_draft_to_store,
     get_current_ai_draft,
@@ -66,7 +70,14 @@ class AIBaseAPIView(GenericAPIView):
             if message in self._NOT_FOUND_MESSAGES
             else status.HTTP_400_BAD_REQUEST
         )
-        return Response({"detail": message}, status=response_status)
+
+        payload = {"detail": message}
+        if message == AGENTIC_CLARIFICATION_INVALID_USER_MESSAGE:
+            payload["error_code"] = AGENTIC_CLARIFICATION_INVALID_ERROR_CODE
+        elif message == AGENTIC_OPERATION_NOT_AVAILABLE_USER_MESSAGE:
+            payload["error_code"] = AGENTIC_OPERATION_NOT_AVAILABLE_ERROR_CODE
+
+        return Response(payload, status=response_status)
 
     @staticmethod
     def _validated_response_payload(serializer_class, payload: dict) -> dict:
@@ -98,6 +109,12 @@ class AIBaseAPIView(GenericAPIView):
                         "mode": "draft_ready",
                         "workflow_engine": "agentic",
                         "clarification_round_count": 0,
+                        "personalization_progress": {
+                            "resolved_core_count": 10,
+                            "total_core_count": 10,
+                            "core_complete": True,
+                            "missing_core_keys": [],
+                        },
                     },
                 },
                 response_only=True,
@@ -110,9 +127,10 @@ class AIBaseAPIView(GenericAPIView):
                         "clarification_needed": True,
                         "clarification_questions": [
                             {
-                                "question_key": "primary_store_domain",
-                                "question_text": "What type of store should be created?",
-                                "options": ["Coffee", "Fashion"],
+                                "question_key": "price_positioning",
+                                "question_text": "How should prices be positioned?",
+                                "options": ["Affordable", "Premium", "Other"],
+                                "other_option": "Other",
                             }
                         ],
                     },
@@ -121,6 +139,17 @@ class AIBaseAPIView(GenericAPIView):
                         "mode": "clarification",
                         "workflow_engine": "agentic",
                         "clarification_round_count": 0,
+                        "personalization_progress": {
+                            "resolved_core_count": 6,
+                            "total_core_count": 10,
+                            "core_complete": False,
+                            "missing_core_keys": [
+                                "customer_problem",
+                                "unique_value_proposition",
+                                "brand_personality",
+                                "visual_preferences",
+                            ],
+                        },
                     },
                 },
                 response_only=True,
@@ -224,12 +253,25 @@ class AICurrentDraftAPIView(AIBaseAPIView):
         request=AIClarificationRequestSerializer,
         examples=[
             OpenApiExample(
-                name="Agentic Clarification Request",
+                name="Agentic Normal Answer",
                 value={
                     "clarification_answers": [
                         {
-                            "question_key": "primary_store_domain",
-                            "selected_option": "Coffee",
+                            "question_key": "price_positioning",
+                            "selected_option": "Premium",
+                        }
+                    ]
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Agentic Other Answer",
+                value={
+                    "clarification_answers": [
+                        {
+                            "question_key": "product_offering",
+                            "selected_option": "Other",
+                            "custom_answer": "Handmade natural soaps",
                         }
                     ]
                 },
@@ -245,13 +287,22 @@ class AICurrentDraftAPIView(AIBaseAPIView):
                         "mode": "draft_ready",
                         "workflow_engine": "agentic",
                         "clarification_round_count": 1,
+                        "personalization_progress": {
+                            "resolved_core_count": 10,
+                            "total_core_count": 10,
+                            "core_complete": True,
+                            "missing_core_keys": [],
+                        },
                     },
                 },
                 response_only=True,
             ),
             OpenApiExample(
                 name="Invalid Agentic Answers",
-                value={"detail": AGENTIC_CLARIFICATION_INVALID_USER_MESSAGE},
+                value={
+                    "detail": AGENTIC_CLARIFICATION_INVALID_USER_MESSAGE,
+                    "error_code": AGENTIC_CLARIFICATION_INVALID_ERROR_CODE,
+                },
                 response_only=True,
                 status_codes=["400"],
             ),
@@ -314,12 +365,7 @@ class AIRegenerateDraftAPIView(AIBaseAPIView):
         tenant_id = getattr(request, "tenant_id", None)
 
         try:
-            regenerate_store_draft(
-                store_id=store_id,
-                user=request.user,
-                tenant_id=tenant_id,
-            )
-            draft_state = get_current_ai_draft(
+            draft_state = regenerate_store_draft(
                 store_id=store_id,
                 user=request.user,
                 tenant_id=tenant_id,
@@ -356,6 +402,7 @@ class AIRegenerateSectionAPIView(AIBaseAPIView):
 
         tenant_id = getattr(request, "tenant_id", None)
         target_section = request_serializer.validated_data["target_section"]
+        user_instruction = request_serializer.validated_data.get("user_instruction")
 
         try:
             regenerate_store_draft_section(
@@ -363,6 +410,7 @@ class AIRegenerateSectionAPIView(AIBaseAPIView):
                 user=request.user,
                 tenant_id=tenant_id,
                 target_section=target_section,
+                user_instruction=user_instruction,
             )
             draft_state = get_current_ai_draft(
                 store_id=store_id,
@@ -394,12 +442,14 @@ class AIRegenerateSectionAPIView(AIBaseAPIView):
                 name="Apply Draft Success",
                 value={
                     "store_id": 10,
-                    "workflow_status": WORKFLOW_STATUS_APPLIED,
-                    "store_status": "setup",
-                    "store_core_applied": True,
-                    "categories": {"created": ["Clothes"], "skipped": []},
-                    "products": {"created": ["SKU-1"], "skipped": []},
-                    "draft_cleanup_scheduled": True,
+                    "status": "completed",
+                    "current_step": "completed",
+                    "mode": "completed",
+                    "is_fallback": False,
+                    "application_success": True,
+                    "created_categories_count": 1,
+                    "created_products_count": 2,
+                    "completed_at": "2026-07-19T12:00:00Z",
                 },
                 response_only=True,
             ),
@@ -428,5 +478,37 @@ class AIApplyDraftAPIView(AIBaseAPIView):
         response_payload = self._validated_response_payload(
             AIApplyDraftResponseSerializer,
             apply_result,
+        )
+        return Response(response_payload, status=status.HTTP_200_OK)
+
+
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get complete applied AI store",
+        description=(
+            "Return the persisted store, settings, theme, categories, products, "
+            "inventory, and product images after Apply Store succeeds."
+        ),
+        tags=["AI Store Creation"],
+        responses={200: AIGeneratedStoreResponseSerializer, **DOC_ERROR_RESPONSES},
+    ),
+)
+class AIGeneratedStoreAPIView(AIBaseAPIView):
+    serializer_class = EmptySerializer
+
+    def get(self, request, store_id: int, *args, **kwargs):
+        tenant_id = getattr(request, "tenant_id", None)
+        try:
+            payload = get_applied_ai_store_details(
+                store_id=store_id,
+                user=request.user,
+                tenant_id=tenant_id,
+            )
+        except DjangoValidationError as exc:
+            return self._validation_error_response(exc)
+
+        response_payload = self._validated_response_payload(
+            AIGeneratedStoreResponseSerializer,
+            payload,
         )
         return Response(response_payload, status=status.HTTP_200_OK)

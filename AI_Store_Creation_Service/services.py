@@ -172,11 +172,18 @@ def regenerate_store_draft(
     user,
     tenant_id: int | None,
 ) -> dict[str, Any]:
-    _raise_if_agentic_session_exists(
+    if _agentic_production_services.has_existing_agentic_session(
         store_id=store_id,
         user=user,
         tenant_id=tenant_id,
-    )
+    ):
+        with _temporary_workflow_dependencies():
+            return _agentic_production_services.regenerate_current_agentic_ai_draft(
+                store_id=store_id,
+                user=user,
+                tenant_id=tenant_id,
+            )
+
     with _temporary_workflow_dependencies():
         return _workflow_services.regenerate_store_draft(
             store_id=store_id,
@@ -190,18 +197,29 @@ def regenerate_store_draft_section(
     user,
     tenant_id: int | None,
     target_section: str,
+    user_instruction: str | None = None,
 ) -> dict[str, Any]:
-    _raise_if_agentic_session_exists(
+    if _agentic_production_services.has_existing_agentic_session(
         store_id=store_id,
         user=user,
         tenant_id=tenant_id,
-    )
+    ):
+        with _temporary_workflow_dependencies():
+            return _agentic_production_services.regenerate_current_agentic_ai_draft_section(
+                store_id=store_id,
+                user=user,
+                tenant_id=tenant_id,
+                target_section=target_section,
+                user_instruction=user_instruction,
+            )
+
     with _temporary_workflow_dependencies():
         return _workflow_services.regenerate_store_draft_section(
             store_id=store_id,
             user=user,
             tenant_id=tenant_id,
             target_section=target_section,
+            user_instruction=user_instruction,
         )
 
 
@@ -261,11 +279,17 @@ def apply_current_ai_draft_to_store(
     user,
     tenant_id: int | None,
 ) -> dict[str, Any]:
-    _raise_if_agentic_session_exists(
+    if _agentic_production_services.has_existing_agentic_session(
         store_id=store_id,
         user=user,
         tenant_id=tenant_id,
-    )
+    ):
+        return _agentic_production_services.apply_current_agentic_ai_draft_to_store(
+            store_id=store_id,
+            user=user,
+            tenant_id=tenant_id,
+        )
+
     return _apply_services.apply_current_ai_draft_to_store(
         store_id=store_id,
         user=user,

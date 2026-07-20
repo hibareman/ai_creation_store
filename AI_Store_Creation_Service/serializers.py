@@ -7,6 +7,8 @@ They intentionally do not include business logic, DB access, or workflow orchest
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from django.core.exceptions import ValidationError as DjangoValidationError
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
@@ -49,10 +51,57 @@ class AIStartDraftRequestSerializer(serializers.Serializer):
         return attrs
 
 
+class AIPersonalizationProgressSerializer(serializers.Serializer):
+    resolved_core_count = serializers.IntegerField(min_value=0)
+    total_core_count = serializers.IntegerField(min_value=1)
+    core_complete = serializers.BooleanField()
+    missing_core_keys = serializers.ListField(
+        child=serializers.CharField(),
+        allow_empty=True,
+    )
+
+
+@extend_schema_field(
+    {
+        "type": "object",
+        "additionalProperties": True,
+        "properties": {
+            "personalization_progress": {
+                "type": "object",
+                "required": [
+                    "resolved_core_count", "total_core_count",
+                    "core_complete", "missing_core_keys",
+                ],
+                "properties": {
+                    "resolved_core_count": {"type": "integer", "minimum": 0},
+                    "total_core_count": {"type": "integer", "enum": [10]},
+                    "core_complete": {"type": "boolean"},
+                    "missing_core_keys": {
+                        "type": "array", "items": {"type": "string"},
+                    },
+                },
+            }
+        },
+    }
+)
+class AIDraftMetadataField(serializers.JSONField):
+    """Keep legacy metadata extensible while documenting safe Agentic progress."""
+
+
 class AIDraftStateResponseSerializer(serializers.Serializer):
     store_id = serializers.IntegerField()
     draft_payload = serializers.JSONField()
-    draft_metadata = serializers.JSONField(
+    feedback = serializers.JSONField(
+        required=False,
+        allow_null=True,
+        help_text="Latest Feedback produced by the workflow, when available.",
+    )
+    ai_changes = serializers.JSONField(
+        required=False,
+        allow_null=True,
+        help_text="Description of the material changes made by the latest partial regeneration.",
+    )
+    draft_metadata = AIDraftMetadataField(
         help_text=(
             "Workflow metadata. Public status is one of: "
             f"{', '.join(sorted(AI_WORKFLOW_STATUSES))}."
@@ -60,12 +109,51 @@ class AIDraftStateResponseSerializer(serializers.Serializer):
     )
 
 
-class AIAgenticClarificationAnswerSerializer(serializers.Serializer):
-    question_key = serializers.CharField(trim_whitespace=True, allow_blank=False)
-    selected_option = serializers.CharField(trim_whitespace=True, allow_blank=False)
+class _ExactFieldsSerializerMixin:
+    """Reject unknown input keys instead of silently ignoring them."""
+
+    def to_internal_value(self, data):
+        if isinstance(data, Mapping):
+            expected_fields = set(self.fields)
+            unexpected_fields = set(data) - expected_fields
+            if unexpected_fields:
+                raise serializers.ValidationError(
+                    {
+                        field_name: "Unexpected field."
+                        for field_name in sorted(unexpected_fields)
+                    }
+                )
+        return super().to_internal_value(data)
 
 
-class AIAgenticClarificationRequestSerializer(serializers.Serializer):
+class AIAgenticClarificationAnswerSerializer(
+    _ExactFieldsSerializerMixin,
+    serializers.Serializer,
+):
+    question_key = serializers.CharField(
+        trim_whitespace=True,
+        allow_blank=False,
+        help_text="Exact question_key returned by the current Agentic session.",
+    )
+    selected_option = serializers.CharField(
+        trim_whitespace=True,
+        allow_blank=False,
+        help_text="One option returned for the matching question.",
+    )
+    custom_answer = serializers.CharField(
+        required=False,
+        trim_whitespace=True,
+        allow_blank=False,
+        min_length=2,
+        max_length=300,
+        help_text="Required when the selected option is Other or its localized equivalent.",
+    )
+
+
+class AIAgenticClarificationRequestSerializer(
+    _ExactFieldsSerializerMixin,
+    serializers.Serializer,
+):
     clarification_answers = AIAgenticClarificationAnswerSerializer(
         many=True,
         allow_empty=False,
@@ -86,6 +174,15 @@ class AIAgenticClarificationRequestSerializer(serializers.Serializer):
                     "properties": {
                         "question_key": {"type": "string"},
                         "selected_option": {"type": "string"},
+                        "custom_answer": {
+                            "type": "string",
+                            "minLength": 2,
+                            "maxLength": 300,
+                            "description": (
+                                "Submit only when selected_option equals the "
+                                "question's other_option value."
+                            ),
+                        },
                     },
                 },
             },
@@ -149,6 +246,12 @@ class AIRegenerateSectionRequestSerializer(serializers.Serializer):
         choices=("theme", "categories", "products"),
         required=True,
     )
+    user_instruction = serializers.CharField(
+        required=False,
+        allow_blank=False,
+        trim_whitespace=True,
+        max_length=1000,
+    )
 
 
 class AIApplyItemsResultSerializer(serializers.Serializer):
@@ -176,13 +279,31 @@ class AIApplyItemsResultSerializer(serializers.Serializer):
 
 class AIApplyDraftResponseSerializer(serializers.Serializer):
     store_id = serializers.IntegerField()
-    workflow_status = serializers.CharField()
-    store_status = serializers.CharField()
-    store_core_applied = serializers.BooleanField()
-    categories = AIApplyItemsResultSerializer()
-    products = AIApplyItemsResultSerializer()
-    draft_cleanup_scheduled = serializers.BooleanField()
+    status = serializers.CharField()
+    current_step = serializers.CharField()
+    mode = serializers.CharField()
+    is_fallback = serializers.BooleanField()
+    application_success = serializers.BooleanField()
+    created_categories_count = serializers.IntegerField(min_value=0)
+    created_products_count = serializers.IntegerField(min_value=0)
+    completed_at = serializers.DateTimeField()
+    clarification_round_count = serializers.IntegerField(required=False, min_value=0)
+    repair_attempt_count = serializers.IntegerField(required=False, min_value=0)
+    max_clarification_rounds = serializers.IntegerField(required=False, min_value=0)
+    max_repair_attempts = serializers.IntegerField(required=False, min_value=0)
+    workflow_engine = serializers.CharField(required=False)
 
 
 class EmptySerializer(serializers.Serializer):
     pass
+
+
+class AIGeneratedStoreResponseSerializer(serializers.Serializer):
+    store_id = serializers.IntegerField()
+    store = serializers.JSONField()
+    settings = serializers.JSONField(allow_null=True)
+    theme = serializers.JSONField(allow_null=True)
+    categories_count = serializers.IntegerField(min_value=0)
+    categories = serializers.ListField(child=serializers.JSONField())
+    products_count = serializers.IntegerField(min_value=0)
+    products = serializers.ListField(child=serializers.JSONField())

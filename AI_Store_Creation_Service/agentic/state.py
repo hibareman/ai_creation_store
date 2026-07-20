@@ -24,6 +24,32 @@ DetectedLanguage = Literal[
 ]
 
 
+
+
+class StoreBlueprint(TypedDict):
+    normalized_description: str
+    product_offering: Any
+    catalog_scope: Any
+    target_audience: Any
+    target_market: Any
+    customer_problem: Any
+    unique_value_proposition: Any
+    price_positioning: Any
+    brand_personality: Any
+    visual_preferences: Any
+    language: Literal["ar", "en"]
+    currency: str
+    category_strategy: str
+    product_strategy: str
+    customer_fit_strategy: str
+    brand_voice_strategy: str
+    pricing_strategy: str
+    visual_strategy: str
+    available_theme_templates: list[str]
+    locked_constraints: dict[str, Any]
+    source_context: dict[str, Any]
+
+
 class ValidationIssue(TypedDict):
     path: str
     code: str
@@ -34,18 +60,28 @@ class ValidationIssue(TypedDict):
 WorkflowEntry = Literal[
     "fresh",
     "clarification_resume",
+    "review_approval",
 ]
 
 
 class ClarificationQuestion(TypedDict):
+    question_id: str
     question_key: str
+    target_fact: str
     question_text: str
+    reason: str
+    recommendation: str | None
+    answer_type: Literal["single_select", "free_text"]
     options: list[str]
+    other_option: str | None
+    allow_custom_answer: bool
+    required: bool
 
 
 class ClarificationAnswer(TypedDict):
     question_key: str
     selected_option: str
+    custom_answer: NotRequired[str]
 
 
 class ClarificationRound(TypedDict):
@@ -59,6 +95,7 @@ WorkflowMode = Literal[
     "clarification",
     "draft_ready",
     "failed_recoverable",
+    "completed",
 ]
 
 WorkflowStatus = Literal[
@@ -67,6 +104,7 @@ WorkflowStatus = Literal[
     WORKFLOW_STATUS_READY_FOR_REVIEW,
     WORKFLOW_STATUS_FAILED_RECOVERABLE,
     WORKFLOW_STATUS_APPLIED,
+    "completed",
 ]
 
 RouteDecision = Literal[
@@ -77,11 +115,13 @@ RouteDecision = Literal[
     "repair",
     "human_review",
     "failed_recoverable",
+    "completed",
 ]
 
 CurrentGraphStep = Literal[
     "merge_answers",
     "understand",
+    "feedback",
     "decide",
     "clarify",
     "blueprint",
@@ -90,6 +130,8 @@ CurrentGraphStep = Literal[
     "repair",
     "human_review",
     "recoverable_failure",
+    "apply_store",
+    "completed",
 ]
 
 
@@ -111,11 +153,21 @@ class AIStoreAgentState(TypedDict):
     description_sufficient: NotRequired[bool]
     understanding_valid: NotRequired[bool]
     understanding_reasons: NotRequired[list[str]]
-    business_summary: NotRequired[str]
     target_audience: NotRequired[str]
     product_direction: NotRequired[list[str]]
     blocking_missing_information: NotRequired[list[str]]
+    missing_information: NotRequired[list[str]]
+    confidence_score: NotRequired[int]
     ambiguities: NotRequired[list[str]]
+    description_personalization_facts: NotRequired[dict[str, Any]]
+    missing_core_personalization_keys: NotRequired[list[str]]
+    ambiguous_personalization_keys: NotRequired[list[str]]
+    personalization_core_complete: NotRequired[bool]
+    additional_blocking_missing_information: NotRequired[list[str]]
+    effective_personalization_context: NotRequired[dict[str, Any]]
+    personalization_progress: NotRequired[dict[str, Any]]
+    blueprint: NotRequired[StoreBlueprint]
+    feedback: NotRequired[dict[str, Any]]
 
     # Workflow data.
     workflow_entry: NotRequired[WorkflowEntry]
@@ -125,12 +177,22 @@ class AIStoreAgentState(TypedDict):
     status: NotRequired[WorkflowStatus]
     current_step: NotRequired[CurrentGraphStep]
     route_decision: NotRequired[RouteDecision]
+    review_approved: NotRequired[bool]
+    application_success: NotRequired[bool]
+    created_categories_count: NotRequired[int]
+    created_products_count: NotRequired[int]
+    completed_at: NotRequired[str]
 
     # Clarification.
     clarification_questions: NotRequired[list[ClarificationQuestion]]
+    clarification_requested_keys: NotRequired[list[str]]
+    clarification_question_specs: NotRequired[list[dict[str, str]]]
     clarification_answers: NotRequired[list[ClarificationAnswer]]
     clarification_history: NotRequired[list[ClarificationRound]]
     clarification_facts: NotRequired[dict[str, str]]
+    merged_personalization_context: NotRequired[dict[str, str]]
+    confirmed_personalization_context: NotRequired[dict[str, str]]
+    answered_target_facts: NotRequired[list[str]]
     clarification_round_count: NotRequired[int]
     merge_valid: NotRequired[bool]
 
@@ -151,6 +213,7 @@ __all__ = [
     "CurrentGraphStep",
     "DetectedLanguage",
     "RouteDecision",
+    "StoreBlueprint",
     "ValidationIssue",
     "WorkflowMode",
     "WorkflowStatus",

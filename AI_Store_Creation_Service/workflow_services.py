@@ -65,6 +65,7 @@ from .validators import (
     validate_basic_draft_schema,
     validate_categories_section,
     validate_products_section,
+    validate_regenerated_draft_schema,
     validate_store_section,
     validate_store_settings_section,
     validate_theme_section,
@@ -161,24 +162,31 @@ def _extract_partial_section_replacement(
     payload: dict[str, Any],
     target_section: str,
 ) -> Any:
-    """
-    Extract section replacement from partial regeneration payload.
+    """Extract the replacement payload for one partial-regeneration target."""
+    if not isinstance(payload, dict):
+        raise AIDraftSchemaValidationError(
+            "Partial regeneration payload must be a JSON object."
+        )
 
-    Expected strict shape:
-    - {"theme": {...}}
-    - {"categories": [...]}
-    - {"products": [...]}
-    """
+    if target_section == "categories":
+        expected_keys = {"categories", "products"}
+        if set(payload.keys()) != expected_keys:
+            raise AIDraftSchemaValidationError(
+                "Categories regeneration must return exactly categories and products."
+            )
+        return {
+            "categories": payload["categories"],
+            "products": payload["products"],
+        }
+
     if target_section not in payload:
         raise AIDraftSchemaValidationError(
             f"Partial regeneration payload must include top-level key '{target_section}'."
         )
-
-    if len(payload) != 1:
+    if set(payload.keys()) != {target_section}:
         raise AIDraftSchemaValidationError(
             "Partial regeneration payload must include only the requested section key."
         )
-
     return payload[target_section]
 
 
@@ -999,248 +1007,167 @@ def process_clarification_round(
 def regenerate_store_draft(
     store_id: int,
     user,
-    tenant_id: int | None,
+    tenant_id: int,
 ) -> dict[str, Any]:
-    """
-    Orchestrate full temporary draft regeneration for the same store/session.
-
-    Approved constraints:
-    - no new free-text regeneration prompt is accepted
-    - same store_id, same authenticated owner, same trusted tenant context
-    - reuse original description + current draft + saved clarification context/history
-    """
+    """Run strict full Agentic Regeneration and replace the review draft only after validation."""
     if not user or not getattr(user, "is_authenticated", False):
         raise ValidationError("Authentication required")
-
-    if tenant_id is None:
-        raise ValidationError("Trusted tenant context is required")
-
     try:
         normalized_tenant_id = int(tenant_id)
     except (TypeError, ValueError) as exc:
         raise ValidationError("Invalid trusted tenant context") from exc
-
-    if normalized_tenant_id <= 0:
-        raise ValidationError("Invalid trusted tenant context")
-
-    if getattr(user, "tenant_id", None) != normalized_tenant_id:
+    if normalized_tenant_id <= 0 or getattr(user, "tenant_id", None) != normalized_tenant_id:
         raise ValidationError("User tenant context does not match trusted tenant context")
 
     store = get_store_for_ai_flow(store_id=store_id, user=user, tenant_id=normalized_tenant_id)
     if not store:
         raise ValidationError("Store not found or access denied")
-
-    _write_ai_audit_log(
-        tenant_id=normalized_tenant_id,
-        store_id=store.id,
-        actor_id=getattr(user, "id", None),
-        action="full_regenerate",
-        status="requested",
-        message="Full regeneration requested.",
-    )
-
     current_draft = get_ai_draft(store.id)
     if current_draft is None:
-        _write_ai_audit_log(
-            tenant_id=normalized_tenant_id,
-            store_id=store.id,
-            actor_id=getattr(user, "id", None),
-            action="full_regenerate",
-            status="failed",
-            message="No temporary AI draft found for this store.",
-        )
         raise ValidationError("No temporary AI draft found for this store")
-
     draft_meta = _get_or_rebuild_draft_metadata(
-        store=store,
-        draft_payload=current_draft,
-        draft_meta=get_ai_draft_meta(store.id),
-        rebuild_partial=True,
+        store=store, draft_payload=current_draft, draft_meta=get_ai_draft_meta(store.id), rebuild_partial=True
     )
+    if draft_meta.get("status") not in READY_FOR_REVIEW_WORKFLOW_STATUSES:
+        raise ValidationError("Full regeneration is allowed only when current workflow state is ready_for_review")
+
     original_description = draft_meta.get("original_user_store_description")
     if not isinstance(original_description, str) or not original_description.strip():
-        _write_ai_audit_log(
-            tenant_id=normalized_tenant_id,
-            store_id=store.id,
-            actor_id=getattr(user, "id", None),
-            action="full_regenerate",
-            status="failed",
-            message="Original user store description missing from metadata.",
-        )
         raise ValidationError("Original user store description is missing from draft metadata")
     normalized_description = original_description.strip()
-
     available_theme_templates = get_available_theme_template_names()
     if not available_theme_templates:
-        _write_ai_audit_log(
-            tenant_id=normalized_tenant_id,
-            store_id=store.id,
-            actor_id=getattr(user, "id", None),
-            action="full_regenerate",
-            status="failed",
-            message="No available theme templates found.",
-        )
         raise ValidationError("No available theme templates found")
 
-    clarification_history = (
-        draft_meta.get("clarification_history")
-        if isinstance(draft_meta.get("clarification_history"), list)
-        else []
-    )
-    latest_clarification_input = draft_meta.get("latest_clarification_input")
+    clarification_history = draft_meta.get("clarification_history") if isinstance(draft_meta.get("clarification_history"), list) else []
     clarification_context = {
         "clarification_history": clarification_history,
-        "latest_clarification_input": latest_clarification_input,
+        "clarification_facts": draft_meta.get("clarification_facts", {}),
+        "latest_clarification_input": draft_meta.get("latest_clarification_input"),
     }
+    blueprint = draft_meta.get("blueprint") if isinstance(draft_meta.get("blueprint"), Mapping) else {}
+    confirmed_context = draft_meta.get("confirmed_personalization_context")
+    if not isinstance(confirmed_context, Mapping):
+        confirmed_context = draft_meta.get("effective_personalization_context")
+    if not isinstance(confirmed_context, Mapping):
+        confirmed_context = {}
 
-    raw_round_count = draft_meta.get("clarification_round_count", 0)
-    try:
-        clarification_round_count = int(raw_round_count)
-    except (TypeError, ValueError):
-        clarification_round_count = 0
+    clarification_round_count = _safe_non_negative_int(draft_meta.get("clarification_round_count"), 0)
+    prior_repair_count = _safe_non_negative_int(draft_meta.get("repair_attempt_count"), 0)
+    _write_ai_audit_log(tenant_id=normalized_tenant_id, store_id=store.id, actor_id=getattr(user, "id", None), action="full_regenerate", status="requested", message="Agentic full regeneration requested.")
+    save_ai_draft_meta(store.id, _with_workflow_counter_metadata({
+        **draft_meta, "status": WORKFLOW_STATUS_PROCESSING, "current_step": "regenerate",
+        "mode": "processing", "is_fallback": False, "regeneration_in_progress": True,
+    }, source_metadata=draft_meta, clarification_round_count=clarification_round_count, repair_attempt_count=prior_repair_count))
 
-    repair_attempt_count = _safe_non_negative_int(
-        draft_meta.get("repair_attempt_count"),
-        0,
-    )
-
-    save_ai_draft_meta(
-        store.id,
-        _with_workflow_counter_metadata(
-            {
-                "status": WORKFLOW_STATUS_PROCESSING,
-                "current_step": "analyzing_description",
-                "is_fallback": False,
-                "original_user_store_description": normalized_description,
-                "latest_clarification_input": latest_clarification_input,
-                "clarification_history": clarification_history,
-            },
-            source_metadata=draft_meta,
-            clarification_round_count=clarification_round_count,
-            repair_attempt_count=repair_attempt_count,
-        ),
-    )
-
-    try:
-        provider = get_ai_provider_client()
-        payload = _parse_provider_response_with_single_retry(
-            provider_call=lambda: provider.regenerate_store_draft(
-                tenant_id=normalized_tenant_id,
-                store_id=store.id,
-                original_store_description=normalized_description,
-                current_draft=current_draft,
-                clarification_context=clarification_context,
-                available_theme_templates=available_theme_templates,
-            ),
-            action="full_regenerate",
-            store_id=store.id,
-        )
-        payload = _apply_targeted_prevalidation_repairs(
-            payload,
-            available_theme_templates=available_theme_templates,
-        )
-        payload = validate_basic_draft_schema(payload)
-        mode = detect_ai_response_mode(payload)
-
-        if mode == "draft_ready":
-            validate_store_section(payload["store"])
-            validate_store_settings_section(payload["store_settings"])
-            validate_theme_section(payload["theme"])
-            _ensure_theme_template_is_available(
-                payload["theme"],
-                available_theme_templates,
+    provider = get_ai_provider_client()
+    last_error: Exception | None = None
+    candidate: dict[str, Any] | None = None
+    last_invalid_payload: dict[str, Any] | None = None
+    attempts_used = 0
+    for attempt in range(MAX_REPAIR_ATTEMPTS + 1):
+        attempts_used = attempt
+        repair_context = dict(clarification_context)
+        if last_error is not None:
+            repair_context["regeneration_validation_error"] = str(last_error)
+            repair_context["repair_attempt"] = attempt
+            repair_context["repair_instruction"] = (
+                "Repair the supplied invalid_regeneration_payload instead of creating another unrelated draft. "
+                "Return the complete regeneration JSON contract only. Preserve all already-valid fields and "
+                "change only what is required by the validation error. The regeneration_summary.message must "
+                "contain 3 to 6 non-empty lines separated by newline characters. Categories must contain 2 to "
+                "5 items. Products must contain 2 to 4 items, and every product category_name must match "
+                "one of those category names exactly."
             )
-            validated_categories = validate_categories_section(payload["categories"])
-            category_names = [item["name"] for item in validated_categories]
-            validate_products_section(payload["products"], category_names)
-
-            save_ai_draft(store.id, payload)
-            save_ai_draft_meta(
+            if last_invalid_payload is not None:
+                repair_context["invalid_regeneration_payload"] = last_invalid_payload
+        try:
+            raw = provider.regenerate_store_draft(
+                tenant_id=normalized_tenant_id, store_id=store.id,
+                original_store_description=normalized_description, current_draft=current_draft,
+                clarification_context=repair_context, available_theme_templates=available_theme_templates,
+                blueprint=blueprint, confirmed_personalization_context=confirmed_context,
+            )
+            parsed = parse_provider_raw_response_to_dict(raw)
+            if isinstance(parsed, Mapping):
+                last_invalid_payload = dict(parsed)
+            logger.debug(
+                "Agentic regeneration provider response parsed (store_id=%s, tenant_id=%s, top_level_keys=%s)",
                 store.id,
-                _with_workflow_counter_metadata(
-                    {
-                        "status": WORKFLOW_STATUS_READY_FOR_REVIEW,
-                        "current_step": "setting_up_store_configuration",
-                        "mode": "draft_ready",
-                        "is_fallback": False,
-                        "original_user_store_description": normalized_description,
-                        "latest_clarification_input": latest_clarification_input,
-                        "clarification_history": clarification_history,
-                    },
-                    source_metadata=draft_meta,
-                    clarification_round_count=clarification_round_count,
-                    repair_attempt_count=repair_attempt_count,
-                ),
+                normalized_tenant_id,
+                sorted(parsed.keys()) if isinstance(parsed, Mapping) else type(parsed).__name__,
             )
-            _write_ai_audit_log(
-                tenant_id=normalized_tenant_id,
-                store_id=store.id,
-                actor_id=getattr(user, "id", None),
-                action="full_regenerate",
-                status="completed",
-                message="Full regeneration completed with ready_for_review status.",
+            parsed = validate_regenerated_draft_schema(parsed)
+            validate_store_section(parsed["store"])
+            validate_store_settings_section(parsed["store_settings"])
+            validate_theme_section(parsed["theme"])
+            _ensure_theme_template_is_available(parsed["theme"], available_theme_templates)
+            categories = validate_categories_section(parsed["categories"])
+            validate_products_section(parsed["products"], [item["name"] for item in categories])
+            candidate = parsed
+            logger.info(
+                "Agentic full regeneration validated successfully "
+                "(store_id=%s, tenant_id=%s, attempt=%s/%s, categories=%s, products=%s)",
+                store.id,
+                normalized_tenant_id,
+                attempt + 1,
+                MAX_REPAIR_ATTEMPTS + 1,
+                len(candidate.get("categories", [])),
+                len(candidate.get("products", [])),
             )
-            return payload
+            break
+        except (AIProviderParsingError, AIDraftSchemaValidationError, ValueError, TypeError) as exc:
+            last_error = exc
+            logger.exception(
+                "Agentic full regeneration attempt failed validation or parsing "
+                "(store_id=%s, tenant_id=%s, attempt=%s/%s)",
+                store.id,
+                normalized_tenant_id,
+                attempt + 1,
+                MAX_REPAIR_ATTEMPTS + 1,
+            )
+            continue
+        except Exception as exc:
+            last_error = exc
+            logger.exception(
+                "Unexpected Agentic full regeneration failure "
+                "(store_id=%s, tenant_id=%s, attempt=%s/%s)",
+                store.id,
+                normalized_tenant_id,
+                attempt + 1,
+                MAX_REPAIR_ATTEMPTS + 1,
+            )
+            continue
 
-        save_ai_draft(store.id, payload)
-        save_ai_draft_meta(
+    if candidate is None:
+        logger.error(
+            "Agentic full regeneration exhausted all attempts; preserving current draft "
+            "(store_id=%s, tenant_id=%s, attempts=%s, final_error=%r)",
             store.id,
-            _with_workflow_counter_metadata(
-                {
-                    "status": WORKFLOW_STATUS_NEEDS_CLARIFICATION,
-                    "current_step": "analyzing_description",
-                    "mode": "clarification",
-                    "is_fallback": False,
-                    "original_user_store_description": normalized_description,
-                    "latest_clarification_input": latest_clarification_input,
-                    "clarification_history": clarification_history,
-                },
-                source_metadata=draft_meta,
-                clarification_round_count=clarification_round_count,
-                repair_attempt_count=repair_attempt_count,
-            ),
+            normalized_tenant_id,
+            MAX_REPAIR_ATTEMPTS + 1,
+            last_error,
+            exc_info=(type(last_error), last_error, last_error.__traceback__) if last_error is not None else None,
         )
-        _write_ai_audit_log(
-            tenant_id=normalized_tenant_id,
-            store_id=store.id,
-            actor_id=getattr(user, "id", None),
-            action="full_regenerate",
-            status="completed",
-            message="Full regeneration completed with clarification mode.",
-        )
-        return payload
+        save_ai_draft_meta(store.id, _with_workflow_counter_metadata({
+            **draft_meta, "status": WORKFLOW_STATUS_READY_FOR_REVIEW, "current_step": "human_review",
+            "mode": "draft_ready", "is_fallback": False, "regeneration_in_progress": False,
+            "last_operation": "full_regeneration", "last_operation_status": "failed",
+            "last_operation_error_code": "regeneration_failed",
+            "last_operation_user_message": "The store could not be regenerated. The current draft was preserved.",
+        }, source_metadata=draft_meta, clarification_round_count=clarification_round_count, repair_attempt_count=prior_repair_count + attempts_used))
+        _write_ai_audit_log(tenant_id=normalized_tenant_id, store_id=store.id, actor_id=getattr(user, "id", None), action="full_regenerate", status="failed", message=str(last_error or "Regeneration failed"))
+        raise ValidationError("The store could not be regenerated. The current draft was preserved.")
 
-    except (AIProviderParsingError, AIDraftSchemaValidationError, Exception) as exc:
-        logger.warning(
-            "Full draft regeneration failed; saving recoverable failure payload. "
-            "store_id=%s, reason=%s",
-            store.id,
-            str(exc),
-        )
-        error_code = _recoverable_error_code_for_exception(exc)
-        fallback_payload = build_ai_recoverable_failure_payload(error_code=error_code)
-        save_ai_draft(store.id, fallback_payload)
-        save_ai_draft_meta(
-            store.id,
-            _build_recoverable_fallback_metadata(
-                reason=str(exc),
-                error_code=error_code,
-                original_user_store_description=normalized_description,
-                clarification_round_count=clarification_round_count,
-                repair_attempt_count=repair_attempt_count,
-                latest_clarification_input=latest_clarification_input,
-                clarification_history=clarification_history,
-            ),
-        )
-        _write_ai_audit_log(
-            tenant_id=normalized_tenant_id,
-            store_id=store.id,
-            actor_id=getattr(user, "id", None),
-            action="full_regenerate",
-            status="failed",
-            message=str(exc),
-        )
-        return fallback_payload
+    save_ai_draft(store.id, candidate)
+    save_ai_draft_meta(store.id, _with_workflow_counter_metadata({
+        **draft_meta, "status": WORKFLOW_STATUS_READY_FOR_REVIEW, "current_step": "human_review",
+        "mode": "draft_ready", "is_fallback": False, "regeneration_in_progress": False,
+        "last_operation": "full_regeneration", "last_operation_status": LAST_OPERATION_STATUS_COMPLETED,
+        "regeneration_summary": candidate["regeneration_summary"],
+    }, source_metadata=draft_meta, clarification_round_count=clarification_round_count, repair_attempt_count=prior_repair_count + attempts_used))
+    _write_ai_audit_log(tenant_id=normalized_tenant_id, store_id=store.id, actor_id=getattr(user, "id", None), action="full_regenerate", status="completed", message="Agentic full regeneration completed and validated.")
+    return candidate
 
 
 def regenerate_store_draft_section(
@@ -1248,6 +1175,7 @@ def regenerate_store_draft_section(
     user,
     tenant_id: int | None,
     target_section: str,
+    user_instruction: str | None = None,
 ) -> dict[str, Any]:
     """
     Orchestrate partial draft regeneration for one supported section only.
@@ -1286,6 +1214,12 @@ def regenerate_store_draft_section(
         raise ValidationError(
             "target_section must be one of: theme, categories, products"
         )
+
+    normalized_user_instruction = None
+    if user_instruction is not None:
+        if not isinstance(user_instruction, str) or not user_instruction.strip():
+            raise ValidationError("user_instruction must be a non-empty string when provided")
+        normalized_user_instruction = user_instruction.strip()
 
     store = get_store_for_ai_flow(store_id=store_id, user=user, tenant_id=normalized_tenant_id)
     if not store:
@@ -1386,45 +1320,96 @@ def regenerate_store_draft_section(
 
     try:
         provider = get_ai_provider_client()
-        replacement_payload = _parse_provider_response_with_single_retry(
-            provider_call=lambda: provider.regenerate_store_draft_section(
-                tenant_id=normalized_tenant_id,
-                store_id=store.id,
-                target_section=normalized_target_section,
-                original_store_description=normalized_description,
-                current_draft=current_draft,
-                clarification_context=clarification_context,
-                available_theme_templates=available_theme_templates,
-            ),
-            action="partial_regenerate",
-            store_id=store.id,
-        )
-        replacement_value = _extract_partial_section_replacement(
-            replacement_payload,
-            normalized_target_section,
-        )
+        updated_draft: dict[str, Any] | None = None
+        validation_feedback: str | None = None
+        max_generation_attempts = 3
 
-        updated_draft = dict(current_draft)
+        for attempt_number in range(1, max_generation_attempts + 1):
+            try:
+                replacement_payload = _parse_provider_response_with_single_retry(
+                    provider_call=lambda: provider.regenerate_store_draft_section(
+                        tenant_id=normalized_tenant_id,
+                        store_id=store.id,
+                        target_section=normalized_target_section,
+                        original_store_description=normalized_description,
+                        current_draft=current_draft,
+                        clarification_context=clarification_context,
+                        available_theme_templates=available_theme_templates,
+                        user_instruction=normalized_user_instruction,
+                        validation_feedback=validation_feedback,
+                        attempt_number=attempt_number,
+                    ),
+                    action="partial_regenerate",
+                    store_id=store.id,
+                )
+                replacement_value = _extract_partial_section_replacement(
+                    replacement_payload,
+                    normalized_target_section,
+                )
 
-        if normalized_target_section == "theme":
-            validated_theme = validate_theme_section(replacement_value)
-            _ensure_theme_template_is_available(
-                validated_theme,
-                available_theme_templates or [],
-            )
-            updated_draft["theme"] = validated_theme
-        elif normalized_target_section == "categories":
-            validated_categories = validate_categories_section(replacement_value)
-            # Keep current draft coherent: existing products must stay valid against new categories.
-            category_names = [item["name"] for item in validated_categories]
-            validate_products_section(current_draft.get("products"), category_names)
-            updated_draft["categories"] = validated_categories
-        else:
-            existing_categories = validate_categories_section(current_draft.get("categories"))
-            category_names = [item["name"] for item in existing_categories]
-            updated_draft["products"] = validate_products_section(
-                replacement_value,
-                category_names,
+                candidate_draft = dict(current_draft)
+
+                if normalized_target_section == "theme":
+                    validated_theme = validate_theme_section(replacement_value)
+                    _ensure_theme_template_is_available(
+                        validated_theme,
+                        available_theme_templates or [],
+                    )
+                    if validated_theme == current_draft.get("theme"):
+                        raise AIDraftSchemaValidationError(
+                            "Regenerated theme must be materially different from the current theme."
+                        )
+                    candidate_draft["theme"] = validated_theme
+                elif normalized_target_section == "categories":
+                    validated_categories = validate_categories_section(
+                        replacement_value.get("categories")
+                    )
+                    category_names = [item["name"] for item in validated_categories]
+                    validated_products = validate_products_section(
+                        replacement_value.get("products"),
+                        category_names,
+                    )
+                    if (
+                        validated_categories == current_draft.get("categories")
+                        and validated_products == current_draft.get("products")
+                    ):
+                        raise AIDraftSchemaValidationError(
+                            "Regenerated categories and products must be materially different from the current draft."
+                        )
+                    candidate_draft["categories"] = validated_categories
+                    candidate_draft["products"] = validated_products
+                else:
+                    existing_categories = validate_categories_section(current_draft.get("categories"))
+                    category_names = [item["name"] for item in existing_categories]
+                    validated_products = validate_products_section(
+                        replacement_value,
+                        category_names,
+                    )
+                    if validated_products == current_draft.get("products"):
+                        raise AIDraftSchemaValidationError(
+                            "Regenerated products must be materially different from the current products."
+                        )
+                    candidate_draft["products"] = validated_products
+
+                updated_draft = candidate_draft
+                break
+            except (AIProviderParsingError, AIDraftSchemaValidationError) as attempt_exc:
+                validation_feedback = str(attempt_exc)
+                logger.warning(
+                    "Partial regeneration attempt rejected; requesting corrected output. "
+                    "store_id=%s, section=%s, attempt=%s/%s, reason=%s",
+                    store.id,
+                    normalized_target_section,
+                    attempt_number,
+                    max_generation_attempts,
+                    validation_feedback,
+                )
+                if attempt_number == max_generation_attempts:
+                    raise
+
+        if updated_draft is None:
+            raise AIDraftSchemaValidationError(
+                "Partial regeneration did not produce a valid replacement."
             )
 
         save_ai_draft(store.id, updated_draft)
@@ -1461,10 +1446,12 @@ def regenerate_store_draft_section(
     except (AIProviderParsingError, AIDraftSchemaValidationError, Exception) as exc:
         logger.warning(
             "Partial draft regeneration failed. Keeping current draft unchanged. "
-            "store_id=%s, section=%s, reason=%s",
+            "store_id=%s, section=%s, error_type=%s, reason=%s",
             store.id,
             normalized_target_section,
+            type(exc).__name__,
             str(exc),
+            exc_info=True,
         )
         save_ai_draft_meta(
             store.id,

@@ -7,6 +7,7 @@ from copy import deepcopy
 from typing import Any
 
 from .agentic.runner import (
+    approve_agentic_workflow,
     build_safe_agentic_failure_state,
     resume_agentic_workflow,
     run_agentic_workflow,
@@ -18,6 +19,14 @@ from .agentic_state_store import (
     save_agentic_workflow_state,
 )
 from .audit_services import _write_ai_audit_log
+from .draft_store import (
+    delete_ai_draft,
+    delete_ai_draft_meta,
+    get_ai_draft,
+    get_ai_draft_meta,
+    save_ai_draft,
+    save_ai_draft_meta,
+)
 from .constants import (
     MAX_CLARIFICATION_ROUNDS,
     WORKFLOW_STATUS_FAILED_RECOVERABLE,
@@ -155,6 +164,82 @@ def resume_cached_agentic_workflow(
     )
     return _json_defensive_copy(terminal_state)
 
+
+
+def approve_cached_agentic_workflow(
+    *,
+    store_id: Any,
+    tenant_id: Any,
+    user_id: Any,
+) -> dict[str, Any]:
+    """Approve and apply a cached ready-for-review Agentic workflow."""
+    prior_state = get_cached_agentic_workflow(
+        store_id=store_id,
+        tenant_id=tenant_id,
+        user_id=user_id,
+    )
+    if prior_state is None or not _is_approvable_review_state(prior_state):
+        raise ValueError("Current Agentic workflow state is not ready_for_review.")
+
+    draft_payload = prior_state.get("draft_payload")
+    if not isinstance(draft_payload, dict):
+        raise ValueError("Current Agentic draft payload is invalid.")
+
+    previous_legacy_draft = get_ai_draft(int(store_id))
+    previous_legacy_meta = get_ai_draft_meta(int(store_id))
+    bridge_metadata = {
+        "status": WORKFLOW_STATUS_READY_FOR_REVIEW,
+        "current_step": WORKFLOW_STATUS_READY_FOR_REVIEW,
+        "mode": "draft_ready",
+        "is_fallback": False,
+        "workflow_engine": "agentic",
+        "clarification_round_count": prior_state.get("clarification_round_count", 0),
+        "repair_attempt_count": prior_state.get("repair_attempt_count", 0),
+        "validation_errors": [],
+    }
+
+    try:
+        save_ai_draft(int(store_id), draft_payload)
+        save_ai_draft_meta(int(store_id), bridge_metadata)
+        result = approve_agentic_workflow(prior_state=prior_state)
+        terminal_state = validate_agentic_terminal_state(result)
+        if terminal_state.get("status") != "completed":
+            raise ValueError(terminal_state.get("user_message") or "Store application failed.")
+    except Exception:
+        if previous_legacy_draft is None:
+            delete_ai_draft(int(store_id))
+        else:
+            save_ai_draft(int(store_id), previous_legacy_draft)
+        if previous_legacy_meta is None:
+            delete_ai_draft_meta(int(store_id))
+        else:
+            save_ai_draft_meta(int(store_id), previous_legacy_meta)
+        raise
+
+    delete_ai_draft(int(store_id))
+    delete_ai_draft_meta(int(store_id))
+    delete_agentic_workflow_state(
+        tenant_id=tenant_id,
+        store_id=store_id,
+        user_id=user_id,
+    )
+    _audit_terminal(
+        action="agentic_session_apply",
+        status="completed",
+        state=terminal_state,
+    )
+    return _json_defensive_copy(terminal_state)
+
+
+def _is_approvable_review_state(state: dict[str, Any]) -> bool:
+    return (
+        state.get("status") == WORKFLOW_STATUS_READY_FOR_REVIEW
+        and state.get("current_step") == WORKFLOW_STATUS_READY_FOR_REVIEW
+        and state.get("mode") == "draft_ready"
+        and state.get("route_decision") == "human_review"
+        and state.get("validation_errors") == []
+        and isinstance(state.get("draft_payload"), dict)
+    )
 
 def get_cached_agentic_workflow(
     *,

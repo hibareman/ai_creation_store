@@ -19,6 +19,7 @@ from ..validators import (
     validate_theme_section,
 )
 from .state import ValidationIssue
+from .blueprinting import AIBlueprintValidationError, validate_store_blueprint
 
 ValidatedDraftMode = Literal["draft_ready", "clarification"]
 
@@ -30,6 +31,9 @@ def validate_generated_draft(
     draft_payload: Any,
     expected_mode: Any,
     available_theme_templates: Any,
+    blueprint: Any = None,
+    effective_personalization_context: Any = None,
+    require_personalization_context: bool = False,
 ) -> tuple[dict[str, Any], ValidatedDraftMode | None, list[ValidationIssue]]:
     issues: list[ValidationIssue] = []
 
@@ -106,15 +110,17 @@ def validate_generated_draft(
     try:
         validate_store_section(payload.get("store"))
     except AIDraftSchemaValidationError as exc:
-        issues.append(_issue("store", "store_section_invalid", str(exc), True))
+        issues.append(_section_issue("store", "store_section_invalid", str(exc)))
     except Exception:
         issues.append(_internal_failure_issue())
 
+    settings_valid = False
     try:
         validate_store_settings_section(payload.get("store_settings"))
+        settings_valid = True
     except AIDraftSchemaValidationError as exc:
         issues.append(
-            _issue("store_settings", "store_settings_section_invalid", str(exc), True)
+            _section_issue("store_settings", "store_settings_section_invalid", str(exc))
         )
     except Exception:
         issues.append(_internal_failure_issue())
@@ -124,7 +130,7 @@ def validate_generated_draft(
         validate_theme_section(payload.get("theme"))
         theme_valid = True
     except AIDraftSchemaValidationError as exc:
-        issues.append(_issue("theme", "theme_section_invalid", str(exc), True))
+        issues.append(_section_issue("theme", "theme_section_invalid", str(exc)))
     except Exception:
         issues.append(_internal_failure_issue())
 
@@ -162,7 +168,7 @@ def validate_generated_draft(
         validated_categories = validate_categories_section(payload.get("categories"))
     except AIDraftSchemaValidationError as exc:
         issues.append(
-            _issue("categories", "categories_section_invalid", str(exc), True)
+            _section_issue("categories", "categories_section_invalid", str(exc))
         )
     except Exception:
         issues.append(_internal_failure_issue())
@@ -186,12 +192,49 @@ def validate_generated_draft(
             validate_products_section(payload.get("products"), category_names)
         except AIDraftSchemaValidationError as exc:
             issues.append(
-                _issue("products", "products_section_invalid", str(exc), True)
+                _section_issue("products", "products_section_invalid", str(exc))
             )
         except Exception:
             issues.append(_internal_failure_issue())
 
+    normalized_blueprint = _validate_personalization_context(
+        blueprint=blueprint,
+        effective_personalization_context=effective_personalization_context,
+        available_theme_templates=available_theme_templates,
+        issues=issues,
+        required=require_personalization_context,
+    )
+
     return payload, detected_mode, _dedupe_issue_keys(issues)
+
+
+def _validate_personalization_context(
+    *, blueprint: Any, effective_personalization_context: Any,
+    available_theme_templates: Any, issues: list[ValidationIssue], required: bool,
+) -> dict[str, Any] | None:
+    if blueprint is None and effective_personalization_context is None:
+        if required:
+            issues.append(_issue(
+                "blueprint", "blueprint_invalid",
+                "Agentic draft validation requires personalization context.",
+                False,
+            ))
+        return None
+    try:
+        return validate_store_blueprint(
+            blueprint,
+            effective_personalization_context=effective_personalization_context,
+            available_theme_templates=available_theme_templates,
+        )
+    except AIBlueprintValidationError:
+        issues.append(_issue(
+            "blueprint", "blueprint_invalid",
+            "Store Blueprint is missing required sections or conflicts with locked facts.",
+            False,
+        ))
+    except Exception:
+        issues.append(_internal_failure_issue())
+    return None
 
 
 def _normalize_theme_template_names(value: Any) -> list[str] | None:
@@ -234,6 +277,22 @@ def _looks_like_invalid_clarification_questions(payload: Mapping[str, Any]) -> b
 
 def _assert_json_serializable(value: Any) -> None:
     json.dumps(value)
+
+
+def _section_issue(section: str, code: str, message: str) -> ValidationIssue:
+    path = section
+    import re
+    quoted = re.search(r"field[: ]+'([^']+)'|field '([^']+)'|field: '([^']+)'", message)
+    if quoted:
+        field = next((item for item in quoted.groups() if item), None)
+        if field:
+            path = f"{section}.{field}"
+    index = re.search(r"index (\d+)", message)
+    if index and section in {"categories", "products"}:
+        path = f"{section}[{index.group(1)}]" + (path[len(section):] if path != section else "")
+    if "theme_template" in message:
+        path = "theme.theme_template"
+    return _issue(path, code, message, True)
 
 
 def _issue(path: str, code: str, message: str, repairable: bool) -> ValidationIssue:
