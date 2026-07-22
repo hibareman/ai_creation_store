@@ -44,6 +44,7 @@ _ANALYSIS_KEYS = {
     "missing_information",
     "confidence_score",
     "ambiguities",
+    "store_understanding",
 }
 _LEGACY_ANALYSIS_KEYS = _ANALYSIS_KEYS - {"missing_information", "confidence_score"}
 _PROVIDER_WRAPPER_KEYS = ("analysis", "semantic_analysis", "result", "data", "output")
@@ -230,10 +231,15 @@ def validate_semantic_analysis_payload(
             payload_copy.get("confidence_score")
         ),
         "ambiguities": _project_string_list(payload_copy.get("ambiguities")),
+        "ai_consultant_message": _project_text(payload_copy.get("store_understanding")),
     }
 
     _assert_json_serializable(normalized)
     return normalized
+
+
+def _project_text(value: Any) -> str:
+    return value if isinstance(value, str) else ""
 
 
 def _project_string(value: Any) -> str:

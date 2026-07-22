@@ -136,6 +136,7 @@ CurrentGraphStep = Literal[
 
 
 class AIStoreAgentState(TypedDict):
+    store_understanding: NotRequired[str]
     # Identity and input. These are available after the legacy pre-graph setup.
     store_id: int
     tenant_id: int
@@ -167,7 +168,6 @@ class AIStoreAgentState(TypedDict):
     effective_personalization_context: NotRequired[dict[str, Any]]
     personalization_progress: NotRequired[dict[str, Any]]
     blueprint: NotRequired[StoreBlueprint]
-    feedback: NotRequired[dict[str, Any]]
 
     # Workflow data.
     workflow_entry: NotRequired[WorkflowEntry]

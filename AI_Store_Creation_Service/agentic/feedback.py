@@ -14,6 +14,7 @@ from .personalization import CORE_PERSONALIZATION_KEYS
 
 
 class FeedbackContract(TypedDict):
+    ai_consultant_message: str
     understood_summary: str
     completion_percentage: int
     missing_information: list[str]
@@ -64,6 +65,11 @@ def _resolve_output_language(state: Mapping[str, Any]) -> str:
     return description_language if description_language in {"ar", "en"} else "en"
 
 
+def _ai_consultant_message(state: Mapping[str, Any]) -> str:
+    value = state.get("ai_consultant_message")
+    return value if isinstance(value, str) else ""
+
+
 def build_feedback(state: Mapping[str, Any]) -> FeedbackContract:
     """Transform valid Understand output into a user-facing Feedback object."""
     if not isinstance(state, Mapping):
@@ -74,6 +80,7 @@ def build_feedback(state: Mapping[str, Any]) -> FeedbackContract:
     missing_information = _string_list_exact_copy(state.get("missing_information", []))
 
     feedback: FeedbackContract = {
+        "ai_consultant_message": _ai_consultant_message(state),
         "understood_summary": _build_understood_summary(
             context=context,
             language=_resolve_output_language(state),
@@ -93,6 +100,7 @@ def validate_feedback_contract(value: Any) -> FeedbackContract:
     if not isinstance(value, Mapping):
         raise ValueError("Feedback payload must be an object.")
     expected = {
+        "ai_consultant_message",
         "understood_summary",
         "completion_percentage",
         "missing_information",
@@ -102,11 +110,14 @@ def validate_feedback_contract(value: Any) -> FeedbackContract:
     if set(value) != expected:
         raise ValueError("Feedback payload must match the exact contract.")
 
+    message = value["ai_consultant_message"]
     summary = value["understood_summary"]
     percentage = value["completion_percentage"]
     missing = value["missing_information"]
     sufficient = value["description_sufficient"]
     confidence = value["confidence_score"]
+    if not isinstance(message, str):
+        raise ValueError("ai_consultant_message must be a string.")
     if not isinstance(summary, str):
         raise ValueError("understood_summary must be a string.")
     if isinstance(percentage, bool) or not isinstance(percentage, int) or not 0 <= percentage <= 100:
@@ -119,6 +130,7 @@ def validate_feedback_contract(value: Any) -> FeedbackContract:
         raise ValueError("confidence_score must be an integer from 0 to 100.")
 
     normalized: FeedbackContract = {
+        "ai_consultant_message": message,
         "understood_summary": summary,
         "completion_percentage": percentage,
         "missing_information": list(missing),

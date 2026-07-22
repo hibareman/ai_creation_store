@@ -11,6 +11,7 @@ from ..exceptions import AIDraftSchemaValidationError
 from ..normalization import _ensure_theme_template_is_available
 from ..validators import (
     detect_ai_response_mode,
+    validate_ai_analysis,
     validate_basic_draft_schema,
     validate_categories_section,
     validate_products_section,
@@ -103,6 +104,14 @@ def validate_generated_draft(
 
     if detected_mode != "draft_ready":
         return payload, detected_mode, _dedupe_issue_keys(issues)
+
+
+    try:
+        payload["ai_analysis"] = validate_ai_analysis(payload.get("ai_analysis"))
+    except AIDraftSchemaValidationError as exc:
+        issues.append(_section_issue("ai_analysis", "ai_analysis_invalid", str(exc)))
+    except Exception:
+        issues.append(_internal_failure_issue())
 
     validated_categories: list[dict[str, Any]] | None = None
     raw_category_names = _extract_raw_category_names(payload.get("categories"))

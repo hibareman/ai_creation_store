@@ -14,7 +14,7 @@ from ..parsers import parse_provider_raw_response_to_dict
 from ..providers import get_ai_provider_client
 
 RepairStrategy = Literal["section", "full"]
-RepairSection = Literal["store", "store_settings", "theme", "categories", "products"]
+RepairSection = Literal["store", "store_settings", "theme", "categories", "products", "ai_analysis"]
 ValidatedExpectedMode = Literal["draft_ready", "clarification"]
 
 _ISSUE_KEYS = {"path", "code", "message", "repairable"}
@@ -30,6 +30,7 @@ _SECTION_REPAIR_CODE_TO_SECTION: dict[str, RepairSection] = {
     "theme_template_unavailable": "theme",
     "categories_section_invalid": "categories",
     "products_section_invalid": "products",
+    "ai_analysis_invalid": "ai_analysis",
 }
 _PERSONALIZATION_REPAIR_CODES: set[str] = set()
 _ALLOWED_REPAIR_CODES = _FULL_REPAIR_CODES | set(_SECTION_REPAIR_CODE_TO_SECTION) | _PERSONALIZATION_REPAIR_CODES
@@ -45,8 +46,8 @@ _REPAIR_INSTRUCTION = (
     "and full repair must return a complete draft payload. If expected_mode is "
     "clarification, clarification_needed must be true and clarification_questions must "
     "be a valid non-empty MCQ list. Do not add system-controlled fields. Return valid "
-    "JSON only. Do not explain outside JSON. For section repair, return only the "
-    "requested section object."
+    "JSON only. Do not explain outside JSON. For section repair, return a JSON "
+    "object containing only the requested top-level key."
 )
 
 
@@ -245,7 +246,7 @@ def _validate_repair_attempt_count(value: Any) -> int:
 def _choose_repair_strategy(
     validation_errors: list[dict[str, Any]],
 ) -> tuple[RepairStrategy, RepairSection | None]:
-    priority = ("store", "store_settings", "theme", "categories", "products")
+    priority = ("store", "store_settings", "theme", "categories", "products", "ai_analysis")
     sections = {
         _SECTION_REPAIR_CODE_TO_SECTION[issue["code"]]
         for issue in validation_errors
@@ -318,7 +319,7 @@ def _repair_section(
     current_draft: dict[str, Any],
     target_section: RepairSection | None,
 ) -> dict[str, Any]:
-    if target_section not in {"store", "store_settings", "theme", "categories", "products"}:
+    if target_section not in {"store", "store_settings", "theme", "categories", "products", "ai_analysis"}:
         raise RepairOutputError("Repair target section is invalid.")
     replacement_payload = _parse_provider_response_with_single_retry(provider_call)
     replacement = _extract_section_replacement(replacement_payload, target_section)

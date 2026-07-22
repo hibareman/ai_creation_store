@@ -61,6 +61,114 @@ class AIPersonalizationProgressSerializer(serializers.Serializer):
     )
 
 
+class AIAgenticStoreSerializer(serializers.Serializer):
+    name = serializers.CharField(required=False)
+    description = serializers.CharField(required=False)
+
+
+class AIAgenticStoreSettingsSerializer(serializers.Serializer):
+    currency = serializers.CharField(required=False)
+    language = serializers.CharField(required=False)
+    timezone = serializers.CharField(required=False)
+
+
+class AIAgenticThemeSerializer(serializers.Serializer):
+    theme_template = serializers.CharField(required=False)
+    primary_color = serializers.CharField(required=False)
+    secondary_color = serializers.CharField(required=False)
+    font_family = serializers.CharField(required=False)
+    logo_url = serializers.CharField(required=False, allow_blank=True)
+    banner_url = serializers.CharField(required=False, allow_blank=True)
+
+
+class AIAgenticCategorySerializer(serializers.Serializer):
+    name = serializers.CharField()
+
+
+class AIAgenticProductSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    description = serializers.CharField()
+    price = serializers.DecimalField(max_digits=12, decimal_places=2, coerce_to_string=False)
+    sku = serializers.CharField()
+    category_name = serializers.CharField()
+    stock_quantity = serializers.IntegerField(min_value=0)
+    image_url = serializers.CharField(required=False, allow_blank=True)
+
+
+class AIAgenticClarificationQuestionSerializer(serializers.Serializer):
+    question_key = serializers.CharField()
+    question_text = serializers.CharField()
+    options = serializers.ListField(child=serializers.CharField(), allow_empty=False)
+    other_option = serializers.CharField(required=False, allow_blank=True)
+    reason = serializers.CharField(required=False, allow_blank=True)
+    recommendation = serializers.CharField(required=False, allow_blank=True)
+
+
+class AIAgenticDraftPayloadDocumentationSerializer(serializers.Serializer):
+    store = AIAgenticStoreSerializer(required=False)
+    store_settings = AIAgenticStoreSettingsSerializer(required=False)
+    theme = AIAgenticThemeSerializer(required=False)
+    categories = AIAgenticCategorySerializer(many=True, required=False)
+    products = AIAgenticProductSerializer(many=True, required=False)
+    ai_analysis = serializers.CharField(
+        required=False,
+        help_text=(
+            "Display-only AI explanation of how the current draft matches the user's "
+            "store idea. It is updated after successful full or partial regeneration "
+            "and is not persisted by Apply."
+        ),
+    )
+    clarification_needed = serializers.BooleanField(required=False)
+    clarification_questions = AIAgenticClarificationQuestionSerializer(many=True, required=False)
+    error_code = serializers.CharField(required=False)
+    user_message = serializers.CharField(required=False)
+    retry_allowed = serializers.BooleanField(required=False)
+    manual_edit_allowed = serializers.BooleanField(required=False)
+
+
+class AIAgenticChangesDocumentationSerializer(serializers.Serializer):
+    target_section = serializers.ChoiceField(choices=("theme", "categories", "products"))
+    summary = serializers.CharField()
+    details = serializers.ListField(child=serializers.CharField(), allow_empty=True)
+    analysis_updated = serializers.BooleanField()
+    user_instruction = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class AIAgenticDraftMetadataDocumentationSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=tuple(sorted(AI_WORKFLOW_STATUSES)))
+    current_step = serializers.CharField(required=False)
+    mode = serializers.CharField(required=False)
+    is_fallback = serializers.BooleanField(required=False)
+    clarification_round_count = serializers.IntegerField(required=False, min_value=0)
+    repair_attempt_count = serializers.IntegerField(required=False, min_value=0)
+    max_clarification_rounds = serializers.IntegerField(required=False, min_value=0)
+    max_repair_attempts = serializers.IntegerField(required=False, min_value=0)
+    workflow_engine = serializers.CharField(required=False)
+    personalization_progress = AIPersonalizationProgressSerializer(required=False)
+    feedback = serializers.JSONField(required=False, allow_null=True)
+    validation_errors = serializers.ListField(
+        child=serializers.JSONField(), required=False, allow_empty=True
+    )
+    application_success = serializers.BooleanField(required=False)
+    review_required = serializers.BooleanField(required=False)
+    target_section = serializers.ChoiceField(
+        choices=("theme", "categories", "products"), required=False
+    )
+
+
+class AIAgenticDraftStateDocumentationSerializer(serializers.Serializer):
+    store_id = serializers.IntegerField()
+    draft_payload = AIAgenticDraftPayloadDocumentationSerializer()
+    feedback = serializers.JSONField(required=False, allow_null=True)
+    ai_changes = AIAgenticChangesDocumentationSerializer(required=False, allow_null=True)
+    draft_metadata = AIAgenticDraftMetadataDocumentationSerializer()
+
+
+class AIErrorResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    error_code = serializers.CharField(required=False)
+
+
 @extend_schema_field(
     {
         "type": "object",

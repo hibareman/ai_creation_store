@@ -52,6 +52,7 @@ from .workflow_services import (
 _PUBLIC_RESPONSE_KEYS = {"store_id", "draft_payload", "draft_metadata", "feedback", "ai_changes"}
 _PUBLIC_DRAFT_KEYS = {
     "regeneration_summary",
+    "ai_analysis",
     "store",
     "store_settings",
     "theme",
@@ -243,16 +244,10 @@ def regenerate_current_agentic_ai_draft(
             user=user,
             tenant_id=store.tenant_id,
         )
-        ai_changes = _build_partial_regeneration_ai_changes(
-            target_section=target_section,
-            previous_draft=state["draft_payload"],
-            regenerated_draft=regenerated,
-            user_instruction=user_instruction,
-        )
         updated_state = {
             **state,
             "draft_payload": regenerated,
-            "ai_changes": ai_changes,
+            "ai_changes": None,
             "status": WORKFLOW_STATUS_READY_FOR_REVIEW,
             "current_step": WORKFLOW_STATUS_READY_FOR_REVIEW,
             "mode": "draft_ready",
@@ -349,9 +344,16 @@ def regenerate_current_agentic_ai_draft_section(
             user_instruction=user_instruction,
         )
         operation_meta = get_ai_draft_meta(store.id) or {}
+        ai_changes = _build_partial_regeneration_ai_changes(
+            target_section=target_section,
+            previous_draft=state["draft_payload"],
+            regenerated_draft=regenerated,
+            user_instruction=user_instruction,
+        )
         updated_state = {
             **state,
             "draft_payload": regenerated,
+            "ai_changes": ai_changes,
             "status": WORKFLOW_STATUS_READY_FOR_REVIEW,
             "current_step": WORKFLOW_STATUS_READY_FOR_REVIEW,
             "mode": "draft_ready",
@@ -552,10 +554,23 @@ def _build_partial_regeneration_ai_changes(
             details.append(f"المنتجات الجديدة: {', '.join(filter(None, new_products))}.")
         summary = "تم تحديث قائمة المنتجات مع الإبقاء على الفئات وبقية إعدادات المتجر كما هي."
 
+    previous_analysis = previous_draft.get("ai_analysis")
+    regenerated_analysis = regenerated_draft.get("ai_analysis")
+    analysis_updated = (
+        isinstance(regenerated_analysis, str)
+        and bool(regenerated_analysis.strip())
+        and regenerated_analysis.strip() != str(previous_analysis or "").strip()
+    )
+    if analysis_updated:
+        details.append(
+            "تم تحديث تحليل الذكاء الاصطناعي ليطابق القسم الجديد والمسودة الحالية."
+        )
+
     result: dict[str, Any] = {
         "target_section": target_section,
         "summary": summary,
         "details": details,
+        "analysis_updated": analysis_updated,
     }
     normalized_instruction = (user_instruction or "").strip()
     if normalized_instruction:
@@ -822,6 +837,9 @@ def _project_public_draft_payload(value: Mapping[str, Any]) -> dict[str, Any]:
     payload["products"] = _project_public_item_list(
         value.get("products"), _PUBLIC_PRODUCT_FIELDS
     )
+    ai_analysis = value.get("ai_analysis")
+    if isinstance(ai_analysis, str):
+        payload["ai_analysis"] = " ".join(ai_analysis.strip().split())
     for field in (
         "clarification_needed", "error_code", "user_message",
         "retry_allowed", "manual_edit_allowed",

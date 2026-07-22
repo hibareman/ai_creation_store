@@ -400,7 +400,8 @@ def _is_needs_clarification_terminal(state: AIStoreAgentState) -> bool:
     draft_payload = state.get("draft_payload")
     state_questions = state.get("clarification_questions")
     return (
-        state.get("current_step") == WORKFLOW_STATUS_NEEDS_CLARIFICATION
+        state.get("current_step")
+        in {"human_review", WORKFLOW_STATUS_NEEDS_CLARIFICATION}
         and state.get("mode") == "clarification"
         and state.get("status") == WORKFLOW_STATUS_NEEDS_CLARIFICATION
         and state.get("route_decision") == "human_review"

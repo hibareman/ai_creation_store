@@ -10,7 +10,7 @@ from typing import Any, Mapping, Sequence
 from .exceptions import AIDraftSchemaValidationError
 
 
-_MAX_DRAFT_PRODUCTS = 4
+_MAX_DRAFT_PRODUCTS = 8
 
 
 def _ensure_theme_template_is_available(
@@ -134,6 +134,12 @@ def _cleanup_clarification_question_options(payload: dict[str, Any]) -> None:
         question["options"] = cleaned_options
 
 
+def _normalize_ai_analysis(payload: dict[str, Any]) -> None:
+    value = payload.get("ai_analysis")
+    if isinstance(value, str):
+        payload["ai_analysis"] = " ".join(value.strip().split())
+
+
 def _trim_products_overflow(payload: dict[str, Any]) -> None:
     products = payload.get("products")
     if isinstance(products, list) and len(products) > _MAX_DRAFT_PRODUCTS:
@@ -201,6 +207,7 @@ def _apply_targeted_prevalidation_repairs(
     *,
     available_theme_templates: Sequence[str] | None = None,
 ) -> dict[str, Any]:
+    _normalize_ai_analysis(payload)
     _trim_products_overflow(payload)
     _normalize_products_image_url(payload)
     _cleanup_clarification_question_options(payload)

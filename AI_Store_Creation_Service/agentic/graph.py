@@ -20,6 +20,7 @@ from .nodes import (
 )
 from .routing import (
     route_after_blueprint,
+    route_after_clarify,
     route_after_decide,
     route_after_generate,
     route_after_merge,
@@ -78,7 +79,14 @@ def build_agentic_graph() -> StateGraph:
             "failed_recoverable": "recoverable_failure",
         },
     )
-    graph.add_edge("clarify", "human_review")
+    graph.add_conditional_edges(
+        "clarify",
+        route_after_clarify,
+        {
+            "human_review": "human_review",
+            "failed_recoverable": "recoverable_failure",
+        },
+    )
     graph.add_conditional_edges("blueprint", route_after_blueprint, {"generate":"generate", "failed_recoverable":"recoverable_failure"})
     graph.add_conditional_edges(
         "generate",

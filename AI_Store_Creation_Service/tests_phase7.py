@@ -204,3 +204,29 @@ class Phase7APIContractTests(SimpleTestCase):
         self.assertIn("custom_answer", serialized)
         self.assertIn("Handmade natural soaps", serialized)
         self.assertIn('"minLength": 2', serialized)
+        self.assertIn('"ai_analysis"', serialized)
+        self.assertIn('"ai_changes"', serialized)
+        self.assertIn('"analysis_updated"', serialized)
+        self.assertIn('"target_section"', serialized)
+        self.assertIn('"user_instruction"', serialized)
+
+        agentic_paths = {
+            path: operations
+            for path, operations in paths.items()
+            if path.startswith("/api/ai/stores/")
+        }
+        self.assertTrue(agentic_paths)
+        for path, operations in agentic_paths.items():
+            for method, operation in operations.items():
+                if method.casefold() not in {"get", "post", "put", "patch", "delete"}:
+                    continue
+                self.assertEqual(
+                    operation.get("tags"),
+                    ["Agentic Updates"],
+                    msg=f"Unexpected Swagger tag for {method.upper()} {path}",
+                )
+
+        self.assertIn("Regenerate Theme", serialized)
+        self.assertIn("Regenerate Products", serialized)
+        self.assertIn("Regenerate Categories", serialized)
+        self.assertIn("display-only", serialized)

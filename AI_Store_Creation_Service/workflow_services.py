@@ -61,6 +61,7 @@ from .selectors import (
 from .validators import (
     build_ai_recoverable_failure_payload,
     detect_ai_response_mode,
+    validate_ai_analysis,
     validate_initial_description,
     validate_basic_draft_schema,
     validate_categories_section,
@@ -168,26 +169,85 @@ def _extract_partial_section_replacement(
             "Partial regeneration payload must be a JSON object."
         )
 
+    if "ai_analysis" not in payload:
+        raise AIDraftSchemaValidationError(
+            "Partial regeneration payload must include top-level key 'ai_analysis'."
+        )
+    ai_analysis = validate_ai_analysis(payload["ai_analysis"])
+
     if target_section == "categories":
-        expected_keys = {"categories", "products"}
+        expected_keys = {"categories", "products", "ai_analysis"}
         if set(payload.keys()) != expected_keys:
             raise AIDraftSchemaValidationError(
-                "Categories regeneration must return exactly categories and products."
+                "Categories regeneration must return exactly categories, products, and ai_analysis."
             )
         return {
             "categories": payload["categories"],
             "products": payload["products"],
+            "ai_analysis": ai_analysis,
         }
 
     if target_section not in payload:
         raise AIDraftSchemaValidationError(
             f"Partial regeneration payload must include top-level key '{target_section}'."
         )
-    if set(payload.keys()) != {target_section}:
+    if set(payload.keys()) != {target_section, "ai_analysis"}:
         raise AIDraftSchemaValidationError(
-            "Partial regeneration payload must include only the requested section key."
+            "Partial regeneration payload must include only the requested section and ai_analysis."
         )
-    return payload[target_section]
+    return {target_section: payload[target_section], "ai_analysis": ai_analysis}
+
+
+def _validate_updated_ai_analysis(*, new_value: Any, previous_value: Any) -> str:
+    """Require partial regeneration to produce a fresh, non-empty analysis."""
+    normalized_new = validate_ai_analysis(new_value)
+    if isinstance(previous_value, str) and previous_value.strip():
+        normalized_previous = validate_ai_analysis(previous_value)
+        if normalized_new == normalized_previous:
+            raise AIDraftSchemaValidationError(
+                "Partial regeneration must return an updated ai_analysis that differs "
+                "from the current analysis."
+            )
+    return normalized_new
+
+
+def _validate_partial_regeneration_candidate(
+    candidate_draft: Mapping[str, Any],
+    *,
+    previous_draft: Mapping[str, Any],
+    available_theme_templates: list[str] | None = None,
+) -> dict[str, Any]:
+    """Validate the complete merged draft before the atomic partial-regeneration save."""
+    if not isinstance(candidate_draft, Mapping):
+        raise AIDraftSchemaValidationError(
+            "Merged partial-regeneration draft must be a mapping object."
+        )
+
+    validated = dict(candidate_draft)
+    validated["store"] = validate_store_section(validated.get("store"))
+    validated["store_settings"] = validate_store_settings_section(
+        validated.get("store_settings")
+    )
+    validated_theme = validate_theme_section(validated.get("theme"))
+    if available_theme_templates is not None:
+        _ensure_theme_template_is_available(
+            validated_theme,
+            available_theme_templates,
+        )
+    validated["theme"] = validated_theme
+
+    validated_categories = validate_categories_section(validated.get("categories"))
+    category_names = [item["name"] for item in validated_categories]
+    validated["categories"] = validated_categories
+    validated["products"] = validate_products_section(
+        validated.get("products"),
+        category_names,
+    )
+    validated["ai_analysis"] = _validate_updated_ai_analysis(
+        new_value=validated.get("ai_analysis"),
+        previous_value=previous_draft.get("ai_analysis"),
+    )
+    return validated
 
 
 def _clean_store_name_candidate(candidate: str) -> str:
@@ -427,6 +487,7 @@ def generate_initial_store_draft(
         mode = detect_ai_response_mode(payload)
 
         if mode == "draft_ready":
+            payload["ai_analysis"] = validate_ai_analysis(payload.get("ai_analysis"))
             validate_store_section(payload["store"])
             validate_store_settings_section(payload["store_settings"])
             validate_theme_section(payload["theme"])
@@ -792,6 +853,7 @@ def process_clarification_round(
         new_round_count = next_round_count
 
         if mode == "draft_ready":
+            payload["ai_analysis"] = validate_ai_analysis(payload.get("ai_analysis"))
             if not available_theme_templates:
                 raise AIDraftSchemaValidationError("No available theme templates found")
             payload = _apply_targeted_prevalidation_repairs(
@@ -884,6 +946,7 @@ def process_clarification_round(
                     raise AIDraftSchemaValidationError(
                         "Final clarification round must return a draft-ready payload"
                     )
+                candidate_payload["ai_analysis"] = validate_ai_analysis(candidate_payload.get("ai_analysis"))
                 validate_store_section(candidate_payload["store"])
                 validate_store_settings_section(candidate_payload["store_settings"])
                 validate_theme_section(candidate_payload["theme"])
@@ -907,8 +970,8 @@ def process_clarification_round(
                         "repair_instruction": (
                             "Your previous final-round response was invalid. "
                             "Return one complete draft-ready JSON object now. "
-                            "Do not ask questions. Include 2 to 5 categories, "
-                            "2 to 4 products, and a complete theme."
+                            "Do not ask questions. Include 3 to 4 categories, "
+                            "4 to 8 products, and a complete theme."
                         ),
                     }
                 )
@@ -1075,8 +1138,8 @@ def regenerate_store_draft(
                 "Repair the supplied invalid_regeneration_payload instead of creating another unrelated draft. "
                 "Return the complete regeneration JSON contract only. Preserve all already-valid fields and "
                 "change only what is required by the validation error. The regeneration_summary.message must "
-                "contain 3 to 6 non-empty lines separated by newline characters. Categories must contain 2 to "
-                "5 items. Products must contain 2 to 4 items, and every product category_name must match "
+                "contain 3 to 6 non-empty lines separated by newline characters. Categories must contain 3 to "
+                "4 items. Products must contain 4 to 8 items, and every product category_name must match "
                 "one of those category names exactly."
             )
             if last_invalid_payload is not None:
@@ -1350,7 +1413,7 @@ def regenerate_store_draft_section(
                 candidate_draft = dict(current_draft)
 
                 if normalized_target_section == "theme":
-                    validated_theme = validate_theme_section(replacement_value)
+                    validated_theme = validate_theme_section(replacement_value["theme"])
                     _ensure_theme_template_is_available(
                         validated_theme,
                         available_theme_templates or [],
@@ -1360,6 +1423,7 @@ def regenerate_store_draft_section(
                             "Regenerated theme must be materially different from the current theme."
                         )
                     candidate_draft["theme"] = validated_theme
+                    candidate_draft["ai_analysis"] = replacement_value["ai_analysis"]
                 elif normalized_target_section == "categories":
                     validated_categories = validate_categories_section(
                         replacement_value.get("categories")
@@ -1378,11 +1442,12 @@ def regenerate_store_draft_section(
                         )
                     candidate_draft["categories"] = validated_categories
                     candidate_draft["products"] = validated_products
+                    candidate_draft["ai_analysis"] = replacement_value["ai_analysis"]
                 else:
                     existing_categories = validate_categories_section(current_draft.get("categories"))
                     category_names = [item["name"] for item in existing_categories]
                     validated_products = validate_products_section(
-                        replacement_value,
+                        replacement_value["products"],
                         category_names,
                     )
                     if validated_products == current_draft.get("products"):
@@ -1390,8 +1455,17 @@ def regenerate_store_draft_section(
                             "Regenerated products must be materially different from the current products."
                         )
                     candidate_draft["products"] = validated_products
+                    candidate_draft["ai_analysis"] = replacement_value["ai_analysis"]
 
-                updated_draft = candidate_draft
+                updated_draft = _validate_partial_regeneration_candidate(
+                    candidate_draft,
+                    previous_draft=current_draft,
+                    available_theme_templates=(
+                        available_theme_templates
+                        if normalized_target_section == "theme"
+                        else None
+                    ),
+                )
                 break
             except (AIProviderParsingError, AIDraftSchemaValidationError) as attempt_exc:
                 validation_feedback = str(attempt_exc)

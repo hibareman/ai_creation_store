@@ -94,7 +94,7 @@ def validate_basic_draft_schema(payload: Mapping[str, Any]) -> dict[str, Any]:
     Behavior:
     - `clarification_needed` and `clarification_questions` are always required.
     - Structural keys (`store`, `store_settings`, `theme`, `categories`, `products`)
-      are normalized to safe empty defaults when missing.
+      and the UI-only `ai_analysis` text are normalized to safe empty defaults when missing.
 
     This makes clarification-mode payloads from smaller local models robust, while
     still enforcing strict typing and mode consistency in later validators.
@@ -111,6 +111,7 @@ def validate_basic_draft_schema(payload: Mapping[str, Any]) -> dict[str, Any]:
         "theme": {},
         "categories": [],
         "products": [],
+        "ai_analysis": "",
     }
     for key, default_value in structure_defaults.items():
         if key not in normalized:
@@ -121,6 +122,7 @@ def validate_basic_draft_schema(payload: Mapping[str, Any]) -> dict[str, Any]:
     _ensure_key_of_type(normalized, "theme", Mapping)
     _ensure_key_of_type(normalized, "categories", list)
     _ensure_key_of_type(normalized, "products", list)
+    _ensure_key_of_type(normalized, "ai_analysis", str)
 
     # Clarification keys:
     # - tolerate missing provider fields by inferring safe defaults
@@ -152,8 +154,18 @@ def validate_basic_draft_schema(payload: Mapping[str, Any]) -> dict[str, Any]:
 
 
 
+def validate_ai_analysis(value: Any) -> str:
+    """Validate the user-facing AI analysis as one non-empty text value."""
+    if not isinstance(value, str):
+        raise AIDraftSchemaValidationError("ai_analysis must be a string.")
+    normalized = " ".join(value.strip().split())
+    if not normalized:
+        raise AIDraftSchemaValidationError("ai_analysis must be a non-empty string.")
+    return normalized
+
+
 _REGENERATION_TOP_LEVEL_KEYS = {
-    "regeneration_summary", "store", "store_settings", "theme",
+    "regeneration_summary", "ai_analysis", "store", "store_settings", "theme",
     "categories", "products", "clarification_needed", "clarification_questions",
 }
 
@@ -187,6 +199,7 @@ def validate_regenerated_draft_schema(payload: Mapping[str, Any]) -> dict[str, A
         raise AIDraftSchemaValidationError(f"Invalid regeneration top-level contract; missing={missing}, extra={extra}.")
     normalized = dict(payload)
     normalized["regeneration_summary"] = validate_regeneration_summary(normalized["regeneration_summary"])
+    normalized["ai_analysis"] = validate_ai_analysis(normalized["ai_analysis"])
     normalized = validate_basic_draft_schema(normalized)
     if normalized["clarification_needed"] is not False or normalized["clarification_questions"] != []:
         raise AIDraftSchemaValidationError("Regeneration must return clarification_needed=false and clarification_questions=[].")
@@ -307,9 +320,9 @@ def validate_categories_section(categories_data: Any) -> list[dict[str, Any]]:
         raise AIDraftSchemaValidationError("Categories section must be a list.")
 
     count = len(categories_data)
-    if count < 2 or count > 5:
+    if count < 3 or count > 4:
         raise AIDraftSchemaValidationError(
-            "Categories list must contain between 2 and 5 items."
+            "Categories list must contain between 3 and 4 items."
         )
 
     normalized_names: set[str] = set()
@@ -363,9 +376,9 @@ def validate_products_section(
         raise AIDraftSchemaValidationError("Products section must be a list.")
 
     products_count = len(products_data)
-    if products_count < 2 or products_count > 4:
+    if products_count < 4 or products_count > 8:
         raise AIDraftSchemaValidationError(
-            "Products list must contain between 2 and 4 items."
+            "Products list must contain between 4 and 8 items."
         )
 
     if not isinstance(category_names, (list, set, tuple)):
