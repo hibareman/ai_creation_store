@@ -1,0 +1,27 @@
+[run]
+source =
+    AI_Store_Creation_Service
+    categories
+    orders
+    platform_admin
+    products
+    seo
+    stores
+    themes
+    users
+    utils
+
+omit =
+    */tests/*
+    */test_*.py
+    */tests.py
+    */migrations/*
+    */__init__.py
+    */admin.py
+    */apps.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __str__
+    if __name__ == .__main__.:

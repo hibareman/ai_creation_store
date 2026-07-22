@@ -1,7 +1,7 @@
 """
 Temporary draft storage adapter for AI Store Creation.
 
-This module is intentionally limited to cache/Redis storage helpers only.
+This module is intentionally limited to Django cache storage helpers only.
 No business rules, ownership checks, workflow logic, or provider calls.
 """
 

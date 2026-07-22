@@ -1,0 +1,246 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="1420" viewBox="0 0 2600 1420">
+  <defs>
+    <style>
+      .bg { fill: #ffffff; }
+      .header-bg { fill: #eef2f7; }
+      .group-bg { fill: #f1f5f9; }
+      .row-bg { fill: #ffffff; }
+      .row-alt { fill: #fbfdff; }
+      .line { stroke: #d5dde8; stroke-width: 1.6; }
+      .grid { stroke: #e5ebf3; stroke-width: 1.3; }
+      .header { font: 700 23px Arial, sans-serif; fill: #243244; }
+      .group { font: 700 23px Arial, sans-serif; fill: #1f2937; }
+      .cell { font: 500 21px Arial, sans-serif; fill: #243244; }
+      .task { font: 500 22px Arial, sans-serif; fill: #243244; }
+      .date { font: 700 18px Arial, sans-serif; fill: #64748b; }
+      .owner { font: 700 21px Arial, sans-serif; fill: #334155; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="2600" height="1420"/>
+
+  <!-- Header -->
+  <rect class="header-bg" x="30" y="30" width="2540" height="58"/>
+  <text class="header" x="48" y="67">Increment</text>
+  <text class="header" x="415" y="67">Task</text>
+  <text class="header" x="1274" y="67">Duration</text>
+  <text class="header" x="1398" y="67">Start Date</text>
+  <text class="header" x="1552" y="67">End Date</text>
+
+  <!-- Timeline labels -->
+  <text class="date" x="1740.0" y="67" text-anchor="middle">6/20</text>
+  <text class="date" x="1814.3" y="67" text-anchor="middle">6/27</text>
+  <text class="date" x="1888.6" y="67" text-anchor="middle">7/4</text>
+  <text class="date" x="1962.9" y="67" text-anchor="middle">7/11</text>
+  <text class="date" x="2037.1" y="67" text-anchor="middle">7/18</text>
+  <text class="date" x="2111.4" y="67" text-anchor="middle">7/25</text>
+  <text class="date" x="2185.7" y="67" text-anchor="middle">8/1</text>
+  <text class="date" x="2260.0" y="67" text-anchor="middle">8/7</text>
+
+  <!-- Column borders -->
+  <line class="line" x1="30" y1="30" x2="30" y2="1368"/>
+  <line class="line" x1="390" y1="30" x2="390" y2="1368"/>
+  <line class="line" x1="1260" y1="30" x2="1260" y2="1368"/>
+  <line class="line" x1="1385" y1="30" x2="1385" y2="1368"/>
+  <line class="line" x1="1540" y1="30" x2="1540" y2="1368"/>
+  <line class="line" x1="1695" y1="30" x2="1695" y2="1368"/>
+
+  <!-- Timeline grid -->
+  <line class="line" x1="1740" y1="30" x2="1740" y2="1368"/>
+  <line class="line" x1="2260" y1="30" x2="2260" y2="1368"/>
+  <line class="grid" x1="1814.3" y1="88" x2="1814.3" y2="1368"/>
+  <line class="grid" x1="1888.6" y1="88" x2="1888.6" y2="1368"/>
+  <line class="grid" x1="1962.9" y1="88" x2="1962.9" y2="1368"/>
+  <line class="grid" x1="2037.1" y1="88" x2="2037.1" y2="1368"/>
+  <line class="grid" x1="2111.4" y1="88" x2="2111.4" y2="1368"/>
+  <line class="grid" x1="2185.7" y1="88" x2="2185.7" y2="1368"/>
+
+  <!-- Row backgrounds -->
+  <rect class="group-bg" x="30" y="88" width="2540" height="64"/>
+  <rect class="row-bg" x="30" y="152" width="2540" height="64"/>
+  <rect class="row-alt" x="30" y="216" width="2540" height="64"/>
+  <rect class="group-bg" x="30" y="280" width="2540" height="64"/>
+  <rect class="row-bg" x="30" y="344" width="2540" height="64"/>
+  <rect class="row-alt" x="30" y="408" width="2540" height="64"/>
+  <rect class="row-bg" x="30" y="472" width="2540" height="64"/>
+  <rect class="row-alt" x="30" y="536" width="2540" height="64"/>
+  <rect class="group-bg" x="30" y="600" width="2540" height="64"/>
+  <rect class="row-bg" x="30" y="664" width="2540" height="64"/>
+  <rect class="row-alt" x="30" y="728" width="2540" height="64"/>
+  <rect class="row-bg" x="30" y="792" width="2540" height="64"/>
+  <rect class="row-alt" x="30" y="856" width="2540" height="64"/>
+  <rect class="group-bg" x="30" y="920" width="2540" height="64"/>
+  <rect class="row-bg" x="30" y="984" width="2540" height="64"/>
+  <rect class="row-alt" x="30" y="1048" width="2540" height="64"/>
+  <rect class="row-bg" x="30" y="1112" width="2540" height="64"/>
+  <rect class="row-alt" x="30" y="1176" width="2540" height="64"/>
+  <rect class="group-bg" x="30" y="1240" width="2540" height="64"/>
+  <rect class="row-bg" x="30" y="1304" width="2540" height="64"/>
+
+  <!-- Row separators -->
+  <g class="line">
+    <line x1="30" y1="88" x2="2570" y2="88"/>
+    <line x1="30" y1="152" x2="2570" y2="152"/>
+    <line x1="30" y1="216" x2="2570" y2="216"/>
+    <line x1="30" y1="280" x2="2570" y2="280"/>
+    <line x1="30" y1="344" x2="2570" y2="344"/>
+    <line x1="30" y1="408" x2="2570" y2="408"/>
+    <line x1="30" y1="472" x2="2570" y2="472"/>
+    <line x1="30" y1="536" x2="2570" y2="536"/>
+    <line x1="30" y1="600" x2="2570" y2="600"/>
+    <line x1="30" y1="664" x2="2570" y2="664"/>
+    <line x1="30" y1="728" x2="2570" y2="728"/>
+    <line x1="30" y1="792" x2="2570" y2="792"/>
+    <line x1="30" y1="856" x2="2570" y2="856"/>
+    <line x1="30" y1="920" x2="2570" y2="920"/>
+    <line x1="30" y1="984" x2="2570" y2="984"/>
+    <line x1="30" y1="1048" x2="2570" y2="1048"/>
+    <line x1="30" y1="1112" x2="2570" y2="1112"/>
+    <line x1="30" y1="1176" x2="2570" y2="1176"/>
+    <line x1="30" y1="1240" x2="2570" y2="1240"/>
+    <line x1="30" y1="1304" x2="2570" y2="1304"/>
+    <line x1="30" y1="1368" x2="2570" y2="1368"/>
+  </g>
+
+  <!-- Group rows -->
+  <text class="group" x="48" y="128">Discovery &amp; Planning</text>
+  <text class="group" x="48" y="320">Increment 1: Intelligent Store Foundation</text>
+  <text class="group" x="48" y="640">Increment 2: Business Insights Dashboard</text>
+  <text class="group" x="48" y="960">Increment 3: Store Operations Enhancement</text>
+  <text class="group" x="48" y="1280">Documentation</text>
+
+  <!-- Task table rows -->
+  <text class="task" x="415" y="191">Research proposed improvements and new features</text>
+  <text class="cell" x="1274" y="191">6 days</text>
+  <text class="cell" x="1398" y="191">6/20/2026</text>
+  <text class="cell" x="1552" y="191">6/25/2026</text>
+
+  <text class="task" x="415" y="243">Prioritize approved improvements and</text>
+  <text class="task" x="415" y="269">prepare the development plan</text>
+  <text class="cell" x="1274" y="255">3 days</text>
+  <text class="cell" x="1398" y="255">6/26/2026</text>
+  <text class="cell" x="1552" y="255">6/28/2026</text>
+
+  <text class="task" x="415" y="371">Analyze and design the Agentic AI Pipeline,</text>
+  <text class="task" x="415" y="397">Commission-Lite, and Store Limit</text>
+  <text class="cell" x="1274" y="383">5 days</text>
+  <text class="cell" x="1398" y="383">6/29/2026</text>
+  <text class="cell" x="1552" y="383">7/3/2026</text>
+
+  <text class="task" x="415" y="435">Develop the AI Pipeline, commission calculation,</text>
+  <text class="task" x="415" y="461">and store limit logic</text>
+  <text class="cell" x="1274" y="447">10 days</text>
+  <text class="cell" x="1398" y="447">7/4/2026</text>
+  <text class="cell" x="1552" y="447">7/13/2026</text>
+
+  <text class="task" x="415" y="499">Develop AI workflow UI, quality score display,</text>
+  <text class="task" x="415" y="525">commission settings, and store limit UI</text>
+  <text class="cell" x="1274" y="511">10 days</text>
+  <text class="cell" x="1398" y="511">7/4/2026</text>
+  <text class="cell" x="1552" y="511">7/13/2026</text>
+
+  <text class="task" x="415" y="563">Test integration, AI workflow, and business rules</text>
+  <text class="cell" x="1274" y="575">3 days</text>
+  <text class="cell" x="1398" y="575">7/14/2026</text>
+  <text class="cell" x="1552" y="575">7/16/2026</text>
+
+  <text class="task" x="415" y="691">Analyze and design dashboard analytics</text>
+  <text class="task" x="415" y="717">and financial metrics</text>
+  <text class="cell" x="1274" y="703">3 days</text>
+  <text class="cell" x="1398" y="703">7/17/2026</text>
+  <text class="cell" x="1552" y="703">7/19/2026</text>
+
+  <text class="task" x="415" y="755">Develop analytics, sales, commission,</text>
+  <text class="task" x="415" y="781">and net profit APIs</text>
+  <text class="cell" x="1274" y="767">6 days</text>
+  <text class="cell" x="1398" y="767">7/20/2026</text>
+  <text class="cell" x="1552" y="767">7/25/2026</text>
+
+  <text class="task" x="415" y="819">Develop dashboard UI with analytics</text>
+  <text class="task" x="415" y="845">and financial indicators</text>
+  <text class="cell" x="1274" y="831">6 days</text>
+  <text class="cell" x="1398" y="831">7/20/2026</text>
+  <text class="cell" x="1552" y="831">7/25/2026</text>
+
+  <text class="task" x="415" y="883">Test data accuracy, financial calculations,</text>
+  <text class="task" x="415" y="909">and user experience</text>
+  <text class="cell" x="1274" y="895">3 days</text>
+  <text class="cell" x="1398" y="895">7/26/2026</text>
+  <text class="cell" x="1552" y="895">7/28/2026</text>
+
+  <text class="task" x="415" y="1011">Analyze and design product, order, and customer</text>
+  <text class="task" x="415" y="1037">search/filtering features</text>
+  <text class="cell" x="1274" y="1023">2 days</text>
+  <text class="cell" x="1398" y="1023">7/29/2026</text>
+  <text class="cell" x="1552" y="1023">7/30/2026</text>
+
+  <text class="task" x="415" y="1075">Develop product filters, order filters,</text>
+  <text class="task" x="415" y="1101">and enhanced customer data</text>
+  <text class="cell" x="1274" y="1087">5 days</text>
+  <text class="cell" x="1398" y="1087">7/31/2026</text>
+  <text class="cell" x="1552" y="1087">8/4/2026</text>
+
+  <text class="task" x="415" y="1139">Develop search and filtering UI for products,</text>
+  <text class="task" x="415" y="1165">orders, and customers</text>
+  <text class="cell" x="1274" y="1151">5 days</text>
+  <text class="cell" x="1398" y="1151">7/31/2026</text>
+  <text class="cell" x="1552" y="1151">8/4/2026</text>
+
+  <text class="task" x="415" y="1203">Test Increment 3, fix issues,</text>
+  <text class="task" x="415" y="1229">and prepare the final version</text>
+  <text class="cell" x="1274" y="1215">3 days</text>
+  <text class="cell" x="1398" y="1215">8/5/2026</text>
+  <text class="cell" x="1552" y="1215">8/7/2026</text>
+
+  <text class="task" x="415" y="1331">Document requirements, design, APIs,</text>
+  <text class="task" x="415" y="1357">development phases, and testing results</text>
+  <text class="cell" x="1274" y="1343">49 days</text>
+  <text class="cell" x="1398" y="1343">6/20/2026</text>
+  <text class="cell" x="1552" y="1343">8/7/2026</text>
+
+  <!-- Gantt bars and owners. Duration labels were removed for slide readability. -->
+  <rect x="1740.0" y="168" width="63.7" height="32" rx="7" fill="#8b5cf6"/>
+  <text class="owner" x="1821.7" y="191">Hiba &amp; Remaz &amp; Omar</text>
+
+  <rect x="1803.7" y="232" width="31.8" height="32" rx="7" fill="#8b5cf6"/>
+  <text class="owner" x="1853.5" y="255">Hiba &amp; Remaz &amp; Omar</text>
+
+  <rect x="1835.5" y="360" width="53.1" height="32" rx="7" fill="#2563eb"/>
+  <text class="owner" x="1906.6" y="383">Hiba &amp; Remaz</text>
+
+  <rect x="1888.6" y="424" width="106.1" height="32" rx="7" fill="#2563eb"/>
+  <text class="owner" x="2012.7" y="447">Hiba</text>
+
+  <rect x="1888.6" y="488" width="106.1" height="32" rx="7" fill="#3b82f6"/>
+  <text class="owner" x="2012.7" y="511">Omar &amp; Remaz</text>
+
+  <rect x="1994.7" y="552" width="31.8" height="32" rx="7" fill="#1d4ed8"/>
+  <text class="owner" x="2044.5" y="575">Hiba &amp; Remaz</text>
+
+  <rect x="2026.5" y="680" width="31.8" height="32" rx="7" fill="#059669"/>
+  <text class="owner" x="2076.4" y="703">Hiba &amp; Omar</text>
+
+  <rect x="2058.4" y="744" width="63.7" height="32" rx="7" fill="#059669"/>
+  <text class="owner" x="2140.1" y="767">Hiba</text>
+
+  <rect x="2058.4" y="808" width="63.7" height="32" rx="7" fill="#10b981"/>
+  <text class="owner" x="2140.1" y="831">Omar &amp; Remaz</text>
+
+  <rect x="2122.0" y="872" width="31.8" height="32" rx="7" fill="#047857"/>
+  <text class="owner" x="2171.8" y="895">Hiba &amp; Remaz</text>
+
+  <rect x="2153.9" y="1000" width="21.2" height="32" rx="7" fill="#ea580c"/>
+  <text class="owner" x="2193.1" y="1023">Hiba &amp; Omar</text>
+
+  <rect x="2175.1" y="1064" width="53.1" height="32" rx="7" fill="#ea580c"/>
+  <text class="owner" x="2246.1" y="1087">Hiba</text>
+
+  <rect x="2175.1" y="1128" width="53.1" height="32" rx="7" fill="#f97316"/>
+  <text class="owner" x="2246.1" y="1151">Omar &amp; Remaz</text>
+
+  <rect x="2228.2" y="1192" width="31.8" height="32" rx="7" fill="#c2410c"/>
+  <text class="owner" x="2278.0" y="1215">Hiba &amp; Remaz &amp; Omar</text>
+
+  <rect x="1740.0" y="1320" width="520.0" height="32" rx="7" fill="#64748b"/>
+  <text class="owner" x="2278.0" y="1343">Hiba &amp; Remaz &amp; Omar</text>
+</svg>

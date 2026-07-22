@@ -8,6 +8,11 @@ from urllib.request import Request, urlopen
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from .prompts import (
+    build_analyze_store_description_messages,
+    build_generate_store_blueprint_messages,
+    build_repair_store_blueprint_messages,
+    build_generate_agentic_store_draft_messages,
+    build_generate_clarification_questions_messages,
     build_generate_store_draft_messages,
     build_clarify_store_draft_messages,
     build_regenerate_store_draft_messages,
@@ -20,6 +25,45 @@ ProviderRawResponse = dict[str, Any]
 
 class AIProviderContract(ABC):
     @abstractmethod
+    def analyze_store_description(
+        self,
+        *,
+        tenant_id: int,
+        store_id: int,
+        normalized_description: str,
+        clarification_context: Mapping[str, Any] | None = None,
+    ) -> ProviderRawResponse:
+        raise NotImplementedError
+
+    @abstractmethod
+    def generate_clarification_questions(
+        self,
+        *,
+        tenant_id: int,
+        store_id: int,
+        normalized_description: str,
+        semantic_analysis: Mapping[str, Any],
+        clarification_round_count: int,
+        clarification_context: Mapping[str, Any] | None = None,
+    ) -> ProviderRawResponse:
+        raise NotImplementedError
+
+    def generate_store_blueprint(
+        self, *, tenant_id: int, store_id: int, normalized_description: str,
+        effective_personalization_context: Mapping[str, Any],
+        clarification_history: Sequence[Any], available_theme_templates: Sequence[str],
+    ) -> ProviderRawResponse:
+        raise NotImplementedError
+
+    def repair_store_blueprint(
+        self, *, tenant_id: int, store_id: int, invalid_blueprint: Mapping[str, Any],
+        validation_errors: Sequence[Mapping[str, Any]],
+        effective_personalization_context: Mapping[str, Any],
+        available_theme_templates: Sequence[str],
+    ) -> ProviderRawResponse:
+        raise NotImplementedError
+
+    @abstractmethod
     def generate_store_draft(
         self,
         *,
@@ -27,6 +71,19 @@ class AIProviderContract(ABC):
         store_id: int,
         user_store_description: str,
         available_theme_templates: Sequence[str],
+    ) -> ProviderRawResponse:
+        raise NotImplementedError
+
+    @abstractmethod
+    def generate_agentic_store_draft(
+        self,
+        *,
+        tenant_id: int,
+        store_id: int,
+        user_store_description: str,
+        available_theme_templates: Sequence[str],
+        blueprint: Mapping[str, Any] | None = None,
+        effective_personalization_context: Mapping[str, Any] | None = None,
     ) -> ProviderRawResponse:
         raise NotImplementedError
 
@@ -52,6 +109,8 @@ class AIProviderContract(ABC):
         current_draft: Mapping[str, Any],
         clarification_context: Mapping[str, Any] | Sequence[Any] | None = None,
         available_theme_templates: Sequence[str] | None = None,
+        blueprint: Mapping[str, Any] | None = None,
+        confirmed_personalization_context: Mapping[str, Any] | None = None,
     ) -> ProviderRawResponse:
         raise NotImplementedError
 
@@ -66,6 +125,11 @@ class AIProviderContract(ABC):
         current_draft: Mapping[str, Any],
         clarification_context: Mapping[str, Any] | Sequence[Any] | None = None,
         available_theme_templates: Sequence[str] | None = None,
+        blueprint: Mapping[str, Any] | None = None,
+        confirmed_personalization_context: Mapping[str, Any] | None = None,
+        user_instruction: str | None = None,
+        validation_feedback: str | None = None,
+        attempt_number: int = 1,
     ) -> ProviderRawResponse:
         raise NotImplementedError
 
@@ -102,6 +166,7 @@ class OllamaProviderClient(AIProviderContract):
             or "gpt-oss:120b"
         )
         self.timeout = int(getattr(settings, "AI_TIMEOUT", 60))
+        self.max_tokens = int(getattr(settings, "AI_MAX_TOKENS", 4096))
         self.temperature = float(getattr(settings, "AI_TEMPERATURE", 0.2))
 
         configured_api_url = str(getattr(settings, "AI_API_URL", "")).strip()
@@ -126,6 +191,9 @@ class OllamaProviderClient(AIProviderContract):
             "format": "json",
             "options": {
                 "temperature": self.temperature,
+                "num_predict": self.max_tokens,
+                "top_p": 0.9,
+                "repeat_penalty": 1.05,
             },
         }
 
@@ -182,6 +250,48 @@ class OllamaProviderClient(AIProviderContract):
         except URLError as exc:
             raise RuntimeError(f"Ollama connection error: {exc.reason}") from exc
 
+
+    def analyze_store_description(
+        self,
+        *,
+        tenant_id: int,
+        store_id: int,
+        normalized_description: str,
+        clarification_context: Mapping[str, Any] | None = None,
+    ) -> ProviderRawResponse:
+        messages = build_analyze_store_description_messages(
+            tenant_id=tenant_id,
+            store_id=store_id,
+            normalized_description=normalized_description,
+            clarification_context=clarification_context,
+        )
+        return self._call_chat(messages)
+
+    def generate_store_blueprint(
+        self, *, tenant_id: int, store_id: int, normalized_description: str,
+        effective_personalization_context: Mapping[str, Any],
+        clarification_history: Sequence[Any], available_theme_templates: Sequence[str],
+    ) -> ProviderRawResponse:
+        return self._call_chat(build_generate_store_blueprint_messages(
+            tenant_id=tenant_id, store_id=store_id, normalized_description=normalized_description,
+            effective_personalization_context=effective_personalization_context,
+            clarification_history=clarification_history,
+            available_theme_templates=available_theme_templates,
+        ))
+
+    def repair_store_blueprint(
+        self, *, tenant_id: int, store_id: int, invalid_blueprint: Mapping[str, Any],
+        validation_errors: Sequence[Mapping[str, Any]],
+        effective_personalization_context: Mapping[str, Any],
+        available_theme_templates: Sequence[str],
+    ) -> ProviderRawResponse:
+        return self._call_chat(build_repair_store_blueprint_messages(
+            tenant_id=tenant_id, store_id=store_id, invalid_blueprint=invalid_blueprint,
+            validation_errors=validation_errors,
+            effective_personalization_context=effective_personalization_context,
+            available_theme_templates=available_theme_templates,
+        ))
+
     def generate_store_draft(
         self,
         *,
@@ -195,6 +305,46 @@ class OllamaProviderClient(AIProviderContract):
             store_id=store_id,
             user_store_description=user_store_description,
             available_theme_templates=available_theme_templates,
+        )
+        return self._call_chat(messages)
+
+    def generate_agentic_store_draft(
+        self,
+        *,
+        tenant_id: int,
+        store_id: int,
+        user_store_description: str,
+        available_theme_templates: Sequence[str],
+        blueprint: Mapping[str, Any] | None = None,
+        effective_personalization_context: Mapping[str, Any] | None = None,
+    ) -> ProviderRawResponse:
+        messages = build_generate_agentic_store_draft_messages(
+            tenant_id=tenant_id,
+            store_id=store_id,
+            user_store_description=user_store_description,
+            available_theme_templates=available_theme_templates,
+            blueprint=blueprint,
+            effective_personalization_context=effective_personalization_context,
+        )
+        return self._call_chat(messages)
+
+    def generate_clarification_questions(
+        self,
+        *,
+        tenant_id: int,
+        store_id: int,
+        normalized_description: str,
+        semantic_analysis: Mapping[str, Any],
+        clarification_round_count: int,
+        clarification_context: Mapping[str, Any] | None = None,
+    ) -> ProviderRawResponse:
+        messages = build_generate_clarification_questions_messages(
+            tenant_id=tenant_id,
+            store_id=store_id,
+            normalized_description=normalized_description,
+            semantic_analysis=semantic_analysis,
+            clarification_round_count=clarification_round_count,
+            clarification_context=clarification_context,
         )
         return self._call_chat(messages)
 
@@ -225,6 +375,8 @@ class OllamaProviderClient(AIProviderContract):
         current_draft: Mapping[str, Any],
         clarification_context: Mapping[str, Any] | Sequence[Any] | None = None,
         available_theme_templates: Sequence[str] | None = None,
+        blueprint: Mapping[str, Any] | None = None,
+        confirmed_personalization_context: Mapping[str, Any] | None = None,
     ) -> ProviderRawResponse:
         messages = build_regenerate_store_draft_messages(
             tenant_id=tenant_id,
@@ -233,6 +385,8 @@ class OllamaProviderClient(AIProviderContract):
             current_draft=current_draft,
             clarification_context=clarification_context,
             available_theme_templates=available_theme_templates,
+            blueprint=blueprint,
+            confirmed_personalization_context=confirmed_personalization_context,
         )
         return self._call_chat(messages)
 
@@ -246,6 +400,9 @@ class OllamaProviderClient(AIProviderContract):
         current_draft: Mapping[str, Any],
         clarification_context: Mapping[str, Any] | Sequence[Any] | None = None,
         available_theme_templates: Sequence[str] | None = None,
+        user_instruction: str | None = None,
+        validation_feedback: str | None = None,
+        attempt_number: int = 1,
     ) -> ProviderRawResponse:
         messages = build_regenerate_store_draft_section_messages(
             tenant_id=tenant_id,
@@ -255,6 +412,9 @@ class OllamaProviderClient(AIProviderContract):
             current_draft=current_draft,
             clarification_context=clarification_context,
             available_theme_templates=available_theme_templates,
+            user_instruction=user_instruction,
+            validation_feedback=validation_feedback,
+            attempt_number=attempt_number,
         )
         return self._call_chat(messages)
 

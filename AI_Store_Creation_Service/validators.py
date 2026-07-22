@@ -6,6 +6,10 @@ import re
 from numbers import Real
 from typing import Any, Literal, Mapping, Sequence
 
+from django.core.exceptions import ValidationError
+
+from .constants import RECOVERABLE_FAILURE_ERROR_CODE, RECOVERABLE_FAILURE_USER_MESSAGE
+
 
 class AIDraftSchemaValidationError(ValueError):
     """Raised when parsed AI draft payload fails basic top-level schema checks."""
@@ -43,6 +47,25 @@ _DEFAULT_CLARIFICATION_QUESTIONS = [
 ]
 
 
+def validate_initial_description(description: str) -> str:
+    """
+    Validate and normalize the user's initial store description.
+
+    The initial description must be meaningful enough to start the AI draft flow.
+    """
+    if not isinstance(description, str):
+        raise ValidationError("Store description must be a text value.")
+
+    normalized = " ".join(description.strip().split())
+    if not normalized:
+        raise ValidationError("Store description is required.")
+
+    if len(normalized.split()) < 5:
+        raise ValidationError("Store description must contain at least 5 words.")
+
+    return normalized
+
+
 def _ensure_key_of_type(
     payload: Mapping[str, Any],
     key: str,
@@ -71,7 +94,7 @@ def validate_basic_draft_schema(payload: Mapping[str, Any]) -> dict[str, Any]:
     Behavior:
     - `clarification_needed` and `clarification_questions` are always required.
     - Structural keys (`store`, `store_settings`, `theme`, `categories`, `products`)
-      are normalized to safe empty defaults when missing.
+      and the UI-only `ai_analysis` text are normalized to safe empty defaults when missing.
 
     This makes clarification-mode payloads from smaller local models robust, while
     still enforcing strict typing and mode consistency in later validators.
@@ -88,6 +111,7 @@ def validate_basic_draft_schema(payload: Mapping[str, Any]) -> dict[str, Any]:
         "theme": {},
         "categories": [],
         "products": [],
+        "ai_analysis": "",
     }
     for key, default_value in structure_defaults.items():
         if key not in normalized:
@@ -98,6 +122,7 @@ def validate_basic_draft_schema(payload: Mapping[str, Any]) -> dict[str, Any]:
     _ensure_key_of_type(normalized, "theme", Mapping)
     _ensure_key_of_type(normalized, "categories", list)
     _ensure_key_of_type(normalized, "products", list)
+    _ensure_key_of_type(normalized, "ai_analysis", str)
 
     # Clarification keys:
     # - tolerate missing provider fields by inferring safe defaults
@@ -127,6 +152,58 @@ def validate_basic_draft_schema(payload: Mapping[str, Any]) -> dict[str, Any]:
 
     return normalized
 
+
+
+def validate_ai_analysis(value: Any) -> str:
+    """Validate the user-facing AI analysis as one non-empty text value."""
+    if not isinstance(value, str):
+        raise AIDraftSchemaValidationError("ai_analysis must be a string.")
+    normalized = " ".join(value.strip().split())
+    if not normalized:
+        raise AIDraftSchemaValidationError("ai_analysis must be a non-empty string.")
+    return normalized
+
+
+_REGENERATION_TOP_LEVEL_KEYS = {
+    "regeneration_summary", "ai_analysis", "store", "store_settings", "theme",
+    "categories", "products", "clarification_needed", "clarification_questions",
+}
+
+def validate_regeneration_summary(value: Any) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise AIDraftSchemaValidationError("'regeneration_summary' must be an object.")
+    if set(value.keys()) != {"title", "message", "highlights"}:
+        raise AIDraftSchemaValidationError("Invalid regeneration_summary structure.")
+    title = value.get("title")
+    message = value.get("message")
+    highlights = value.get("highlights")
+    if not isinstance(title, str) or not title.strip():
+        raise AIDraftSchemaValidationError("Regeneration summary title must be non-empty.")
+    if not isinstance(message, str) or not message.strip():
+        raise AIDraftSchemaValidationError("Regeneration summary message must be non-empty.")
+    lines = [line.strip() for line in message.splitlines() if line.strip()]
+    if not 3 <= len(lines) <= 6:
+        raise AIDraftSchemaValidationError("Regeneration summary message must contain 3 to 6 non-empty lines.")
+    if not isinstance(highlights, list) or not 3 <= len(highlights) <= 5:
+        raise AIDraftSchemaValidationError("Regeneration summary highlights must contain 3 to 5 items.")
+    if any(not isinstance(item, str) or not item.strip() for item in highlights):
+        raise AIDraftSchemaValidationError("Every regeneration summary highlight must be non-empty.")
+    return {"title": title.strip(), "message": "\n".join(lines), "highlights": [item.strip() for item in highlights]}
+
+def validate_regenerated_draft_schema(payload: Mapping[str, Any]) -> dict[str, Any]:
+    if not isinstance(payload, Mapping):
+        raise AIDraftSchemaValidationError("Regeneration payload must be an object.")
+    if set(payload.keys()) != _REGENERATION_TOP_LEVEL_KEYS:
+        missing = sorted(_REGENERATION_TOP_LEVEL_KEYS - set(payload.keys()))
+        extra = sorted(set(payload.keys()) - _REGENERATION_TOP_LEVEL_KEYS)
+        raise AIDraftSchemaValidationError(f"Invalid regeneration top-level contract; missing={missing}, extra={extra}.")
+    normalized = dict(payload)
+    normalized["regeneration_summary"] = validate_regeneration_summary(normalized["regeneration_summary"])
+    normalized["ai_analysis"] = validate_ai_analysis(normalized["ai_analysis"])
+    normalized = validate_basic_draft_schema(normalized)
+    if normalized["clarification_needed"] is not False or normalized["clarification_questions"] != []:
+        raise AIDraftSchemaValidationError("Regeneration must return clarification_needed=false and clarification_questions=[].")
+    return normalized
 
 def validate_store_section(store_data: Mapping[str, Any]) -> dict[str, Any]:
     """
@@ -243,9 +320,9 @@ def validate_categories_section(categories_data: Any) -> list[dict[str, Any]]:
         raise AIDraftSchemaValidationError("Categories section must be a list.")
 
     count = len(categories_data)
-    if count < 2 or count > 5:
+    if count < 3 or count > 4:
         raise AIDraftSchemaValidationError(
-            "Categories list must contain between 2 and 5 items."
+            "Categories list must contain between 3 and 4 items."
         )
 
     normalized_names: set[str] = set()
@@ -299,9 +376,9 @@ def validate_products_section(
         raise AIDraftSchemaValidationError("Products section must be a list.")
 
     products_count = len(products_data)
-    if products_count < 2 or products_count > 4:
+    if products_count < 4 or products_count > 8:
         raise AIDraftSchemaValidationError(
-            "Products list must contain between 2 and 4 items."
+            "Products list must contain between 4 and 8 items."
         )
 
     if not isinstance(category_names, (list, set, tuple)):
@@ -485,11 +562,13 @@ def build_ai_fallback_payload(
     clarification_questions: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """
-    Build the official clarification-style fallback payload for unusable AI responses.
+    Build a legacy clarification payload.
 
     Decision note:
-    - Fallback in AI Store Creation is clarification-style (not template-style).
-    - The payload intentionally requests clarification with structured MCQ objects.
+    - This is only suitable when the workflow intentionally wants real
+      clarification questions.
+    - Provider, parsing, and validation failures must use
+      build_ai_recoverable_failure_payload instead.
     """
     default_questions = [
         {
@@ -516,3 +595,29 @@ def build_ai_fallback_payload(
         fallback_payload["clarification_questions"] = default_questions
 
     return fallback_payload
+
+
+def build_ai_recoverable_failure_payload(
+    *,
+    error_code: str = RECOVERABLE_FAILURE_ERROR_CODE,
+    user_message: str = RECOVERABLE_FAILURE_USER_MESSAGE,
+) -> dict[str, Any]:
+    """
+    Build the frontend-visible payload for recoverable technical AI failures.
+
+    This intentionally does not ask clarification questions. The user can retry
+    the AI operation or continue by editing manually.
+    """
+    return {
+        "store": {},
+        "store_settings": {},
+        "theme": {},
+        "categories": [],
+        "products": [],
+        "clarification_needed": False,
+        "clarification_questions": [],
+        "error_code": error_code,
+        "user_message": user_message,
+        "retry_allowed": True,
+        "manual_edit_allowed": True,
+    }
