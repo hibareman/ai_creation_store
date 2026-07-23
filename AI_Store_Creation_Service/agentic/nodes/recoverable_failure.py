@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 from typing import Any
 
 from ...constants import (
@@ -11,6 +13,8 @@ from ...constants import (
 )
 from ..state import AIStoreAgentState
 
+logger = logging.getLogger(__name__)
+
 
 def _safe_text_or_default(value: Any, default: str) -> str:
     if isinstance(value, str) and value.strip():
@@ -19,6 +23,17 @@ def _safe_text_or_default(value: Any, default: str) -> str:
 
 
 def recoverable_failure_node(state: AIStoreAgentState) -> dict[str, Any]:
+    logger.error(
+        "AGENTIC WORKFLOW RECOVERABLE FAILURE | store_id=%s | tenant_id=%s "
+        "| failed_step=%s | error_code=%s | developer_message=%s "
+        "| validation_errors=%s",
+        state.get("store_id"),
+        state.get("tenant_id"),
+        state.get("current_step"),
+        state.get("error_code"),
+        state.get("developer_message"),
+        json.dumps(state.get("validation_errors", []), ensure_ascii=False, default=str),
+    )
     return {
         "current_step": "recoverable_failure",
         "mode": "failed_recoverable",

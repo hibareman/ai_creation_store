@@ -33,6 +33,15 @@ def validate_node(state: AIStoreAgentState) -> dict[str, Any]:
 
     if errors:
         attempts = _safe_count(state.get("repair_attempt_count"))
+        logger.error(
+            "AGENTIC VALIDATION RESULT | store_id=%s | tenant_id=%s "
+            "| mode=%s | repair_attempt_count=%s | errors=%s",
+            state.get("store_id"),
+            state.get("tenant_id"),
+            detected_mode,
+            attempts,
+            errors,
+        )
         can_repair = attempts < MAX_REPAIR_ATTEMPTS and all(
             issue.get("repairable") is True for issue in errors
         )
@@ -49,6 +58,12 @@ def validate_node(state: AIStoreAgentState) -> dict[str, Any]:
             }
         return _failed(errors, payload, attempts)
 
+    logger.warning(
+        "AGENTIC VALIDATION SUCCESS | store_id=%s | tenant_id=%s | mode=%s",
+        state.get("store_id"),
+        state.get("tenant_id"),
+        detected_mode,
+    )
     return {
         "current_step": "validate",
         "status": WORKFLOW_STATUS_PROCESSING,

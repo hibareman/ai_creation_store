@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from copy import deepcopy
 from typing import Any
 
@@ -23,6 +24,8 @@ from ..personalization import (
 )
 from ..state import AIStoreAgentState
 
+logger = logging.getLogger(__name__)
+
 
 def clarify_node(state: AIStoreAgentState) -> dict[str, Any]:
     try:
@@ -33,6 +36,13 @@ def clarify_node(state: AIStoreAgentState) -> dict[str, Any]:
             state.get("clarification_round_count", 0)
         )
         if round_count >= MAX_CLARIFICATION_ROUNDS:
+            logger.error(
+                "AGENTIC NODE FAILURE | node=clarify | reason=max_rounds_reached "
+                "| store_id=%s | tenant_id=%s | round_count=%s",
+                state.get("store_id"),
+                state.get("tenant_id"),
+                round_count,
+            )
             return _safe_clarify_failure_update(
                 error_code=PERSONALIZATION_INCOMPLETE_ERROR_CODE,
                 user_message=PERSONALIZATION_INCOMPLETE_USER_MESSAGE,
@@ -65,6 +75,18 @@ def clarify_node(state: AIStoreAgentState) -> dict[str, Any]:
         )
         if not requested_keys:
             if blockers_remain or round_count >= MAX_CLARIFICATION_ROUNDS:
+                logger.error(
+                    "AGENTIC NODE FAILURE | node=clarify | "
+                    "reason=no_question_keys_with_unresolved_blockers "
+                    "| store_id=%s | tenant_id=%s | round_count=%s "
+                    "| missing_core=%s | ambiguous=%s | blocking=%s",
+                    state.get("store_id"),
+                    state.get("tenant_id"),
+                    round_count,
+                    state.get("missing_core_personalization_keys"),
+                    state.get("ambiguous_personalization_keys"),
+                    additional_blocking,
+                )
                 return _safe_clarify_failure_update(
                     error_code=PERSONALIZATION_INCOMPLETE_ERROR_CODE,
                     user_message=PERSONALIZATION_INCOMPLETE_USER_MESSAGE,
@@ -114,8 +136,25 @@ def clarify_node(state: AIStoreAgentState) -> dict[str, Any]:
             },
         }
         json.dumps(update, ensure_ascii=False, allow_nan=False)
+        logger.warning(
+            "AGENTIC NODE SUCCESS | node=clarify | store_id=%s | tenant_id=%s "
+            "| round_count=%s | requested_keys=%s | questions=%s",
+            state.get("store_id"),
+            state.get("tenant_id"),
+            round_count,
+            requested_keys,
+            json.dumps(questions, ensure_ascii=False, default=str),
+        )
         return update
-    except Exception:
+    except Exception as exc:
+        logger.exception(
+            "AGENTIC NODE FAILURE | node=clarify | store_id=%s | tenant_id=%s "
+            "| error_type=%s | error=%r",
+            state.get("store_id"),
+            state.get("tenant_id"),
+            type(exc).__name__,
+            exc,
+        )
         return _safe_clarify_failure_update()
 
 
