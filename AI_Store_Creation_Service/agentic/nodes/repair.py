@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
@@ -17,6 +18,8 @@ from ...constants import (
 from ..repairing import repair_draft_payload
 from ..state import AIStoreAgentState
 
+logger = logging.getLogger(__name__)
+
 _FAILURE_ISSUE = {
     "path": "draft_payload",
     "code": "repair_internal_failure",
@@ -29,6 +32,13 @@ _ISSUE_KEYS = {"path", "code", "message", "repairable"}
 def repair_node(state: AIStoreAgentState) -> dict[str, Any]:
     current_count = _repair_count_for_invocation(state.get("repair_attempt_count"))
     if current_count is None:
+        logger.error(
+            "AGENTIC NODE FAILURE | node=repair | reason=invalid_or_exhausted_attempt_count "
+            "| store_id=%s | tenant_id=%s | repair_attempt_count=%r",
+            state.get("store_id"),
+            state.get("tenant_id"),
+            state.get("repair_attempt_count"),
+        )
         return _safe_repair_failure_update(
             state,
             repair_attempt_count=_safe_repair_count(state.get("repair_attempt_count")),
@@ -61,8 +71,26 @@ def repair_node(state: AIStoreAgentState) -> dict[str, Any]:
             "draft_payload": deepcopy(repaired_candidate),
         }
         _assert_json_serializable(update)
+        logger.warning(
+            "AGENTIC NODE SUCCESS | node=repair | store_id=%s | tenant_id=%s "
+            "| attempt=%s | previous_validation_errors=%s",
+            state.get("store_id"),
+            state.get("tenant_id"),
+            next_attempt_count,
+            json.dumps(state.get("validation_errors", []), ensure_ascii=False, default=str),
+        )
         return update
-    except Exception:
+    except Exception as exc:
+        logger.exception(
+            "AGENTIC NODE FAILURE | node=repair | store_id=%s | tenant_id=%s "
+            "| attempt=%s | error_type=%s | error=%r | validation_errors=%s",
+            state.get("store_id"),
+            state.get("tenant_id"),
+            next_attempt_count,
+            type(exc).__name__,
+            exc,
+            json.dumps(state.get("validation_errors", []), ensure_ascii=False, default=str),
+        )
         return _safe_repair_failure_update(
             state,
             repair_attempt_count=next_attempt_count,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
@@ -17,6 +18,8 @@ from ...constants import (
 )
 from ..merging import merge_clarification_answers
 from ..state import AIStoreAgentState
+
+logger = logging.getLogger(__name__)
 
 
 def merge_answers_node(state: AIStoreAgentState) -> dict[str, Any]:
@@ -51,8 +54,26 @@ def merge_answers_node(state: AIStoreAgentState) -> dict[str, Any]:
             "user_message": "",
         }
         json.dumps(update, ensure_ascii=False, allow_nan=False)
+        logger.warning(
+            "AGENTIC NODE SUCCESS | node=merge_answers | store_id=%s | tenant_id=%s "
+            "| round_count=%s | clarification_facts=%s",
+            state.get("store_id"),
+            state.get("tenant_id"),
+            merged.get("clarification_round_count"),
+            json.dumps(merged.get("clarification_facts", {}), ensure_ascii=False, default=str),
+        )
         return update
-    except Exception:
+    except Exception as exc:
+        logger.exception(
+            "AGENTIC NODE FAILURE | node=merge_answers | store_id=%s | tenant_id=%s "
+            "| error_type=%s | error=%r | questions=%s | answers=%s",
+            state.get("store_id"),
+            state.get("tenant_id"),
+            type(exc).__name__,
+            exc,
+            json.dumps(state.get("clarification_questions", []), ensure_ascii=False, default=str),
+            json.dumps(state.get("clarification_answers", []), ensure_ascii=False, default=str),
+        )
         return _safe_merge_failure_update(state)
 
 

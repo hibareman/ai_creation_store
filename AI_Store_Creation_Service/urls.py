@@ -1,5 +1,7 @@
 from django.urls import path
 
+from .product_description_views import ProductDescriptionAPIView
+
 from .views import (
     AIApplyDraftAPIView,
     AIClarificationAPIView,
@@ -15,6 +17,11 @@ app_name = "ai_store_creation"
 
 
 urlpatterns = [
+    path(
+        "stores/<int:store_id>/products/description/",
+        ProductDescriptionAPIView.as_view(),
+        name="product-description",
+    ),
     path(
         "stores/<int:store_id>/generated/",
         AIGeneratedStoreAPIView.as_view(),

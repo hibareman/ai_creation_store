@@ -185,6 +185,30 @@ def _invoke_agentic_graph(initial_state: AIStoreAgentState) -> AIStoreAgentState
                     ),
                 )
                 return _build_safe_failed_recoverable_state(initial_state)
+
+        log_method = (
+            logger.error
+            if valid_state.get("status") == WORKFLOW_STATUS_FAILED_RECOVERABLE
+            else logger.warning
+        )
+        log_method(
+            "AGENTIC WORKFLOW TERMINAL STATE | store_id=%s | tenant_id=%s "
+            "| status=%s | current_step=%s | mode=%s | route=%s "
+            "| error_code=%s | developer_message=%s | validation_errors=%s",
+            valid_state.get("store_id"),
+            valid_state.get("tenant_id"),
+            valid_state.get("status"),
+            valid_state.get("current_step"),
+            valid_state.get("mode"),
+            valid_state.get("route_decision"),
+            valid_state.get("error_code"),
+            valid_state.get("developer_message"),
+            json.dumps(
+                valid_state.get("validation_errors", []),
+                ensure_ascii=False,
+                default=str,
+            ),
+        )
         return valid_state
 
     except Exception as exc:

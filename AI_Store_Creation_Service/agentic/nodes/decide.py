@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from typing import Any
 
@@ -16,11 +17,21 @@ from ...constants import (
 )
 from ..state import AIStoreAgentState
 
+logger = logging.getLogger(__name__)
+
 
 def decide_node(state: AIStoreAgentState) -> dict[str, Any]:
     try:
         assessment = _validated_personalization_assessment(state)
-    except Exception:
+    except Exception as exc:
+        logger.exception(
+            "AGENTIC NODE FAILURE | node=decide | reason=invalid_assessment "
+            "| store_id=%s | tenant_id=%s | error_type=%s | error=%r",
+            state.get("store_id"),
+            state.get("tenant_id"),
+            type(exc).__name__,
+            exc,
+        )
         return _safe_decision_failure()
 
     missing_core = assessment["missing_core_personalization_keys"]
@@ -34,15 +45,48 @@ def decide_node(state: AIStoreAgentState) -> dict[str, Any]:
     if needs_core_clarification:
         # Completed rounds 1 and 2 are the only rounds allowed for core keys.
         if round_count >= MAX_CLARIFICATION_ROUNDS - 1:
+            logger.error(
+                "AGENTIC NODE FAILURE | node=decide | "
+                "reason=core_personalization_incomplete_after_allowed_rounds "
+                "| store_id=%s | tenant_id=%s | round_count=%s "
+                "| missing_core=%s | ambiguous_core=%s | blocking=%s",
+                state.get("store_id"),
+                state.get("tenant_id"),
+                round_count,
+                missing_core,
+                ambiguous_core,
+                blocking,
+            )
             return _personalization_incomplete_failure()
         route_decision = "clarify"
     elif needs_adaptive_clarification:
         # Round 3 is reserved for unresolved adaptive blocking information.
         if round_count >= MAX_CLARIFICATION_ROUNDS:
+            logger.error(
+                "AGENTIC NODE FAILURE | node=decide | "
+                "reason=adaptive_personalization_incomplete_after_max_rounds "
+                "| store_id=%s | tenant_id=%s | round_count=%s | blocking=%s",
+                state.get("store_id"),
+                state.get("tenant_id"),
+                round_count,
+                blocking,
+            )
             return _personalization_incomplete_failure()
         route_decision = "clarify"
     else:
         route_decision = "generate"
+
+    logger.warning(
+        "AGENTIC NODE SUCCESS | node=decide | store_id=%s | tenant_id=%s "
+        "| route=%s | round_count=%s | missing_core=%s | ambiguous=%s | blocking=%s",
+        state.get("store_id"),
+        state.get("tenant_id"),
+        route_decision,
+        round_count,
+        missing_core,
+        ambiguous_core,
+        blocking,
+    )
 
     return {
         "current_step": "decide",
