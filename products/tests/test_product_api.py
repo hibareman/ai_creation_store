@@ -142,6 +142,10 @@ class ProductApiTests(TestCase):
         self.assertIn("created_at", item)
         self.assertIn("updated_at", item)
 
+    @staticmethod
+    def _product_ids(payload):
+        return {item["id"] for item in payload}
+
     # ---------------------------
     # Product endpoints
     # ---------------------------
@@ -168,6 +172,201 @@ class ProductApiTests(TestCase):
         self.assertEqual(item["stock"], 12)
         self.assertEqual(item["status"], "active")
         self.assertEqual(item["image_url"], "https://example.com/initial.jpg")
+
+    def test_product_search_returns_matching_results(self):
+        matching_foreign_product = Product.objects.create(
+            store=self.other_store_same_owner,
+            tenant_id=self.other_store_same_owner.tenant_id,
+            name="Wireless Mouse Other Store",
+            description="Should not leak across store scope",
+            price=Decimal("30.00"),
+            sku="OTHER-MOUSE-001",
+            category=self.other_store_category,
+            status="active",
+        )
+        Product.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Mechanical Keyboard",
+            description="Different product",
+            price=Decimal("80.00"),
+            sku="KEYBOARD-001",
+            category=self.category,
+            status="active",
+        )
+
+        response = self.client.get(
+            f"/api/products/{self.store.id}/products/?search= wireless ",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self.assertEqual(self._product_ids(payload), {self.product.id})
+        self.assertNotIn(matching_foreign_product.id, self._product_ids(payload))
+
+    def test_product_search_with_no_results_returns_empty_list(self):
+        response = self.client.get(
+            f"/api/products/{self.store.id}/products/?search=not-found",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._payload(response), [])
+
+    def test_product_filtering_by_category(self):
+        accessories = Category.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Accessories",
+            description="Accessories category",
+        )
+        accessory_product = Product.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="USB Hub",
+            description="Multi-port hub",
+            price=Decimal("18.00"),
+            sku="USB-HUB-001",
+            category=accessories,
+            status="active",
+        )
+
+        response = self.client.get(
+            f"/api/products/{self.store.id}/products/?category_id={accessories.id}",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._product_ids(self._payload(response)), {accessory_product.id})
+
+    def test_combined_product_search_and_category_filtering(self):
+        accessories = Category.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Accessories",
+            description="Accessories category",
+        )
+        mouse_pad = Product.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Mouse Pad",
+            description="Desk mat",
+            price=Decimal("12.00"),
+            sku="MOUSE-PAD-001",
+            category=accessories,
+            status="active",
+        )
+        Product.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Keyboard Case",
+            description="Carry case",
+            price=Decimal("15.00"),
+            sku="KEY-CASE-001",
+            category=accessories,
+            status="active",
+        )
+
+        response = self.client.get(
+            f"/api/products/{self.store.id}/products/?search=mouse&category_id={accessories.id}",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._product_ids(self._payload(response)), {mouse_pad.id})
+
+    def test_product_filtering_invalid_category_id_returns_400(self):
+        response = self.client.get(
+            f"/api/products/{self.store.id}/products/?category_id=999999",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("category_id", self._payload(response))
+
+    def test_product_filtering_category_from_another_store_returns_400(self):
+        response = self.client.get(
+            f"/api/products/{self.store.id}/products/?category_id={self.other_store_category.id}",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("category_id", self._payload(response))
+
+    def test_product_filters_keep_tenant_and_store_isolation(self):
+        Product.objects.create(
+            store=self.other_store_same_owner,
+            tenant_id=self.other_store_same_owner.tenant_id,
+            name="Store Scoped Exclusive",
+            description="Same owner and tenant, different store",
+            price=Decimal("22.00"),
+            sku="OTHER-STORE-EXCLUSIVE",
+            category=self.other_store_category,
+            status="active",
+        )
+
+        response = self.client.get(
+            f"/api/products/{self.store.id}/products/?search=exclusive",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._payload(response), [])
+
+    def test_product_list_empty_store_data(self):
+        empty_store = Store.objects.create(
+            owner=self.owner,
+            name="Empty Product Store",
+            tenant_id=self.owner.tenant_id,
+        )
+
+        response = self.client.get(
+            f"/api/products/{empty_store.id}/products/",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._payload(response), [])
+
+    def test_product_reset_filters_returns_complete_store_scoped_list(self):
+        second_product = Product.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Mechanical Keyboard",
+            description="Different product",
+            price=Decimal("80.00"),
+            sku="KEYBOARD-002",
+            category=self.category,
+            status="active",
+        )
+
+        filtered = self.client.get(
+            f"/api/products/{self.store.id}/products/?search=wireless",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+        reset = self.client.get(
+            f"/api/products/{self.store.id}/products/",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(filtered.status_code, status.HTTP_200_OK)
+        self.assertEqual(reset.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._product_ids(self._payload(filtered)), {self.product.id})
+        self.assertEqual(self._product_ids(self._payload(reset)), {self.product.id, second_product.id})
+        self.assertIsInstance(self._payload(reset), list)
+
+    def test_existing_pagination_behavior_remains_current_list_shape(self):
+        response = self.client.get(
+            f"/api/products/{self.store.id}/products/?search=wireless",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self.assertIsInstance(payload, list)
+        self.assertNotIsInstance(payload, dict)
+        self.assertEqual(self._product_ids(payload), {self.product.id})
 
     def test_create_product_returns_current_shape(self):
         response = self.client.post(
@@ -433,6 +632,163 @@ class ProductApiTests(TestCase):
 
         self.inventory.refresh_from_db()
         self.assertEqual(self.inventory.stock_quantity, 99)
+
+    def test_product_search_matches_sku(self):
+        response = self.client.get(
+            f"/api/products/{self.store.id}/products/?search=mouse-bt",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._product_ids(self._payload(response)), {self.product.id})
+
+    def test_product_filtering_by_every_supported_status(self):
+        draft_product = Product.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Draft Product",
+            description="Draft",
+            price=Decimal("15.00"),
+            sku="DRAFT-001",
+            category=self.category,
+            status="draft",
+        )
+        out_of_stock_product = Product.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Unavailable Product",
+            description="Unavailable",
+            price=Decimal("20.00"),
+            sku="OUT-001",
+            category=self.category,
+            status="out_of_stock",
+        )
+
+        expected = {
+            "active": self.product.id,
+            "draft": draft_product.id,
+            "out_of_stock": out_of_stock_product.id,
+        }
+        for status_value, product_id in expected.items():
+            response = self.client.get(
+                f"/api/products/{self.store.id}/products/?status={status_value}",
+                HTTP_AUTHORIZATION=self.owner_auth,
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertEqual(self._product_ids(self._payload(response)), {product_id})
+
+    def test_product_filtering_unsupported_status_returns_400(self):
+        response = self.client.get(
+            f"/api/products/{self.store.id}/products/?status=inactive",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", self._payload(response))
+
+    def test_product_filtering_by_stock_status(self):
+        zero_stock_product = Product.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Zero Stock",
+            description="No stock",
+            price=Decimal("10.00"),
+            sku="ZERO-001",
+            category=self.category,
+            status="out_of_stock",
+        )
+        Inventory.objects.create(product=zero_stock_product, stock_quantity=0)
+
+        no_inventory_product = Product.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Missing Inventory",
+            description="No inventory row",
+            price=Decimal("11.00"),
+            sku="NO-INV-001",
+            category=self.category,
+            status="draft",
+        )
+
+        in_stock = self.client.get(
+            f"/api/products/{self.store.id}/products/?stock_status=in_stock",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+        out_of_stock = self.client.get(
+            f"/api/products/{self.store.id}/products/?stock_status=out_of_stock",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(in_stock.status_code, status.HTTP_200_OK)
+        self.assertEqual(out_of_stock.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._product_ids(self._payload(in_stock)), {self.product.id})
+        self.assertEqual(
+            self._product_ids(self._payload(out_of_stock)),
+            {zero_stock_product.id, no_inventory_product.id},
+        )
+
+    def test_product_filtering_unsupported_stock_status_returns_400(self):
+        response = self.client.get(
+            f"/api/products/{self.store.id}/products/?stock_status=low_stock",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("stock_status", self._payload(response))
+
+    def test_product_ordering_by_price(self):
+        cheaper = Product.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Cheaper Product",
+            description="Cheaper",
+            price=Decimal("5.00"),
+            sku="CHEAP-001",
+            category=self.category,
+            status="active",
+        )
+
+        response = self.client.get(
+            f"/api/products/{self.store.id}/products/?ordering=price",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item["id"] for item in self._payload(response)],
+            [cheaper.id, self.product.id],
+        )
+
+    def test_product_unsupported_ordering_returns_400(self):
+        response = self.client.get(
+            f"/api/products/{self.store.id}/products/?ordering=stock",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("ordering", self._payload(response))
+
+    def test_product_combines_expanded_search_filters(self):
+        matching = Product.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Premium Keyboard",
+            description="Matching product",
+            price=Decimal("90.00"),
+            sku="PREMIUM-KEY-001",
+            category=self.category,
+            status="draft",
+        )
+        Inventory.objects.create(product=matching, stock_quantity=4)
+
+        response = self.client.get(
+            f"/api/products/{self.store.id}/products/"
+            "?search=premium-key&status=draft&stock_status=in_stock&ordering=name",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._product_ids(self._payload(response)), {matching.id})
 
     # ---------------------------
     # Authorization / isolation

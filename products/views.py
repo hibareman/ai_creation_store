@@ -13,16 +13,24 @@ from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, NotFound
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer, OpenApiResponse
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+    extend_schema_view,
+    inline_serializer,
+)
 from django.shortcuts import get_object_or_404
 from django.http import Http404
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 
 from stores.models import Store
 from stores.selectors import get_public_store_by_subdomain
 from users.permissions import TenantAuthenticated
+from categories import selectors as category_selectors
 from .models import Product, ProductImage
 from .serializers import (
     ProductListSerializer, ProductDetailSerializer,
@@ -41,6 +49,18 @@ DOC_ERROR_RESPONSES = {
     400: OpenApiResponse(description="Bad request"),
     403: OpenApiResponse(description="Permission denied"),
     404: OpenApiResponse(description="Not found"),
+}
+
+
+PRODUCT_ALLOWED_STATUSES = {choice[0] for choice in Product.STATUS_CHOICES}
+PRODUCT_ALLOWED_STOCK_STATUSES = {"in_stock", "out_of_stock"}
+PRODUCT_ALLOWED_ORDERING = {
+    "name",
+    "-name",
+    "price",
+    "-price",
+    "created_at",
+    "-created_at",
 }
 
 
@@ -163,8 +183,48 @@ class PublicStoreProductDetailView(generics.GenericAPIView):
 @extend_schema_view(
     get=extend_schema(
         summary="List store products",
-        description="List products for a tenant-owned store with tenant-safe filtering.",
+        description="List products for a tenant-owned store with tenant-safe search, filtering, and ordering.",
         tags=["Products"],
+        parameters=[
+            OpenApiParameter(
+                name="search",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Partial, case-insensitive search by product name or SKU.",
+            ),
+            OpenApiParameter(
+                name="category_id",
+                type=int,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filter by a category belonging to the current store.",
+            ),
+            OpenApiParameter(
+                name="status",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                enum=sorted(PRODUCT_ALLOWED_STATUSES),
+                description="Filter by product status.",
+            ),
+            OpenApiParameter(
+                name="stock_status",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                enum=sorted(PRODUCT_ALLOWED_STOCK_STATUSES),
+                description="Filter products by inventory availability.",
+            ),
+            OpenApiParameter(
+                name="ordering",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                enum=sorted(PRODUCT_ALLOWED_ORDERING),
+                description="Order by name, price, or creation date. Prefix with '-' for descending order.",
+            ),
+        ],
         responses={200: ProductListSerializer(many=True), **DOC_ERROR_RESPONSES},
     ),
     post=extend_schema(
@@ -196,10 +256,48 @@ class ProductListCreateView(ProductStoreAccessMixin, generics.ListCreateAPIView)
         """
         store = self.get_store()
 
-        return selectors.get_products_by_store(
+        queryset = selectors.get_products_by_store(
             store_id=store.id,
             tenant_id=store.tenant_id
         )
+
+        search = (self.request.query_params.get("search") or "").strip()
+        if search:
+            queryset = selectors.search_products(queryset, search)
+
+        category_id_raw = self.request.query_params.get("category_id")
+        if category_id_raw is not None and category_id_raw.strip():
+            try:
+                category_id = int(category_id_raw.strip())
+            except (TypeError, ValueError):
+                raise DRFValidationError({"category_id": "Invalid category_id"})
+
+            try:
+                category_selectors.get_category_by_id(category_id, store)
+            except ObjectDoesNotExist:
+                raise DRFValidationError({"category_id": "Invalid category_id"})
+
+            queryset = selectors.filter_products_by_category(queryset, category_id)
+
+        status_filter = (self.request.query_params.get("status") or "").strip()
+        if status_filter:
+            if status_filter not in PRODUCT_ALLOWED_STATUSES:
+                raise DRFValidationError({"status": "Unsupported product status"})
+            queryset = selectors.filter_products_by_status(queryset, status_filter)
+
+        stock_status = (self.request.query_params.get("stock_status") or "").strip()
+        if stock_status:
+            if stock_status not in PRODUCT_ALLOWED_STOCK_STATUSES:
+                raise DRFValidationError({"stock_status": "Unsupported stock status"})
+            queryset = selectors.filter_products_by_stock_status(queryset, stock_status)
+
+        ordering = (self.request.query_params.get("ordering") or "").strip()
+        if ordering:
+            if ordering not in PRODUCT_ALLOWED_ORDERING:
+                raise DRFValidationError({"ordering": "Unsupported ordering value"})
+            queryset = selectors.order_products(queryset, ordering)
+
+        return queryset
     
     def create(self, request, *args, **kwargs):
         """

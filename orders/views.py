@@ -2,10 +2,18 @@ from rest_framework import generics, status
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view, inline_serializer
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+    extend_schema_view,
+    inline_serializer,
+)
 
 from stores.selectors import get_public_store_by_subdomain, get_store_by_id
 from users.permissions import TenantAuthenticated
+
+from .financials import build_order_financial_summary
 
 from .serializers import (
     CheckoutFromCartRequestSerializer,
@@ -13,7 +21,6 @@ from .serializers import (
     CustomerCreateOrderResponseSerializer,
     OwnerCustomersListResponseSerializer,
     OwnerOrderDetailResponseSerializer,
-    OwnerOrderDetailSerializer,
     OwnerOrderSerializer,
     OwnerOrdersListResponseSerializer,
     OwnerOrderStatusUpdateSerializer,
@@ -23,6 +30,8 @@ from .serializers import (
     StoreDashboardResponseSerializer,
 )
 from .services import (
+    ALLOWED_ORDER_STATUSES,
+    OWNER_ORDER_ALLOWED_ORDERING,
     add_item_to_public_cart,
     checkout_cart_to_order,
     clear_public_cart,
@@ -65,8 +74,8 @@ class OwnerStoreScopedMixin:
 @extend_schema_view(
     get=extend_schema(
         summary="Get owner store dashboard",
-        description="Return dashboard stats, recent orders, and top products for the authenticated owner's tenant-scoped store.",
-        tags=["Orders"],
+        description="Return tenant-scoped operational counts, delivered-order financial metrics, store readiness, English guidance messages, alerts, notices, recent orders, and top products.",
+        tags=["Dashboard"],
         responses={200: StoreDashboardResponseSerializer, **DOC_ERROR_RESPONSES},
     ),
 )
@@ -116,8 +125,33 @@ class StoreOwnerCustomersListView(OwnerStoreScopedMixin, generics.GenericAPIView
     get=extend_schema(
         operation_id="owner_store_orders_list",
         summary="List owner store orders",
-        description="Return orders for the authenticated owner's tenant-scoped store.",
+        description="Return tenant-scoped orders with search, filtering, ordering, and a delivered-only commission report.",
         tags=["Orders"],
+        parameters=[
+            OpenApiParameter(
+                name="search",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Search by order number (for example ORD-15), customer name, or customer email.",
+            ),
+            OpenApiParameter(
+                name="status",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                enum=sorted(ALLOWED_ORDER_STATUSES),
+                description="Filter orders by their current status.",
+            ),
+            OpenApiParameter(
+                name="ordering",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                enum=sorted(OWNER_ORDER_ALLOWED_ORDERING),
+                description="Order by creation date or total price. Prefix with '-' for descending order.",
+            ),
+        ],
         responses={200: OwnerOrdersListResponseSerializer, **DOC_ERROR_RESPONSES},
     ),
 )
@@ -132,7 +166,13 @@ class StoreOwnerOrdersListView(OwnerStoreScopedMixin, generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         store = self.get_store()
-        payload = get_owner_orders_payload(store, user=request.user)
+        payload = get_owner_orders_payload(
+            store,
+            user=request.user,
+            status=request.query_params.get("status"),
+            search=request.query_params.get("search"),
+            ordering=request.query_params.get("ordering"),
+        )
 
         serializer = self.get_serializer(payload)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -142,7 +182,7 @@ class StoreOwnerOrdersListView(OwnerStoreScopedMixin, generics.GenericAPIView):
     get=extend_schema(
         operation_id="owner_store_order_detail",
         summary="Get owner order detail",
-        description="Return one order detail for the authenticated owner's tenant-scoped store.",
+        description="Return one tenant-scoped order with a commission breakdown applied only when its status is delivered.",
         tags=["Orders"],
         responses={200: OwnerOrderDetailResponseSerializer, **DOC_ERROR_RESPONSES},
     ),
@@ -154,7 +194,7 @@ class StoreOwnerOrderDetailView(OwnerStoreScopedMixin, generics.GenericAPIView):
     """
 
     permission_classes = [TenantAuthenticated]
-    serializer_class = OwnerOrderDetailSerializer
+    serializer_class = OwnerOrderDetailResponseSerializer
 
     def get(self, request, *args, **kwargs):
         store = self.get_store()
@@ -163,8 +203,12 @@ class StoreOwnerOrderDetailView(OwnerStoreScopedMixin, generics.GenericAPIView):
         if not order:
             raise NotFound("Order not found")
 
-        serializer = self.get_serializer(order)
-        return Response({"order": serializer.data}, status=status.HTTP_200_OK)
+        payload = {
+            "order": order,
+            "financial_summary": build_order_financial_summary(order),
+        }
+        serializer = self.get_serializer(payload)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @extend_schema_view(

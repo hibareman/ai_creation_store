@@ -86,6 +86,10 @@ class CategoryApiTests(TestCase):
         self.assertIn("created_at", item)
         self.assertIn("updated_at", item)
 
+    @staticmethod
+    def _category_ids(payload):
+        return {item["id"] for item in payload}
+
     def test_list_categories_returns_current_shape(self):
         response = self.client.get(
             f"/api/categories/stores/{self.store.id}/categories/",
@@ -103,6 +107,170 @@ class CategoryApiTests(TestCase):
         )
         self.assertEqual(payload[0]["image_url"], None)
         self.assertEqual(payload[0]["product_count"], 0)
+
+    def test_category_search_by_name_returns_matching_results(self):
+        Category.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Home Goods",
+            description="Home products",
+        )
+        matching_foreign_category = Category.objects.create(
+            store=self.other_store,
+            tenant_id=self.other_store.tenant_id,
+            name="Consumer Electronics",
+            description="Should not leak",
+        )
+
+        response = self.client.get(
+            f"/api/categories/stores/{self.store.id}/categories/?search= elect ",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = self._payload(response)
+        self.assertEqual(self._category_ids(payload), {self.category.id})
+        self.assertNotIn(matching_foreign_category.id, self._category_ids(payload))
+
+    def test_category_search_with_no_results_returns_empty_list(self):
+        response = self.client.get(
+            f"/api/categories/stores/{self.store.id}/categories/?search=not-found",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._payload(response), [])
+
+    def test_category_filters_keep_tenant_and_store_isolation(self):
+        Category.objects.create(
+            store=self.other_store,
+            tenant_id=self.other_store.tenant_id,
+            name="Exclusive Category",
+            description="Foreign tenant category",
+        )
+
+        response = self.client.get(
+            f"/api/categories/stores/{self.store.id}/categories/?search=exclusive",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._payload(response), [])
+
+    def test_category_list_empty_store_data(self):
+        empty_store = Store.objects.create(
+            owner=self.owner,
+            name="Empty Category Store",
+            tenant_id=self.owner.tenant_id,
+        )
+
+        response = self.client.get(
+            f"/api/categories/stores/{empty_store.id}/categories/",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._payload(response), [])
+
+    def test_category_reset_filters_returns_complete_store_scoped_list(self):
+        second_category = Category.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Books",
+            description="Book products",
+        )
+
+        filtered = self.client.get(
+            f"/api/categories/stores/{self.store.id}/categories/?search=elect",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+        reset = self.client.get(
+            f"/api/categories/stores/{self.store.id}/categories/",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(filtered.status_code, status.HTTP_200_OK)
+        self.assertEqual(reset.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._category_ids(self._payload(filtered)), {self.category.id})
+        self.assertEqual(self._category_ids(self._payload(reset)), {self.category.id, second_category.id})
+        self.assertIsInstance(self._payload(reset), list)
+
+    def test_category_filtering_by_product_presence(self):
+        populated = Category.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Populated",
+            description="Has products",
+        )
+        empty = Category.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Empty",
+            description="No products",
+        )
+        Product.objects.create(
+            store=self.store,
+            category=populated,
+            name="Linked Product",
+            description="Product",
+            price=20,
+            sku="LINKED-001",
+            tenant_id=self.store.tenant_id,
+        )
+
+        with_products = self.client.get(
+            f"/api/categories/stores/{self.store.id}/categories/?has_products=true",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+        without_products = self.client.get(
+            f"/api/categories/stores/{self.store.id}/categories/?has_products=false",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(with_products.status_code, status.HTTP_200_OK)
+        self.assertEqual(without_products.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._category_ids(self._payload(with_products)), {populated.id})
+        self.assertEqual(
+            self._category_ids(self._payload(without_products)),
+            {self.category.id, empty.id},
+        )
+
+    def test_category_invalid_has_products_returns_400(self):
+        response = self.client.get(
+            f"/api/categories/stores/{self.store.id}/categories/?has_products=yes",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("has_products", self._payload(response))
+
+    def test_category_ordering_by_name(self):
+        Category.objects.create(
+            store=self.store,
+            tenant_id=self.store.tenant_id,
+            name="Accessories",
+            description="Accessories",
+        )
+
+        response = self.client.get(
+            f"/api/categories/stores/{self.store.id}/categories/?ordering=name",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item["name"] for item in self._payload(response)],
+            ["Accessories", "Electronics"],
+        )
+
+    def test_category_unsupported_ordering_returns_400(self):
+        response = self.client.get(
+            f"/api/categories/stores/{self.store.id}/categories/?ordering=product_count",
+            HTTP_AUTHORIZATION=self.owner_auth,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("ordering", self._payload(response))
 
     def test_create_category_returns_current_shape(self):
         response = self.client.post(
