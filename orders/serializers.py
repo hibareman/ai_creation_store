@@ -3,6 +3,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 
 from .models import Order, OrderItem
+from .financials import build_order_financial_summary
 
 
 class OwnerOrderItemSerializer(serializers.ModelSerializer):
@@ -21,6 +22,29 @@ class OwnerOrderItemSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "quantity", "price"]
 
 
+class OrderCommissionBreakdownSerializer(serializers.Serializer):
+    """Financial values recognized for one order."""
+
+    order_total = serializers.DecimalField(max_digits=12, decimal_places=2)
+    commission_applied = serializers.BooleanField()
+    recognized_sales = serializers.DecimalField(max_digits=12, decimal_places=2)
+    commission_rate_percent = serializers.DecimalField(max_digits=5, decimal_places=2)
+    platform_commission = serializers.DecimalField(max_digits=12, decimal_places=2)
+    store_net_profit = serializers.DecimalField(max_digits=12, decimal_places=2)
+    currency = serializers.CharField(max_length=3)
+
+
+class OrdersFinancialReportSerializer(serializers.Serializer):
+    """Aggregate delivered-order values for the current owner report."""
+
+    completed_orders_count = serializers.IntegerField()
+    total_sales = serializers.DecimalField(max_digits=12, decimal_places=2)
+    commission_rate_percent = serializers.DecimalField(max_digits=5, decimal_places=2)
+    platform_commission = serializers.DecimalField(max_digits=12, decimal_places=2)
+    store_net_profit = serializers.DecimalField(max_digits=12, decimal_places=2)
+    currency = serializers.CharField(max_length=3)
+
+
 class OwnerOrderSerializer(serializers.ModelSerializer):
     """Single order object for owner orders list responses."""
 
@@ -35,6 +59,7 @@ class OwnerOrderSerializer(serializers.ModelSerializer):
         read_only=True,
     )
     items = OwnerOrderItemSerializer(many=True, read_only=True)
+    financial_summary = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -50,7 +75,12 @@ class OwnerOrderSerializer(serializers.ModelSerializer):
             "status",
             "created_at",
             "items",
+            "financial_summary",
         ]
+
+    @extend_schema_field(OrderCommissionBreakdownSerializer)
+    def get_financial_summary(self, obj):
+        return build_order_financial_summary(obj)
 
     @extend_schema_field(OpenApiTypes.STR)
     def get_customer_name(self, obj):
@@ -300,12 +330,14 @@ class OwnerOrderDetailResponseSerializer(serializers.Serializer):
     """Top-level owner order detail response serializer."""
 
     order = OwnerOrderDetailSerializer()
+    financial_summary = OrderCommissionBreakdownSerializer()
 
 
 class OwnerOrdersListResponseSerializer(serializers.Serializer):
     """Top-level owner orders list response serializer."""
 
     store_id = serializers.IntegerField()
+    financial_summary = OrdersFinancialReportSerializer()
     items = OwnerOrderSerializer(many=True)
 
 
@@ -336,12 +368,73 @@ class OwnerCustomersListResponseSerializer(serializers.Serializer):
 
 
 class StoreDashboardStatsSerializer(serializers.Serializer):
-    """Store dashboard summary stats."""
+    """Operational smart-dashboard indicators."""
 
     total_orders = serializers.IntegerField()
+    delivered_orders = serializers.IntegerField()
+    pending_orders = serializers.IntegerField()
     total_revenue = serializers.DecimalField(max_digits=12, decimal_places=2)
+    total_sales = serializers.DecimalField(max_digits=12, decimal_places=2)
     total_products = serializers.IntegerField()
+    total_categories = serializers.IntegerField()
     total_customers = serializers.IntegerField()
+
+
+class StoreDashboardFinancialSummarySerializer(serializers.Serializer):
+    """Delivered-order sales, commission, and store profit summary."""
+
+    completed_orders_count = serializers.IntegerField()
+    total_sales = serializers.DecimalField(max_digits=12, decimal_places=2)
+    commission_rate_percent = serializers.DecimalField(max_digits=5, decimal_places=2)
+    platform_commission = serializers.DecimalField(max_digits=12, decimal_places=2)
+    store_net_profit = serializers.DecimalField(max_digits=12, decimal_places=2)
+    currency = serializers.CharField(max_length=3)
+
+
+class StoreDashboardReadinessChecksSerializer(serializers.Serializer):
+    has_products = serializers.BooleanField()
+    has_categories = serializers.BooleanField()
+    has_subdomain = serializers.BooleanField()
+    is_published = serializers.BooleanField()
+
+
+class StoreDashboardReadinessSerializer(serializers.Serializer):
+    """Store setup and publishing readiness state."""
+
+    status = serializers.ChoiceField(
+        choices=["incomplete", "ready_to_publish", "published"]
+    )
+    is_ready_for_publish = serializers.BooleanField()
+    completion_percentage = serializers.IntegerField(min_value=0, max_value=100)
+    checks = StoreDashboardReadinessChecksSerializer()
+    missing_requirements = serializers.ListField(
+        child=serializers.CharField(),
+        allow_empty=True,
+    )
+
+
+class StoreDashboardRecommendedActionSerializer(serializers.Serializer):
+    code = serializers.CharField()
+    title = serializers.CharField()
+    message = serializers.CharField()
+    target = serializers.CharField()
+    priority = serializers.ChoiceField(choices=["high", "medium", "low"])
+
+
+class StoreDashboardAlertSerializer(serializers.Serializer):
+    code = serializers.CharField()
+    title = serializers.CharField()
+    message = serializers.CharField()
+    severity = serializers.ChoiceField(choices=["info", "warning", "critical"])
+    target = serializers.CharField()
+    count = serializers.IntegerField(min_value=1)
+
+
+class StoreDashboardNoticeSerializer(serializers.Serializer):
+    code = serializers.CharField()
+    title = serializers.CharField()
+    message = serializers.CharField()
+    type = serializers.ChoiceField(choices=["success", "info"])
 
 
 class StoreDashboardRecentOrderSerializer(serializers.Serializer):
@@ -364,10 +457,15 @@ class StoreDashboardTopProductSerializer(serializers.Serializer):
 
 
 class StoreDashboardResponseSerializer(serializers.Serializer):
-    """Top-level store dashboard response serializer."""
+    """Top-level smart store-owner dashboard response serializer."""
 
     store_id = serializers.IntegerField()
     stats = StoreDashboardStatsSerializer()
+    financial_summary = StoreDashboardFinancialSummarySerializer()
+    readiness = StoreDashboardReadinessSerializer()
+    recommended_actions = StoreDashboardRecommendedActionSerializer(many=True)
+    alerts = StoreDashboardAlertSerializer(many=True)
+    notices = StoreDashboardNoticeSerializer(many=True)
     recent_orders = StoreDashboardRecentOrderSerializer(many=True)
     top_products = StoreDashboardTopProductSerializer(many=True)
 

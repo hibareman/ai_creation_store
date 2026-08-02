@@ -6,6 +6,7 @@ import os
 import sys
 from pathlib import Path
 from datetime import timedelta
+from decimal import Decimal
 from urllib.parse import urlparse, unquote
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -164,6 +165,20 @@ if not CORS_ALLOW_ALL_ORIGINS:
         origin.strip() for origin in _cors_origins.split(",") if origin.strip()
     ]
 CORS_ALLOW_CREDENTIALS = os.getenv("CORS_ALLOW_CREDENTIALS", "True").lower() == "true"
+
+
+# Smart dashboard financial configuration.
+# Stored as a decimal fraction: 0.10 = 10% commission.
+PLATFORM_COMMISSION_RATE = Decimal(
+    os.getenv("PLATFORM_COMMISSION_RATE", "0.10")
+)
+
+SMART_DASHBOARD_LOW_PRODUCT_THRESHOLD = int(
+    os.getenv("SMART_DASHBOARD_LOW_PRODUCT_THRESHOLD", "5")
+)
+SMART_DASHBOARD_STALE_PENDING_ORDER_DAYS = int(
+    os.getenv("SMART_DASHBOARD_STALE_PENDING_ORDER_DAYS", "3")
+)
 
 
 REST_FRAMEWORK = {

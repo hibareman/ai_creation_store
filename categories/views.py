@@ -2,7 +2,12 @@ import logging
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied, NotFound
-from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiResponse
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+    extend_schema_view,
+)
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -21,6 +26,15 @@ DOC_ERROR_RESPONSES = {
     403: OpenApiResponse(description="Permission denied"),
     404: OpenApiResponse(description="Not found"),
 }
+
+
+CATEGORY_ALLOWED_ORDERING = {
+    "name",
+    "-name",
+    "created_at",
+    "-created_at",
+}
+BOOLEAN_QUERY_VALUES = {"true": True, "false": False}
 
 
 class CategoryStoreAccessMixin:
@@ -65,8 +79,32 @@ class CategoryStoreAccessMixin:
 @extend_schema_view(
     get=extend_schema(
         summary="List categories",
-        description="List categories for a tenant-owned store.",
+        description="List categories for a tenant-owned store with search, product-presence filtering, and ordering.",
         tags=["Categories"],
+        parameters=[
+            OpenApiParameter(
+                name="search",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Partial, case-insensitive category name search.",
+            ),
+            OpenApiParameter(
+                name="has_products",
+                type=bool,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Use true for categories containing products or false for empty categories.",
+            ),
+            OpenApiParameter(
+                name="ordering",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                enum=sorted(CATEGORY_ALLOWED_ORDERING),
+                description="Order by category name or creation date. Prefix with '-' for descending order.",
+            ),
+        ],
         responses={200: CategorySerializer(many=True), **DOC_ERROR_RESPONSES},
     ),
     post=extend_schema(
@@ -95,8 +133,29 @@ class CategoryListCreateView(CategoryStoreAccessMixin, generics.ListCreateAPIVie
         Critical: Always filter by tenant_id before store_id
         """
         store = self.get_store()
-        
-        return selectors.get_store_categories(store)
+
+        queryset = selectors.get_store_categories(store)
+
+        search = (self.request.query_params.get("search") or "").strip()
+        if search:
+            queryset = selectors.search_categories_by_name(queryset, search)
+
+        has_products_raw = (self.request.query_params.get("has_products") or "").strip().lower()
+        if has_products_raw:
+            if has_products_raw not in BOOLEAN_QUERY_VALUES:
+                raise ValidationError({"has_products": "Expected true or false"})
+            queryset = selectors.filter_categories_by_product_presence(
+                queryset,
+                BOOLEAN_QUERY_VALUES[has_products_raw],
+            )
+
+        ordering = (self.request.query_params.get("ordering") or "").strip()
+        if ordering:
+            if ordering not in CATEGORY_ALLOWED_ORDERING:
+                raise ValidationError({"ordering": "Unsupported ordering value"})
+            queryset = selectors.order_categories(queryset, ordering)
+
+        return queryset
     
     def get_serializer_context(self):
         """

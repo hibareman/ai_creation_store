@@ -10,10 +10,18 @@ from products.models import Product
 from products.selectors import get_public_product_detail, get_public_products_for_store
 
 from .models import Address, Customer, Order, OrderItem
+from .financials import (
+    build_delivered_orders_financial_summary,
+)
 from .selectors import (
+    count_stale_pending_orders_for_store,
+    filter_owner_orders_by_status,
+    order_owner_orders,
+    search_owner_orders,
     get_dashboard_stats_for_store,
     get_owner_customers_for_store,
     get_owner_orders_for_store,
+    get_owner_orders_financial_totals,
     get_recent_orders_for_store_dashboard,
     get_top_products_for_store_dashboard,
 )
@@ -25,6 +33,15 @@ ALLOWED_ORDER_STATUSES = {
     "shipped",
     "delivered",
     "cancelled",
+}
+
+OWNER_ORDER_LIST_ALLOWED_STATUSES = ALLOWED_ORDER_STATUSES
+
+OWNER_ORDER_ALLOWED_ORDERING = {
+    "created_at",
+    "-created_at",
+    "total_price",
+    "-total_price",
 }
 
 CART_CACHE_TTL = getattr(settings, "CART_CACHE_TTL", 60 * 60 * 24)
@@ -406,10 +423,14 @@ def validate_owner_store_access(store, user):
         raise PermissionDenied("You do not own this store")
 
 
-def get_owner_orders_payload(store, user=None):
-    """
-    Build owner orders payload for a store.
-    """
+def get_owner_orders_payload(
+    store,
+    user=None,
+    status=None,
+    search=None,
+    ordering=None,
+):
+    """Build the owner orders payload with scoped search, filtering, and ordering."""
     if user is not None:
         validate_owner_store_access(store, user)
 
@@ -417,8 +438,32 @@ def get_owner_orders_payload(store, user=None):
         store_id=store.id,
         tenant_id=store.tenant_id,
     )
+
+    normalized_search = (search or "").strip()
+    if normalized_search:
+        items = search_owner_orders(items, normalized_search)
+
+    normalized_status = (status or "").strip()
+    if normalized_status:
+        if normalized_status not in OWNER_ORDER_LIST_ALLOWED_STATUSES:
+            raise ValidationError({"status": "Unsupported order status"})
+        items = filter_owner_orders_by_status(items, normalized_status)
+
+    normalized_ordering = (ordering or "").strip()
+    if normalized_ordering:
+        if normalized_ordering not in OWNER_ORDER_ALLOWED_ORDERING:
+            raise ValidationError({"ordering": "Unsupported ordering value"})
+        items = order_owner_orders(items, normalized_ordering)
+
+    financial_totals = get_owner_orders_financial_totals(items)
+
     return {
         "store_id": store.id,
+        "financial_summary": build_delivered_orders_financial_summary(
+            total_sales=financial_totals["total_sales"],
+            delivered_orders_count=financial_totals["delivered_orders_count"],
+            store=store,
+        ),
         "items": items,
     }
 
@@ -454,19 +499,196 @@ def get_owner_customers_payload(store, user=None):
     }
 
 
+def _build_dashboard_financial_summary(store, stats: dict) -> dict:
+    return build_delivered_orders_financial_summary(
+        total_sales=stats["total_sales"],
+        delivered_orders_count=stats["delivered_orders"],
+        store=store,
+    )
+
+def _build_store_readiness(store, stats: dict) -> dict:
+    checks = {
+        "has_products": stats["total_products"] > 0,
+        "has_categories": stats["total_categories"] > 0,
+        "has_subdomain": bool((getattr(store, "subdomain", None) or "").strip()),
+        "is_published": bool(getattr(store, "is_published", False) and store.status == "active"),
+    }
+
+    is_ready_for_publish = all(
+        checks[key]
+        for key in ("has_products", "has_categories", "has_subdomain")
+    )
+
+    if is_ready_for_publish and checks["is_published"]:
+        readiness_status = "published"
+    elif is_ready_for_publish:
+        readiness_status = "ready_to_publish"
+    else:
+        readiness_status = "incomplete"
+
+    missing_requirements = []
+    if not checks["has_categories"]:
+        missing_requirements.append("categories")
+    if not checks["has_products"]:
+        missing_requirements.append("products")
+    if not checks["has_subdomain"]:
+        missing_requirements.append("subdomain")
+    if not checks["is_published"]:
+        missing_requirements.append("publishing")
+
+    completed_checks = sum(1 for value in checks.values() if value)
+    return {
+        "status": readiness_status,
+        "is_ready_for_publish": is_ready_for_publish,
+        "completion_percentage": completed_checks * 25,
+        "checks": checks,
+        "missing_requirements": missing_requirements,
+    }
+
+
+def _build_dashboard_recommended_actions(readiness: dict, stats: dict) -> list[dict]:
+    checks = readiness["checks"]
+    actions = []
+    low_product_threshold = max(
+        int(getattr(settings, "SMART_DASHBOARD_LOW_PRODUCT_THRESHOLD", 5)),
+        1,
+    )
+
+    if not checks["has_categories"]:
+        actions.append({
+            "code": "add_category",
+            "title": "Organize your catalog",
+            "message": "Your store has no categories yet. Add categories to organize products and make browsing easier for customers.",
+            "target": "categories",
+            "priority": "high",
+        })
+
+    if not checks["has_products"]:
+        actions.append({
+            "code": "add_product",
+            "title": "Add your first products",
+            "message": "Your store has no products yet. Add products so the store can be reviewed and prepared for publishing.",
+            "target": "products",
+            "priority": "high",
+        })
+    elif stats["total_products"] < low_product_threshold:
+        actions.append({
+            "code": "add_more_products",
+            "title": "Expand your product catalog",
+            "message": f"Your store currently has only {stats['total_products']} product(s). Add more products to offer customers better variety.",
+            "target": "products",
+            "priority": "medium",
+        })
+
+    if not checks["has_subdomain"]:
+        actions.append({
+            "code": "set_subdomain",
+            "title": "Set your store link",
+            "message": "Your store does not have a public link yet. Choose a unique subdomain so customers can access it.",
+            "target": "store_settings",
+            "priority": "medium",
+        })
+
+    if readiness["is_ready_for_publish"] and not checks["is_published"]:
+        actions.append({
+            "code": "publish_store",
+            "title": "Publish your store",
+            "message": "Your store is ready. Publish it now to make it available to customers.",
+            "target": "publish",
+            "priority": "high",
+        })
+
+    if checks["is_published"] and stats["delivered_orders"] == 0:
+        actions.append({
+            "code": "improve_sales",
+            "title": "Work toward your first completed sale",
+            "message": "No completed sales have been recorded yet. Review your product selection and store presentation to attract customers.",
+            "target": "products",
+            "priority": "medium",
+        })
+
+    return actions[:4]
+
+
+def _build_dashboard_alerts(store, stats: dict) -> list[dict]:
+    alerts = []
+    pending_orders = stats["pending_orders"]
+
+    if pending_orders > 0:
+        alerts.append({
+            "code": "orders_need_review",
+            "title": "New orders need review",
+            "message": f"You have {pending_orders} pending order(s) that need review and processing.",
+            "severity": "info",
+            "target": "orders",
+            "count": pending_orders,
+        })
+
+    stale_after_days = max(
+        int(getattr(settings, "SMART_DASHBOARD_STALE_PENDING_ORDER_DAYS", 3)),
+        1,
+    )
+    stale_pending_orders = count_stale_pending_orders_for_store(
+        store_id=store.id,
+        tenant_id=store.tenant_id,
+        stale_after_days=stale_after_days,
+    )
+    if stale_pending_orders > 0:
+        alerts.append({
+            "code": "stale_pending_orders",
+            "title": "Some orders have been waiting too long",
+            "message": f"You have {stale_pending_orders} order(s) pending for more than {stale_after_days} days. Review them to avoid delays.",
+            "severity": "warning",
+            "target": "orders",
+            "count": stale_pending_orders,
+        })
+
+    return alerts
+
+
+def _build_dashboard_notices(
+    readiness: dict,
+    recommended_actions: list[dict],
+    alerts: list[dict],
+) -> list[dict]:
+    if (
+        readiness["status"] == "published"
+        and not recommended_actions
+        and not alerts
+    ):
+        return [{
+            "code": "store_running_well",
+            "title": "Your store is running well",
+            "message": "Your store is complete and published successfully. No actions are required at this time.",
+            "type": "success",
+        }]
+
+    return []
+
+
 def get_store_dashboard_payload(store, user=None):
     """
-    Build owner dashboard payload for a store.
+    Build the tenant-safe smart dashboard payload for a store.
     """
     if user is not None:
         validate_owner_store_access(store, user)
 
+    stats = get_dashboard_stats_for_store(
+        store_id=store.id,
+        tenant_id=store.tenant_id,
+    )
+    readiness = _build_store_readiness(store, stats)
+    recommended_actions = _build_dashboard_recommended_actions(readiness, stats)
+    alerts = _build_dashboard_alerts(store, stats)
+
     return {
         "store_id": store.id,
-        "stats": get_dashboard_stats_for_store(
-            store_id=store.id,
-            tenant_id=store.tenant_id,
-        ),
+        "stats": stats,
+        "financial_summary": _build_dashboard_financial_summary(store, stats),
+        "readiness": readiness,
+        "recommended_actions": recommended_actions,
+        "alerts": alerts,
+        "notices": _build_dashboard_notices(readiness, recommended_actions, alerts),
         "recent_orders": get_recent_orders_for_store_dashboard(
             store_id=store.id,
             tenant_id=store.tenant_id,

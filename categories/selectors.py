@@ -34,6 +34,28 @@ def get_store_categories(store):
     ).order_by('created_at')
 
 
+def search_categories_by_name(queryset, search: str):
+    """
+    Apply category-name-only partial search to an already scoped queryset.
+    """
+    if not search:
+        return queryset
+
+    return queryset.filter(name__icontains=search)
+
+
+def filter_categories_by_product_presence(queryset, has_products: bool):
+    """Filter annotated categories based on whether they contain products."""
+    if has_products:
+        return queryset.filter(product_count__gt=0)
+    return queryset.filter(product_count=0)
+
+
+def order_categories(queryset, ordering: str):
+    """Apply a validated ordering expression to a scoped category queryset."""
+    return queryset.order_by(ordering)
+
+
 def get_category_by_id(category_id, store):
     """
     Retrieve a single category by ID with store ownership verification.
